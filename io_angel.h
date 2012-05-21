@@ -48,9 +48,6 @@ public:
 	ATOSE_IO_angel();
 	virtual ~ATOSE_IO_angel() {};
 
-	virtual int read_byte(char buffer) { return read(&buffer, 1); }
-	virtual int write_byte(const char buffer) {return write(&buffer, 1); }
-
 	virtual int read(char *buffer, int bytes);
 	virtual int write(const char *buffer, int bytes);
 } ;

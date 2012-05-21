@@ -27,6 +27,6 @@ public:
 	virtual int puts(const char *message) { write(message, ASCII_strlen(message)); write("\n", 1); }
 } ;
 
-
-
 #endif /* IO_H_ */
+
+
