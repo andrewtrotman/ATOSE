@@ -27,15 +27,16 @@ timer.elf : timer.c
 	$(CC) -o timer.elf timer.c -T generic-hosted.ld
 
 test.elf : test.c vectors.s test.ld
-	$(CC) $(CFLAGS) -c test.c -o test.o
-	$(CC) $(CFLAGS) -c vectors.s -o vectors.o
-	$(CC) $(CFLAGS) -T test.ld test.o vectors.o -o test.elf
+	$(CC) $(CFLAGS) -c test.c -o test.o -nostartfiles -nodefaultlibs -fno-rtti 
+	$(CC) $(CFLAGS) -c vectors.s -o vectors.o -nostartfiles -nodefaultlibs -fno-rtti 
+	$(CC) $(CFLAGS) -c heap.c -o heap.o -nostartfiles -nodefaultlibs -fno-rtti 
+	$(CC) $(CFLAGS) -T test.ld test.o vectors.o heap.o -o test.elf -nostartfiles -nodefaultlibs -fno-rtti 
 
 #
 # Management
 #
 run:
-	"\Program Files (x86)\qemu\qemu-system-arm.exe" -semihosting -M versatileab -kernel timer.elf
+	"\Program Files (x86)\qemu\qemu-system-arm.exe" -semihosting -M versatileab -kernel test.elf -serial stdio 
 
 qemu:
 	"\Program Files (x86)\qemu\qemu-system-arm.exe" -semihosting -kernel atose.elf
