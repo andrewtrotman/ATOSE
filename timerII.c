@@ -1,9 +1,23 @@
 /*
-	TIMER.C
-	-------
+	TIMERII.C
+	---------
 	Verify the system timer interrupt mechanism (this is written for the ARM versatile ab board)
+	this version uses custom I/O and custom startup (no CRTL)
 */
+typedef unsigned int uint32_t;
+#define UART0_BASE_ADDR 0x101f1000
+#define UART0_DR (*((volatile uint32_t *)(UART0_BASE_ADDR + 0x000)))
+#define UART0_IMSC (*((volatile uint32_t *)(UART0_BASE_ADDR + 0x038)))
+
+#define VIC_BASE_ADDR 0x10140000
+#define VIC_INTENABLE (*((volatile uint32_t *)(VIC_BASE_ADDR + 0x010)))
+
+#include "io_serial.h"
+#include "io_angel.h"
+
 #include <stdio.h>
+
+ATOSE_IO_angel io;
 
 volatile long *ticks = (long *)((unsigned char *)0x101E2000 + 0x04);
 volatile long happened = 0;
@@ -34,13 +48,13 @@ volatile unsigned long *PIC_peripheral_id_register = (unsigned long *)(PIC_base_
 */
 unsigned char *timer_base_address = (unsigned char *)0x101E2000;
 
-volatile unsigned long *timer_1_Load = (unsigned long *)(timer_base_address + 0x00);
-volatile unsigned long *timer_1_Value = (unsigned long *)(timer_base_address + 0x04);
-volatile unsigned long *timer_1_Control = (unsigned long *)(timer_base_address + 0x08);
-volatile unsigned long *timer_1_IntClr = (unsigned long *)(timer_base_address + 0x0C);
-volatile unsigned long *timer_1_RIS = (unsigned long *)(timer_base_address + 0x10);
-volatile unsigned long *timer_1_MIS = (unsigned long *)(timer_base_address + 0x14);
-volatile unsigned long *timer_1_BGLoad = (unsigned long *)(timer_base_address + 0x18);
+volatile unsigned long *timer_0_Load = (unsigned long *)(timer_base_address + 0x00);
+volatile unsigned long *timer_0_Value = (unsigned long *)(timer_base_address + 0x04);
+volatile unsigned long *timer_0_Control = (unsigned long *)(timer_base_address + 0x08);
+volatile unsigned long *timer_0_IntClr = (unsigned long *)(timer_base_address + 0x0C);
+volatile unsigned long *timer_0_RIS = (unsigned long *)(timer_base_address + 0x10);
+volatile unsigned long *timer_0_MIS = (unsigned long *)(timer_base_address + 0x14);
+volatile unsigned long *timer_0_BGLoad = (unsigned long *)(timer_base_address + 0x18);
 
 /*
 	GET_CPSR()
@@ -100,43 +114,34 @@ return answer;
 	__CS3_ISR_IRQ()
 	---------------
 */
+volatile unsigned long isr;
 extern "C" {
-		void __attribute__ ((interrupt ("IRQ"))) __cs3_isr_irq(void)
+		void __attribute__ ((interrupt)) __cs3_isr_irq()
 		{
-		volatile unsigned long isr;
-
+#ifdef NEVER
 		/*
 			Read from the IRQ vector address register to signal to the interrupt controller
 			that we are servicing the interrupt
-
 		*/
 		isr = *PIC_vector_address_register;
 
 		happened++;
 
-		asm volatile ("mov %0,sp":"=r" (global_sp));
-
 		/*
 			Tell the timer that we've serviced the interrupt
 		*/
-
-		*timer_1_IntClr = 0;
+		*timer_0_IntClr = 0;
 
 		/*
 			Tell the interrupt controller that we're done servicing the interrupt
-		*/
+			*/
 		*PIC_vector_address_register = isr;
+#else
+	UART0_DR = UART0_DR + 1;
+#endif
 		}
 }
 
-/*
-	__CS3_ISR_FIQ()
-	---------------
-*/
-void __attribute__ ((interrupt ("FIQ"))) cs3_isr_fiq(void)
-{
-happened++;
-}
 
 /*
 	START_TIMER()
@@ -144,91 +149,33 @@ happened++;
 */
 void start_timer(void)
 {
-puts("enable IRQ");
-puts("");
+unsigned long was;
 
-#ifdef NEVER
-	{
-	extern void *__cs3_interrupt_vector_arm[];
-	for (int x = 0; x < 16; x++)
-		printf("%d %p\n", x, __cs3_interrupt_vector_arm[x]);
-
-	printf("IRQ handler:%x\n", (unsigned)__cs3_isr_irq);
-	__cs3_interrupt_vector_arm[14] = (void *)__cs3_isr_irq;
-	for (int x = 0; x < 16; x++)
-		printf("%d %p\n", x, __cs3_interrupt_vector_arm[x]);
-	}
-#endif
-
-
-enable_IRQ();
-
-puts("Done");
-puts("");
-
-
+io.hex();
 
 /*
-	Enable the interrupt controller
+	Enable IRQ
 */
-unsigned long got;
+io << "enable IRQ" << ATOSE_IO::eoln;
+enable_IRQ();
 
-got = *PIC_IRQ_status_register;
-printf("IRQ_status:%08x\n", got);
-
-got = *PIC_interrupt_select_register;
-printf("interrupt_select_register:%08x\n", got);
-
-got = *PIC_interrupt_enable_register;
-printf("interrupt_enable_register:%08x\n", got);
-
-got = *PIC_default_vector_address_register;
-printf("default_vector_address_register:%08x\n", got);
-
-got = *PIC_vector_address_register;
-printf("vector_address_register:%08x\n", got);
-
-puts("Enable timer 0/1");
-
+/*
+	Enable the primary interrupt controller
+*/
+io << "Enable PIC" << ATOSE_IO::eoln;
 *PIC_interrupt_enable_register = 0x10;
-
-got = *PIC_IRQ_status_register;
-printf("IRQ_status:%08x\n", got);
-
-got = *PIC_interrupt_select_register;
-printf("interrupt_select_register:%08x\n", got);
-
-got = *PIC_interrupt_enable_register;
-printf("interrupt_enable_register:%08x\n", got);
-
-got = *PIC_default_vector_address_register;
-printf("default_vector_address_register:%08x\n", got);
-
-got = *PIC_vector_address_register;
-printf("vector_address_register:%08x\n", got);
 
 /*
 	Timer
 */
-puts("");
-puts("Enable timer\n");
+io << "Enable timer" << ATOSE_IO::eoln;
 
-unsigned long was;
-
-/*
-	Enable the timer
-*/
-*timer_1_Load = (unsigned long)0x8000;
-was = *timer_1_Control;
+*timer_0_Load = (unsigned long)0x8000;
+was = *timer_0_Control;
 was = was & 0xFFFFFF10 | 0xE0;
-*timer_1_Control = was;
+*timer_0_Control = was;
 
-puts("Done");
-puts("");
-
-puts("enable IRQ");
-puts("");
-
+io << "Done" << ATOSE_IO::eoln;
 }
 
 /*
@@ -238,18 +185,25 @@ puts("");
 int main(void)
 {
 int x;
-unsigned int my_sp;
 
-my_sp = get_sp();
-
-printf("Sizeof(int): %d\n", sizeof(int));
-printf("Sizeof(long): %d\n", sizeof(long));
-printf("Sizeof(long long): %d\n", sizeof(long long));
-
+/*
 start_timer();
 
 for (x = 0; x < 100; x++)
-	printf("Ticks:%X interrupts:%X my_stack:%X global_stack:%X\n", *ticks, happened, my_sp, global_sp);
+	io << "Ticks:" << *ticks << " interrupts:" << happened << ATOSE_IO::eoln;
+io << "Done";
+
+*/
+
+enable_IRQ();
+
+VIC_INTENABLE = 1<<12;
+UART0_IMSC = 1<<4;
+for(;;);
+	io << ".";
+
+
+return 0;
 }
 
 

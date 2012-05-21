@@ -4,12 +4,13 @@
 CC = arm-none-eabi-g++
 CFLAGS = -g -mcpu=arm926ej-s
 
-OBJ = io_angel.o	\
-		mmu.o		\
+OBJ = io_angel.o		\
+		io_serial.o 	\
+		mmu.o			\
 		interrupts.o	\
 		main.o
 
-all : dump_cpu_state.elf timer.elf atose.elf test.elf
+all : dump_cpu_state.elf timer.elf atose.elf test.elf timerII.elf
 
 #
 #	ATOSE itself
@@ -25,6 +26,9 @@ dump_cpu_state.elf : dump_cpu_state.c
 
 timer.elf : timer.c
 	$(CC) -o timer.elf timer.c -T generic-hosted.ld
+
+timerII.elf : timerII.c
+	$(CC) -o timerII.elf timerII.c io_angel.c io_serial.c -T generic-hosted.ld
 
 test.elf : test.c vectors.s test.ld
 	$(CC) $(CFLAGS) -c test.c -o test.o -nostartfiles -nodefaultlibs -fno-rtti 
