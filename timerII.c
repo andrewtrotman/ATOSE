@@ -190,24 +190,27 @@ unsigned char *top_of_stack = irq_stack + sizeof(irq_stack);
 /*
 	Get the current mode in r0
 */
-asm volatile ("mrs r0, cpsr");
-
-/*
-	Switch the CPU into IRQ mode
-*/
-asm volatile ("bic r1, r0, #0x1F");			// get the mode bits
-asm volatile ("orr r1, r1, #0x12");			// turn on IRQ mode bits
-asm volatile ("msr cpsr, r1");					// go into IRQ mode
-
-/*
-	Set the stack pointer
-*/
-asm volatile ("mov sp, %0"::"r"(top_of_stack));
-
-/*
-	Go back into what ever mode we were in before (Supervisor mode)
-*/
-asm volatile ("msr cpsr, r0");
+asm volatile
+	(
+	"mrs r0, cpsr \n"
+	/*
+		Switch the CPU into IRQ mode
+	*/
+	"bic r1, r0, #0x1F \n"			/* get the mode bits */
+	"orr r1, r1, #0x12 \n"			/* turn on IRQ mode bits */
+	"msr cpsr, r1 \n"				/* go into IRQ mode */
+	/*																	
+		Set the stack pointer											
+	*/																	
+	"mov sp, %[top_of_stack] \n"
+	/*
+		Go back into what ever mode we were in before (Supervisor mode)
+	*/
+	"msr cpsr, r0 \n"
+	:
+	: [top_of_stack]"r"(top_of_stack)
+	: "r1", "r2", "cc"
+	);
 }
 
 /*
