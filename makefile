@@ -40,7 +40,7 @@ test.elf : test.c vectors.s test.ld
 # Management
 #
 run:
-	"\Program Files (x86)\qemu\qemu-system-arm.exe" -semihosting -M versatileab -kernel test.elf -serial stdio 
+	"\Program Files\qemu\qemu-system-arm.exe" -semihosting -M versatileab -kernel test.elf -serial stdio 
 
 qemu:
 	"\Program Files (x86)\qemu\qemu-system-arm.exe" -semihosting -kernel atose.elf

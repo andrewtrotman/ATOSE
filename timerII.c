@@ -118,7 +118,6 @@ volatile unsigned long isr;
 extern "C" {
 		void __attribute__ ((interrupt)) __cs3_isr_irq()
 		{
-#ifdef NEVER
 		/*
 			Read from the IRQ vector address register to signal to the interrupt controller
 			that we are servicing the interrupt
@@ -136,7 +135,7 @@ extern "C" {
 			Tell the interrupt controller that we're done servicing the interrupt
 			*/
 		*PIC_vector_address_register = isr;
-#else
+#ifdef NEVER
 	UART0_DR = UART0_DR + 1;
 #endif
 		}
@@ -179,6 +178,39 @@ io << "Done" << ATOSE_IO::eoln;
 }
 
 /*
+	ENABLE_STACKS()
+	---------------
+*/
+void enable_stacks(void)
+{
+#define irq_stack_size 1024
+static unsigned char irq_stack[irq_stack_size];
+unsigned char *top_of_stack = irq_stack + sizeof(irq_stack);
+
+/*
+	Get the current mode in r0
+*/
+asm volatile ("mrs r0, cpsr");
+
+/*
+	Switch the CPU into IRQ mode
+*/
+asm volatile ("bic r1, r0, #0x1F");			// get the mode bits
+asm volatile ("orr r1, r1, #0x12");			// turn on IRQ mode bits
+asm volatile ("msr cpsr, r1");					// go into IRQ mode
+
+/*
+	Set the stack pointer
+*/
+asm volatile ("mov sp, %0"::"r"(top_of_stack));
+
+/*
+	Go back into what ever mode we were in before (Supervisor mode)
+*/
+asm volatile ("msr cpsr, r0");
+}
+
+/*
 	MAIN()
 	------
 */
@@ -186,22 +218,26 @@ int main(void)
 {
 int x;
 
-/*
+enable_stacks();
+enable_IRQ();
+
 start_timer();
 
 for (x = 0; x < 100; x++)
 	io << "Ticks:" << *ticks << " interrupts:" << happened << ATOSE_IO::eoln;
 io << "Done";
 
-*/
+/*
 
 enable_IRQ();
+
+io.puts("Enter");
 
 VIC_INTENABLE = 1<<12;
 UART0_IMSC = 1<<4;
 for(;;);
 	io << ".";
-
+*/
 
 return 0;
 }
