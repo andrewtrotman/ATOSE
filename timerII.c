@@ -4,20 +4,14 @@
 	Verify the system timer interrupt mechanism (this is written for the ARM versatile ab board)
 	this version uses custom I/O and custom startup (no CRTL)
 */
-typedef unsigned int uint32_t;
-#define UART0_BASE_ADDR 0x101f1000
-#define UART0_DR (*((volatile uint32_t *)(UART0_BASE_ADDR + 0x000)))
-#define UART0_IMSC (*((volatile uint32_t *)(UART0_BASE_ADDR + 0x038)))
-
-#define VIC_BASE_ADDR 0x10140000
-#define VIC_INTENABLE (*((volatile uint32_t *)(VIC_BASE_ADDR + 0x010)))
-
+#include <stdint.h>
+#include "stack.h"
 #include "io_serial.h"
 #include "io_angel.h"
 
-#include <stdio.h>
 
 ATOSE_IO_angel io;
+ATOSE_stack stacks;
 
 volatile long *ticks = (long *)((unsigned char *)0x101E2000 + 0x04);
 volatile long happened = 0;
@@ -135,9 +129,6 @@ extern "C" {
 			Tell the interrupt controller that we're done servicing the interrupt
 			*/
 		*PIC_vector_address_register = isr;
-#ifdef NEVER
-	UART0_DR = UART0_DR + 1;
-#endif
 		}
 }
 
@@ -221,7 +212,7 @@ int main(void)
 {
 int x;
 
-enable_stacks();
+//enable_stacks();
 enable_IRQ();
 
 start_timer();
