@@ -28,7 +28,7 @@ timer.elf : timer.c
 	$(CC) -o timer.elf timer.c -T generic-hosted.ld
 
 timerII.elf : timerII.c
-	$(CC) -o timerII.elf timerII.c io_angel.c io_serial.c -T generic-hosted.ld
+	$(CC) -o timerII.elf timerII.c stack.c io_angel.c io_serial.c -T generic-hosted.ld
 
 test.elf : test.c vectors.s test.ld
 	$(CC) $(CFLAGS) -c test.c -o test.o -nostartfiles -nodefaultlibs -fno-rtti 

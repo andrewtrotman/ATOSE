@@ -26,6 +26,8 @@ private:
 	static unsigned char IRQ_stack[STACK_SIZE_IRQ];
 	static unsigned char FIRQ_stack[STACK_SIZE_IRQ];
 
+	static const int IRQ_stack_top = IRQ_stack + STACK_SIZE_IRQ;
+
 public:
 	ATOSE_stack();
 } ;
