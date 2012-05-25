@@ -39,15 +39,14 @@ private:
 	static volatile uint32_t *PIC_vector_control_registers;
 	static volatile uint32_t *PIC_peripheral_id_register;
 
-	uint32_t isr;
-
-
 public:
 	ATOSE_pic();
 
 	void timer_enable(void);
 	void timer_enter(void);
 	void timer_exit(void);
+
+	void keyboard_enable(void);
 } ;
 
 #endif /* PIC_H_ */

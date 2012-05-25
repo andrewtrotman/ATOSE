@@ -22,8 +22,6 @@ volatile uint32_t *ATOSE_pic::PIC_vector_address_registers = (uint32_t *)(PIC_ba
 volatile uint32_t *ATOSE_pic::PIC_vector_control_registers = (uint32_t *)(PIC_base_address + 0x200);
 volatile uint32_t *ATOSE_pic::PIC_peripheral_id_register = (uint32_t *)(PIC_base_address + 0xFE0);
 
-
-
 /*
 	ATOSE_PIC::ATOSE_PIC()
 	----------------------
@@ -38,7 +36,7 @@ ATOSE_pic::ATOSE_pic()
 */
 void ATOSE_pic::timer_enable(void)
 {
-*PIC_interrupt_enable_register = 0x10;
+*PIC_interrupt_enable_register |= 0x10;			// enable clock interrupt (0x10)
 }
 
 /*
@@ -47,7 +45,9 @@ void ATOSE_pic::timer_enable(void)
 */
 void ATOSE_pic::timer_enter(void)
 {
-isr = *PIC_vector_address_register;
+uint32_t isr;
+
+isr = *PIC_vector_address_register;					// enter processing mode
 }
 
 
@@ -57,5 +57,18 @@ isr = *PIC_vector_address_register;
 */
 void ATOSE_pic::timer_exit(void)
 {
-*PIC_vector_address_register = isr;
+*PIC_vector_address_register = 0;						// clear the interrupt (exit processing mode)
+}
+
+
+/*
+	ATOSE_PIC::KEYBOARD_ENABLE()
+	----------------------------
+*/
+void ATOSE_pic::keyboard_enable(void)
+{
+volatile uint32_t *SIC_interrupt_enable_register = (uint32_t *)0x10003008;
+
+*PIC_interrupt_enable_register |= 0x80000000;			// secondary interrupt controller (0x80000000)
+*SIC_interrupt_enable_register = 0x08;					// enable PS2 keyboard
 }

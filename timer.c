@@ -11,6 +11,9 @@
 */
 unsigned char *ATOSE_timer::timer_base_address = (unsigned char *)0x101E2000;
 
+/*
+	programmable interrupt controller registers
+*/
 volatile uint32_t *ATOSE_timer::timer_0_load = (uint32_t *)(timer_base_address + 0x00);
 volatile uint32_t *ATOSE_timer::timer_0_value = (uint32_t *)(timer_base_address + 0x04);
 volatile uint32_t *ATOSE_timer::timer_0_control = (uint32_t *)(timer_base_address + 0x08);
