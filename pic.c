@@ -20,7 +20,12 @@ volatile uint32_t *ATOSE_pic::PIC_vector_address_register = (uint32_t *)(PIC_bas
 volatile uint32_t *ATOSE_pic::PIC_default_vector_address_register = (uint32_t *)(PIC_base_address + 0x34);
 volatile uint32_t *ATOSE_pic::PIC_vector_address_registers = (uint32_t *)(PIC_base_address + 0x100);
 volatile uint32_t *ATOSE_pic::PIC_vector_control_registers = (uint32_t *)(PIC_base_address + 0x200);
-volatile uint32_t *ATOSE_pic::PIC_peripheral_id_register = (uint32_t *)(PIC_base_address + 0xFE0);
+
+
+extern "C" {
+		void __attribute__ ((interrupt ("IRQ"))) __cs3_isr_irq();
+		void __attribute__ ((interrupt ("IRQ"))) __cs3_isr_irq2();
+}
 
 /*
 	ATOSE_PIC::ATOSE_PIC()
@@ -28,6 +33,7 @@ volatile uint32_t *ATOSE_pic::PIC_peripheral_id_register = (uint32_t *)(PIC_base
 */
 ATOSE_pic::ATOSE_pic()
 {
+*PIC_default_vector_address_register = (uint32_t)__cs3_isr_irq;
 }
 
 /*
@@ -36,7 +42,13 @@ ATOSE_pic::ATOSE_pic()
 */
 void ATOSE_pic::timer_enable(void)
 {
-*PIC_interrupt_enable_register |= 0x10;			// enable clock interrupt (0x10)
+*PIC_default_vector_address_register = (uint32_t)__cs3_isr_irq;		// default ISR id
+
+PIC_vector_address_registers[4] = (uint32_t)__cs3_isr_irq2;		// the interruopt service rountine id
+PIC_vector_control_registers[4] = (uint32_t)0x24;					// enable vectored interrupts for source 0x04 (the timer)
+
+*PIC_interrupt_select_register = 0;			// everything to IRQ
+*PIC_interrupt_enable_register = 0x10;			// enable clock interrupt (0x10)
 }
 
 /*

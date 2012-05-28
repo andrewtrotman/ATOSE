@@ -24,7 +24,7 @@ atose.elf : $(OBJ)
 dump_cpu_state.elf : dump_cpu_state.c
 	$(CC) -o dump_cpu_state.elf dump_cpu_state.c -T generic-hosted.ld
 
-timerII.elf : timerII.c
+timerII.elf : timerII.c keyboard_mouse_interface.c timerII.c cpu.c timer.c pic.c stack.c io_angel.c io_serial.c
 	$(CC) -o timerII.elf keyboard_mouse_interface.c timerII.c cpu.c timer.c pic.c stack.c io_angel.c io_serial.c -T generic-hosted.ld
 
 test.elf : test.c vectors.s test.ld
@@ -37,7 +37,7 @@ test.elf : test.c vectors.s test.ld
 # Management
 #
 run:
-	"\Program Files (x86)\qemu\qemu-system-arm.exe" -semihosting -M versatileab -kernel timerII.elf -serial stdio 
+	"\Program Files (x86)\qemu\qemu-system-arm.exe" -semihosting -M versatileab -kernel timerII.elf -serial stdio
 
 qemu:
 	"\Program Files (x86)\qemu\qemu-system-arm.exe" -semihosting -kernel atose.elf

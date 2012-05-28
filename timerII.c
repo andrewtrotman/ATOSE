@@ -18,10 +18,11 @@ ATOSE_stack stacks;
 ATOSE_timer timer;
 ATOSE_pic pic;
 ATOSE_cpu cpu;						  
-ATOSE_keyboard_mouse_interface kmi;
+//ATOSE_keyboard_mouse_interface kmi;
 
 volatile long *ticks = (long *)((unsigned char *)0x101E2000 + 0x04);
 volatile long happened = 0;
+volatile long what_happened = 0;
 
 
 /*
@@ -29,9 +30,26 @@ volatile long happened = 0;
 	---------------
 */
 extern "C" {
-		void __attribute__ ((interrupt)) __cs3_isr_irq()
+		void __attribute__ ((interrupt ("IRQ"))) __cs3_isr_irq()
 		{
-		pic.timer_enter();
+//		pic.timer_enter();
+		what_happened = *((uint32_t *)0x10140030);
+
+		timer.acknowledge();
+
+		happened++;
+
+		pic.timer_exit();
+		}
+
+		void __attribute__ ((interrupt ("IRQ"))) __cs3_isr_irq2()
+		{
+		unsigned char *PIC_base_address = (unsigned char *)0x10140000;
+		volatile uint32_t *PIC_vector_address_register = (uint32_t *)(PIC_base_address + 0x30);
+
+//		pic.timer_enter();
+		what_happened = 2;
+
 		timer.acknowledge();
 
 		happened++;
@@ -53,25 +71,26 @@ uint32_t *KMI_status_register = (uint32_t *)(KMI_base_address + 0x04);
 uint32_t *KMI_data_register = (uint32_t *)(KMI_base_address + 0x08);
 
 cpu.enable_IRQ();
-//pic.timer_enable();
-//timer.enable();
-kmi.enable();
+pic.timer_enable();
+timer.enable();
+//kmi.enable();
 //pic.keyboard_enable();
 
 io.hex();
 
-/*
+
 for (x = 0; x < 100; x++)
-	io << "Ticks:" << *ticks << " interrupts:" << happened << ATOSE_IO::eoln;
+	io << "Ticks:" << *ticks << " interrupts:" << happened << " what happened:" << what_happened << ATOSE_IO::eoln;
 io << "Done";
-*/
 
 
+/*
 
 *KMI_data_register =  0xFF;		// reset
 
 for (;;)
 	io << "KMI status:" << (long) *KMI_status_register <<  " DATA:" << (long)*KMI_data_register << ATOSE_IO::eoln;
+*/
 
 return 0;
 }
