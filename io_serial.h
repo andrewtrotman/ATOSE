@@ -21,11 +21,15 @@ protected:
 	void push(unsigned char *byte);
 
 public:
-	ATOSE_IO_serial() : ATOSE_IO () {}
+	ATOSE_IO_serial();
 	virtual ~ATOSE_IO_serial();
 
 	virtual int read(char *buffer, int bytes);
 	virtual int write(const char *buffer, int bytes);
+
+	void enable(void);
+	void acknowledge(void);
+
 } ;
 
 #endif /* IO_SERIAL_H_ */

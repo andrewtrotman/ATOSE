@@ -13,7 +13,7 @@
 #include "cpu.h"
 #include "keyboard_mouse_interface.h"
 
-ATOSE_IO_angel io;
+ATOSE_IO_serial io;
 ATOSE_stack stacks;
 ATOSE_timer timer;
 ATOSE_pic pic;
@@ -35,29 +35,25 @@ extern "C" {
 //		pic.timer_enter();
 		what_happened = *((uint32_t *)0x10140030);
 
-		timer.acknowledge();
-
-		happened++;
-
-		pic.timer_exit();
-		}
-
-		void __attribute__ ((interrupt ("IRQ"))) __cs3_isr_irq2()
-		{
-		unsigned char *PIC_base_address = (unsigned char *)0x10140000;
-		volatile uint32_t *PIC_vector_address_register = (uint32_t *)(PIC_base_address + 0x30);
-
-//		pic.timer_enter();
-		what_happened = 2;
-
-		timer.acknowledge();
+		switch (what_happened)
+			{
+			case 0:
+				break;
+			case 1:
+				timer.acknowledge();
+				break;
+			case 2:
+				io.acknowledge();
+				break;
+			default:
+				break;
+			}
 
 		happened++;
 
 		pic.timer_exit();
 		}
 }
-
 /*
 	MAIN()
 	------
@@ -73,16 +69,23 @@ uint32_t *KMI_data_register = (uint32_t *)(KMI_base_address + 0x08);
 cpu.enable_IRQ();
 pic.timer_enable();
 timer.enable();
+io.enable();
 //kmi.enable();
 //pic.keyboard_enable();
 
 io.hex();
 
-
-for (x = 0; x < 100; x++)
+for (x = 0; x < 1000; x++)
 	io << "Ticks:" << *ticks << " interrupts:" << happened << " what happened:" << what_happened << ATOSE_IO::eoln;
 io << "Done";
 
+for (int ch = 0; ch < 10; ch++)
+	{
+	char got;
+
+	if (io.read_byte(&got))
+		io << "got: " << got << ATOSE_IO::eoln;
+	}
 
 /*
 

@@ -32,6 +32,7 @@ public:
 			buffer[write_index] = value;
 			write_index = (write_index + 1) % size;
 			}
+		return 1;
 		}
 	base read(void)
 		{
@@ -40,6 +41,8 @@ public:
 			base answer;
 			answer = buffer[read_index];
 			read_index = (read_index + 1) % size;
+
+			return answer;
 			}
 		return (base)0;
 		}

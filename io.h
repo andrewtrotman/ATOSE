@@ -11,7 +11,6 @@
 	class ATOSE_IO
 	--------------
 */
-
 class ATOSE_IO
 {
 public:

@@ -18,14 +18,8 @@ volatile uint32_t *ATOSE_pic::PIC_software_interrupt_clear_register = (uint32_t 
 volatile uint32_t *ATOSE_pic::PIC_protection_enable_register = (uint32_t *)(PIC_base_address + 0x20);
 volatile uint32_t *ATOSE_pic::PIC_vector_address_register = (uint32_t *)(PIC_base_address + 0x30);
 volatile uint32_t *ATOSE_pic::PIC_default_vector_address_register = (uint32_t *)(PIC_base_address + 0x34);
-volatile uint32_t *ATOSE_pic::PIC_vector_address_registers = (uint32_t *)(PIC_base_address + 0x100);
+volatile uint32_t *ATOSE_pic::PIC_vector_address_registers = (uint32_t *)(PIC_base_address + 0x100) + 1;			// FIX: Why + 1?  QEMU bug?
 volatile uint32_t *ATOSE_pic::PIC_vector_control_registers = (uint32_t *)(PIC_base_address + 0x200);
-
-
-extern "C" {
-		void __attribute__ ((interrupt ("IRQ"))) __cs3_isr_irq();
-		void __attribute__ ((interrupt ("IRQ"))) __cs3_isr_irq2();
-}
 
 /*
 	ATOSE_PIC::ATOSE_PIC()
@@ -33,7 +27,7 @@ extern "C" {
 */
 ATOSE_pic::ATOSE_pic()
 {
-*PIC_default_vector_address_register = (uint32_t)__cs3_isr_irq;
+*PIC_default_vector_address_register = 0;
 }
 
 /*
@@ -42,13 +36,27 @@ ATOSE_pic::ATOSE_pic()
 */
 void ATOSE_pic::timer_enable(void)
 {
-*PIC_default_vector_address_register = (uint32_t)__cs3_isr_irq;		// default ISR id
+/*
+	Send everyhting to IRQ
+*/
+*PIC_interrupt_select_register = 0;								// everything to IRQ
 
-PIC_vector_address_registers[4] = (uint32_t)__cs3_isr_irq2;		// the interruopt service rountine id
-PIC_vector_control_registers[4] = (uint32_t)0x24;					// enable vectored interrupts for source 0x04 (the timer)
+/*
+	Timer interrupt	(0x04)
+*/
+PIC_vector_address_registers[0] = 1;								// the interrupt service rountine id
+PIC_vector_control_registers[0] = (uint32_t)0x24;					// enable vectored interrupts for source 0x04 (the timer)
 
-*PIC_interrupt_select_register = 0;			// everything to IRQ
-*PIC_interrupt_enable_register = 0x10;			// enable clock interrupt (0x10)
+/*
+	UART 0 (Serial Port) interrupt (0x0C)
+*/
+PIC_vector_address_registers[1] = 2;								// the interrupt service rountine id
+PIC_vector_control_registers[1] = (uint32_t)0x2C;					// enable vectored interrupts for source 0x0C (UART 0)
+
+/*
+	Now enable the interrupts
+*/
+*PIC_interrupt_enable_register = (1 << 4) | (1 << 0x0C);			// enable clock and UART 0
 }
 
 /*

@@ -40,7 +40,7 @@ run:
 	"\Program Files (x86)\qemu\qemu-system-arm.exe" -semihosting -M versatileab -kernel timerII.elf -serial stdio
 
 qemu:
-	"\Program Files (x86)\qemu\qemu-system-arm.exe" -semihosting -kernel atose.elf
+	"\Program Files\qemu\qemu-system-arm.exe" -semihosting -M versatileab -kernel timerII.elf -serial stdio
 
 clean:
 	del *.bak *.elf *.o
