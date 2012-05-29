@@ -10,13 +10,7 @@ OBJ = io_angel.o		\
 		interrupts.o	\
 		main.o
 
-all : dump_cpu_state.elf atose.elf test.elf timerII.elf
-
-#
-#	ATOSE itself
-#
-atose.elf : $(OBJ)
-	$(CC) -o atose.elf $** -T generic-hosted.ld
+all : dump_cpu_state.elf test.elf timerII.elf
 
 #
 # ATOSE Tools
@@ -24,8 +18,8 @@ atose.elf : $(OBJ)
 dump_cpu_state.elf : dump_cpu_state.c
 	$(CC) -o dump_cpu_state.elf dump_cpu_state.c -T generic-hosted.ld
 
-timerII.elf : timerII.c keyboard_mouse_interface.c timerII.c cpu.c timer.c pic.c stack.c io_angel.c io_serial.c
-	$(CC) -o timerII.elf keyboard_mouse_interface.c timerII.c cpu.c timer.c pic.c stack.c io_angel.c io_serial.c -T generic-hosted.ld
+timerII.elf : timerII.c keyboard_mouse_interface.c timerII.c cpu.c timer.c pic.c stack.c io_angel.c io_serial.c device_driver.c
+	$(CC) -o timerII.elf keyboard_mouse_interface.c timerII.c cpu.c timer.c pic.c stack.c io_angel.c io_serial.c device_driver.c -T generic-hosted.ld
 
 test.elf : test.c vectors.s test.ld
 	$(CC) $(CFLAGS) -c test.c -o test.o -nostartfiles -nodefaultlibs -fno-rtti 

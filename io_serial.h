@@ -6,13 +6,14 @@
 #define IO_SERIAL_H_
 
 #include "io.h"
+#include "device_driver.h"
 #include "circular_buffer.h"
 
 /*
 	class ATOSE_IO_SERIAL
 	---------------------
 */
-class ATOSE_IO_serial : public ATOSE_IO
+class ATOSE_IO_serial : public ATOSE_IO, public ATOSE_device_driver
 {
 private:
 	ATOSE_circular_buffer<unsigned char, 1024> buffer;
@@ -27,8 +28,9 @@ public:
 	virtual int read(char *buffer, int bytes);
 	virtual int write(const char *buffer, int bytes);
 
-	void enable(void);
-	void acknowledge(void);
+	virtual void enable(void);
+	virtual void disable(void);
+	virtual void acknowledge(void);
 
 } ;
 

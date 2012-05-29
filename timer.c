@@ -26,7 +26,15 @@ volatile uint32_t *ATOSE_timer::timer_0_bgload = (uint32_t *)(timer_base_address
 	ATOSE_TIMER::ATOSE_TIMER()
 	--------------------------
 */
-ATOSE_timer::ATOSE_timer()
+ATOSE_timer::ATOSE_timer() : ATOSE_device_driver()
+{
+}
+
+/*
+	ATOSE_TIMER::~ATOSE_TIMER()
+	---------------------------
+*/
+ATOSE_timer::~ATOSE_timer()
 {
 }
 
@@ -39,3 +47,13 @@ void ATOSE_timer::enable(void)
 *timer_0_load = (unsigned long)0x2000;
 *timer_0_control = *timer_0_control & 0xFFFFFF10 | 0xE0;
 }
+
+/*
+	ATOSE_TIMER::DISABLE()
+	----------------------
+*/
+void ATOSE_timer::disable(void)
+{
+*timer_0_control &= 0xFFFFFF10;
+}
+

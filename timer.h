@@ -6,11 +6,13 @@
 #define TIMER_H_
 
 #include <stdint.h>
+#include "device_driver.h"
+
 /*
 	class ATOSE_TIMER
 	-----------------
 */
-class ATOSE_timer
+class ATOSE_timer : public ATOSE_device_driver
 {
 private:
 	static unsigned char *timer_base_address;
@@ -25,7 +27,9 @@ private:
 
 public:
 	ATOSE_timer();
+	virtual ~ATOSE_timer();
 	void enable(void);
+	void disable(void);
 	void acknowledge(void) { *timer_0_intclr = 0; }
 } ;
 

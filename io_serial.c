@@ -26,7 +26,7 @@ volatile unsigned long *UART_0_dma_control_register = (unsigned long *)(UART_0_b
 	ATOSE_IO_SERIAL::ATOSE_IO_SERIAL()
 	----------------------------------
 */
-ATOSE_IO_serial::ATOSE_IO_serial() : ATOSE_IO()
+ATOSE_IO_serial::ATOSE_IO_serial() : ATOSE_IO(), ATOSE_device_driver()
 {
 }
 
@@ -60,6 +60,18 @@ void ATOSE_IO_serial::enable(void)
 */
 *UART_0_interrupt_fifo_level_select_register &= ~0x3F;
 *UART_0_interrupt_mask_set_clear_register |= 1 << 4;			// interrupt on recieve (RXIM)
+}
+
+/*
+	ATOSE_IO_SERIAL::DISABLE()
+	--------------------------
+*/
+void ATOSE_IO_serial::disable(void)
+{
+/*
+	Disable UART interrupts
+*/
+*UART_0_interrupt_mask_set_clear_register &= ~0x7FF;
 }
 
 /*
