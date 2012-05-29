@@ -8,6 +8,7 @@
 #define PIC_H_
 
 #include <stdint.h>
+#include "device_driver.h"
 
 extern "C"
 {
@@ -19,19 +20,19 @@ class ATOSE_device_driver;
 	class ATOSE_PIC
 	---------------
 */
-class ATOSE_pic
+class ATOSE_pic : public ATOSE_device_driver
 {
 friend
 	void __attribute__ ((interrupt ("IRQ"))) __cs3_isr_irq();
 
 private:
 	/*
-		Base address of the Programmable Interrupt Controller
+		Base address of the primary interrupt controller
 	*/
 	static unsigned char *PIC_base_address;
 
 	/*
-		Each of the seperate registers
+		Each of the seperate registers on the primary interrupt controller
 	*/
 	static volatile uint32_t *PIC_IRQ_status_register;
 	static volatile uint32_t *PIC_FIRQ_status_register;
@@ -48,24 +49,38 @@ private:
 	static volatile uint32_t *PIC_vector_control_registers;
 	static volatile uint32_t *PIC_peripheral_id_register;
 
+	/*
+		Base address of the primary interrupt controller
+	*/
+	static unsigned char *SEC_base_address;
+
+	/*
+		Each of the seperate registers on the secondary interrupt controller
+	*/
+	static volatile uint32_t *SEC_status;
+	static volatile uint32_t *SEC_RAW_status;
+	static volatile uint32_t *SEC_enable;
+	static volatile uint32_t *SEC_enclr;
+	static volatile uint32_t *SEC_softintset;
+	static volatile uint32_t *SEC_softintclr;
+	static volatile uint32_t *SEC_picenable;
+	static volatile uint32_t *SEC_picenclr;
+
+	/*
+		Sentinal constants
+	*/
 	static const uint32_t NO_SECONDARY = 0xFFFFFFFF;
 
 private:
 	uint32_t next_interrupt_id;
+	ATOSE_device_driver *secondary_table[32];
 
 public:
 	ATOSE_pic();
 	virtual ~ATOSE_pic();
 
-	void enable(ATOSE_device_driver *driver, uint32_t primary, uint32_t secondary = NO_SECONDARY);
-
-#ifdef NEVER
-	void timer_enable(void);
-	void timer_enter(void);
-	void timer_exit(void);
-
-	void keyboard_enable(void);
-#endif
+	virtual void enable(ATOSE_device_driver *driver, uint32_t primary, uint32_t secondary = NO_SECONDARY);
+	virtual void acknowledge(void);
 } ;
 
 #endif /* PIC_H_ */

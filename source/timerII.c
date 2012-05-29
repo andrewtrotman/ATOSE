@@ -18,7 +18,8 @@ ATOSE_stack stacks;
 ATOSE_timer timer;
 ATOSE_pic pic;
 ATOSE_cpu cpu;						  
-//ATOSE_keyboard_mouse_interface kmi;
+ATOSE_keyboard_mouse_interface keyboard((unsigned char *)0x10006000);
+ATOSE_keyboard_mouse_interface mouse((unsigned char *)0x10007000);
 
 volatile long *ticks = (long *)((unsigned char *)0x101E2000 + 0x04);
 
@@ -32,43 +33,32 @@ int main(void)
 {
 int x;
 
-unsigned char *KMI_base_address = (unsigned char *)0x10006000;
-uint32_t *KMI_status_register = (uint32_t *)(KMI_base_address + 0x04);
-uint32_t *KMI_data_register = (uint32_t *)(KMI_base_address + 0x08);
-
 cpu.enable_IRQ();
 pic.enable(&timer, 0x04);
 timer.enable();
 pic.enable(&io, 0x0C);
 io.enable();
-
-//pic.timer_enable();
-//timer.enable();
-//io.enable();
-//kmi.enable();
-//pic.keyboard_enable();
+pic.enable(&keyboard, 0x1F, 0x03);
+keyboard.enable();
+pic.enable(&mouse, 0x1F, 0x04);
+mouse.enable();
 
 io.hex();
 
-for (x = 0; x < 500; x++)
-	io << "Ticks:" << *ticks << " interrupts:" << (long) number_of_ticks << ATOSE_IO::eoln;
-io << "Done";
-
-for (int ch = 0; ch < 10; ch++)
+keyboard.write_byte(0xFF);
+mouse.write_byte(0xFF);
+mouse.write_byte(0xF4);
+for (;;)
 	{
 	char got;
 
+	if (keyboard.read_byte(&got))
+		io << "KBM: " << (long)got << ATOSE_IO::eoln;
+	if (mouse.read_byte(&got))
+		io << "MOU: " << (long)got << ATOSE_IO::eoln;
 	if (io.read_byte(&got))
-		io << "got: " << got << ATOSE_IO::eoln;
+		io << "COM: " << (long)got << ATOSE_IO::eoln;
 	}
-
-/*
-
-*KMI_data_register =  0xFF;		// reset
-
-for (;;)
-	io << "KMI status:" << (long) *KMI_status_register <<  " DATA:" << (long)*KMI_data_register << ATOSE_IO::eoln;
-*/
 
 return 0;
 }

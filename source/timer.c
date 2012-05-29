@@ -5,7 +5,6 @@
 */
 #include "timer.h"
 
-
 /*
 	base address of the timer interrupt controller
 */
