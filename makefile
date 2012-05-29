@@ -4,44 +4,49 @@
 CC = arm-none-eabi-g++
 CFLAGS = -g -mcpu=arm926ej-s
 
-OBJ = io_angel.o		\
-		io_serial.o 	\
-		mmu.o			\
-		interrupts.o	\
-		main.o
+SOURCE_DIR = source
+OBJ_DIR = obj
+BIN_DIR = bin
+TOOLS_DIR = tools
 
-all : dump_cpu_state.elf test.elf timerII.elf
+OBJECTS =	$(OBJ_DIR)\io_angel.o					\
+			$(OBJ_DIR)\io_serial.o 					\
+			$(OBJ_DIR)\keyboard_mouse_interface.o 	\
+			$(OBJ_DIR)\cpu.o 						\
+			$(OBJ_DIR)\timer.o						\
+			$(OBJ_DIR)\pic.o 						\
+			$(OBJ_DIR)\stack.o 						\
+			$(OBJ_DIR)\device_driver.o
+
+all : $(BIN_DIR)\dump_cpu_state.elf $(BIN_DIR)\atose.elf
 
 #
 # ATOSE Tools
 #
-dump_cpu_state.elf : dump_cpu_state.c
-	$(CC) -o dump_cpu_state.elf dump_cpu_state.c -T generic-hosted.ld
+$(BIN_DIR)\atose.elf : $(SOURCE_DIR)\timerII.c $(OBJECTS)
+	$(CC) -o $(BIN_DIR)\atose.elf $(SOURCE_DIR)\timerII.c $(OBJECTS) -T generic-hosted.ld
 
-timerII.elf : timerII.c keyboard_mouse_interface.c timerII.c cpu.c timer.c pic.c stack.c io_angel.c io_serial.c device_driver.c
-	$(CC) -o timerII.elf keyboard_mouse_interface.c timerII.c cpu.c timer.c pic.c stack.c io_angel.c io_serial.c device_driver.c -T generic-hosted.ld
-
-test.elf : test.c vectors.s test.ld
-	$(CC) $(CFLAGS) -c test.c -o test.o -nostartfiles -nodefaultlibs -fno-rtti 
-	$(CC) $(CFLAGS) -c vectors.s -o vectors.o -nostartfiles -nodefaultlibs -fno-rtti 
-	$(CC) $(CFLAGS) -c heap.c -o heap.o -nostartfiles -nodefaultlibs -fno-rtti 
-	$(CC) $(CFLAGS) -T test.ld test.o vectors.o heap.o -o test.elf -nostartfiles -nodefaultlibs -fno-rtti 
+#
+# ATOSE Tools
+#
+$(BIN_DIR)\dump_cpu_state.elf : $(TOOLS_DIR)\dump_cpu_state.c
+	$(CC) -o $(BIN_DIR)\dump_cpu_state.elf $(TOOLS_DIR)\dump_cpu_state.c -T generic-hosted.ld
 
 #
 # Management
 #
 run:
-	"\Program Files (x86)\qemu\qemu-system-arm.exe" -semihosting -M versatileab -kernel timerII.elf -serial stdio
+	"\Program Files (x86)\qemu\qemu-system-arm.exe" -semihosting -M versatileab -kernel $(BIN_DIR)\atose.elf -serial stdio
 
 qemu:
-	"\Program Files\qemu\qemu-system-arm.exe" -semihosting -M versatileab -kernel timerII.elf -serial stdio
+	"\Program Files\qemu\qemu-system-arm.exe" -semihosting -M versatileab -kernel $(BIN_DIR)\atose.elf -serial stdio
 
 clean:
-	del *.bak *.elf *.o
+	del *.bak *.elf *.o /s
 
 #
 # Implicit rules
 #
-.c.o:
-	$(CC) $(CFLAGS) -c -g $<
+{$(SOURCE_DIR)\}.c{$(OBJ_DIR)\}.o:
+	$(CC) $(CFLAGS) -c $< -o $@
 
