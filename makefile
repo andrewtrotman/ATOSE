@@ -2,7 +2,11 @@
 # Makefile for ATOSE and the associated tools
 #
 CC = arm-none-eabi-g++
-CFLAGS = -g -mcpu=arm926ej-s
+CFLAGS = -mcpu=arm926ej-s -ffreestanding -fno-exceptions
+
+AS = arm-none-eabi-as
+ASFLAGS = -mcpu=arm926ej-s
+
 
 SOURCE_DIR = source
 OBJ_DIR = obj
@@ -21,10 +25,13 @@ OBJECTS =	$(OBJ_DIR)\io_angel.o					\
 all : $(BIN_DIR)\dump_cpu_state.elf $(BIN_DIR)\atose.elf
 
 #
-# ATOSE Tools
+# ATOSE
 #
-$(BIN_DIR)\atose.elf : $(SOURCE_DIR)\timerII.c $(OBJECTS)
-	$(CC) -o $(BIN_DIR)\atose.elf $(SOURCE_DIR)\timerII.c $(OBJECTS) -T generic-hosted.ld
+$(BIN_DIR)\atose.elf : $(SOURCE_DIR)\atose.c startup.o $(OBJECTS) $(SOURCE_DIR)\atose.ld
+	$(CC) $(CFLAGS) -o $(BIN_DIR)\atose.elf $(SOURCE_DIR)\atose.c $(OBJECTS) startup.o -T $(SOURCE_DIR)\atose.ld
+
+startup.o : $(SOURCE_DIR)\atose_startup.asm
+	$(AS) $(ASFLAGS) $(SOURCE_DIR)\atose_startup.asm -o startup.o
 
 #
 # ATOSE Tools
