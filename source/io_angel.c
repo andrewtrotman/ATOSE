@@ -9,6 +9,17 @@
 #include "io_angel.h"
 
 /*
+	ATOSE_IO_ANGEL::INIT()
+	----------------------
+*/
+void ATOSE_IO_angel::init(void)
+{
+ATOSE_IO::init();
+stdin = angel_open(":tt", angel_swi_open_read);
+stdout = angel_open(":tt", angel_swi_open_write);
+}
+
+/*
 	ATOSE_IO_ANGEL::ANGEL_SWI()
 	---------------------------
 	Given a param block, make the given call to Angel through the SWI interface
@@ -24,16 +35,6 @@ int value;
 asm volatile ("mov r0, %1; mov r1, %2; swi %a3; mov %0, r0" : "=r" (value) : "r" (function), "r" (parameter_block), "i" (angel_swi_number) : "r0", "r1", "lr");
 
 return value;
-}
-
-/*
-	ATOSE_IO_ANGEL::ATOSE_IO_ANGEL()
-	--------------------------------
-*/
-ATOSE_IO_angel::ATOSE_IO_angel() : ATOSE_IO()
-{
-stdin = angel_open(":tt", angel_swi_open_read);
-stdout = angel_open(":tt", angel_swi_open_write);
 }
 
 /*

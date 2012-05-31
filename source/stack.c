@@ -13,11 +13,11 @@ unsigned char ATOSE_stack::undefined_stack[STACK_SIZE_UNDEFINED];
 unsigned char ATOSE_stack::system_stack[STACK_SIZE_SUPERVISOR];
 
 /*
-	ATOSE_STACK::ATOSE_STACK()
-	--------------------------
+	ATOSE_STACK::INIT()
+	-------------------
 	Go through each CPU mode and set the top of stack to a valid address hat we can use.
 */
-ATOSE_stack::ATOSE_stack()
+void ATOSE_stack::init(void)
 {
 uint32_t status_register;
 

@@ -18,7 +18,9 @@ private:
 	void set_cpsr(uint32_t save_cpsr);
 
 public:
-	ATOSE_cpu();
+	ATOSE_cpu() {}
+
+	void init(void) {}
 
 	void enable_IRQ(void);
 	void disable_IRQ(void);

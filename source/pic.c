@@ -3,6 +3,7 @@
 	-----
 	PrimeCell Vectored Interrupt Controller (PL190)
 */
+#include <stdio.h>
 #include "pic.h"
 #include "device_driver.h"
 
@@ -33,11 +34,6 @@ volatile uint32_t *ATOSE_pic::SEC_softintclr = (uint32_t *)(SEC_base_address + 0
 volatile uint32_t *ATOSE_pic::SEC_picenable = (uint32_t *)(SEC_base_address + 0x20);
 volatile uint32_t *ATOSE_pic::SEC_picenclr = (uint32_t *)(SEC_base_address + 0x24);
 
-/*
-	Globabl (to be removed)
-*/
-volatile uint32_t number_of_ticks = 0;
-
 extern "C"
 {
 	/*
@@ -46,13 +42,14 @@ extern "C"
 	*/
 	void __attribute__ ((interrupt ("IRQ"))) __cs3_isr_irq()
 	{
+	/*
+		FIX:MAKE SURE THE REGISTERS ARE ALL SAVED (WHICH AT THE MOMENT THEY ARE NOT)
+	*/
 	ATOSE_device_driver *device_driver;
 
 	device_driver = (ATOSE_device_driver *)*ATOSE_pic::PIC_vector_address_register;
 	if (device_driver != 0)
 		device_driver->acknowledge();
-
-	number_of_ticks++;
 
 	*ATOSE_pic::PIC_vector_address_register = 0;
 	}
@@ -62,7 +59,7 @@ extern "C"
 		__CS3_ISR_UNDEF()
 		-----------------
 	*/
-	void __attribute__ ((interrupt)) __cs3_isr_undef(void)
+	void __attribute__ ((interrupt("UNDEF"))) __cs3_isr_undef(void)
 	{
 	}
 
@@ -70,15 +67,37 @@ extern "C"
 		__CS3_ISR_SWI()
 		---------------
 	*/
-	void __attribute__ ((interrupt)) __cs3_isr_swi(void)
+	void __attribute__ ((interrupt("SWI"))) __cs3_isr_swi(void)
 	{
+	/*
+		FIX:MAKE SURE THE REGISTERS ARE ALL SAVED (WHICH AT THE MOMENT THEY ARE NOT)
+	*/
+	static uint32_t val = 0;
+	uint32_t swi_id;
+	static const uint32_t ATOSE_SWI = 0x6174;
+
+	/*
+		First we need to determine whether or no the swi is for us.  We do this by getting the SWI number,
+		that number is stored in the instruction just executed, which is stored at R14.  So we subtract 4 from
+		R14 to get the instruction then turn off the top bits to get the number
+	*/
+	asm volatile ("ldr %0, [r14,#-4]" : "=r"(swi_id));
+
+	swi_id &= 0x00FFFFFF;
+	if (swi_id == ATOSE_SWI)
+		{
+		val++;
+		asm volatile ("mov r0, %[val]" : : [val]"r"(val));
+		}
+	else
+		asm volatile ("mov r0, #0");
 	}
 
 	/*
 		__CS3_ISR_PABORT()
 		------------------
 	*/
-	void __attribute__ ((interrupt)) __cs3_isr_pabort(void)
+	void __attribute__ ((interrupt("ABORT"))) __cs3_isr_pabort(void)
 	{
 	}
 
@@ -86,13 +105,14 @@ extern "C"
 		__CS3_ISR_DABORT()
 		------------------
 	*/
-	void __attribute__ ((interrupt)) __cs3_isr_dabort(void)
+	void __attribute__ ((interrupt("ABORT"))) __cs3_isr_dabort(void)
 	{
 	}
 
 	/*
 		__CS3_ISR_RESERVED()
 		--------------------
+		This can't happen as this interrupt is reserved
 	*/
 	void __attribute__ ((interrupt)) __cs3_isr_reserved(void)
 	{
@@ -102,16 +122,16 @@ extern "C"
 		__CS3_ISR_FIQ()
 		---------------
 	*/
-	void __attribute__ ((interrupt)) __cs3_isr_fiq(void)
+	void __attribute__ ((interrupt("FIQ"))) __cs3_isr_fiq(void)
 	{
 	}
 }
 
 /*
-	ATOSE_PIC::ATOSE_PIC()
-	----------------------
+	ATOSE_PIC::INIT()
+	-----------------
 */
-ATOSE_pic::ATOSE_pic()
+void ATOSE_pic::init(void)
 {
 uint32_t current;
 
@@ -136,14 +156,6 @@ next_interrupt_id = 0;
 */
 for (current = 0; current < sizeof(secondary_table) / sizeof(*secondary_table); current++)
 	secondary_table[current] = 0;
-}
-
-/*
-	ATOSE_PIC::~ATOSE_PIC()
-	-----------------------
-*/
-ATOSE_pic::~ATOSE_pic()
-{
 }
 
 /*

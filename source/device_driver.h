@@ -12,8 +12,8 @@
 class ATOSE_device_driver
 {
 public:
-	ATOSE_device_driver();
-	virtual ~ATOSE_device_driver();
+	ATOSE_device_driver() {}
+	virtual void init(void) {}
 
 	virtual void enable(void);
 	virtual void disable(void);

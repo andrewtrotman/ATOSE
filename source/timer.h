@@ -26,8 +26,8 @@ private:
 	static volatile uint32_t *timer_0_bgload;
 
 public:
-	ATOSE_timer();
-	virtual ~ATOSE_timer();
+	ATOSE_timer() : ATOSE_device_driver() {}
+
 	void enable(void);
 	void disable(void);
 	void acknowledge(void) { *timer_0_intclr = 0; }

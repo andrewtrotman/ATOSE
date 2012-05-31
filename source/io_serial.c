@@ -23,22 +23,6 @@ volatile unsigned long *UART_0_interrupt_clear_register = (unsigned long *)(UART
 volatile unsigned long *UART_0_dma_control_register = (unsigned long *)(UART_0_base_address + 0x48);
 
 /*
-	ATOSE_IO_SERIAL::ATOSE_IO_SERIAL()
-	----------------------------------
-*/
-ATOSE_IO_serial::ATOSE_IO_serial() : ATOSE_IO(), ATOSE_device_driver()
-{
-}
-
-/*
-	ATOSE_IO_SERIAL::~ATOSE_IO_SERIAL()
-	-----------------------------------
-*/
-ATOSE_IO_serial::~ATOSE_IO_serial()
-{
-}
-
-/*
 	ATOSE_IO_SERIAL::ENABLE()
 	-------------------------
 */

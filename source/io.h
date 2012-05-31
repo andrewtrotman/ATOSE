@@ -20,8 +20,9 @@ private:
 	int base;
 
 public:
-	ATOSE_IO() { base = 10; }
-	virtual ~ATOSE_IO() {}
+	ATOSE_IO() {}
+
+	virtual void init(void) { base = 10; }
 
 	/*
 		READ_BYTE()

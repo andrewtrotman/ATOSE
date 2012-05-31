@@ -5,22 +5,6 @@
 #include "device_driver.h"
 
 /*
-	ATOSE_DEVICE_DRIVER::ATOSE_DEVICE_DRIVER()
-	------------------------------------------
-*/
-ATOSE_device_driver::ATOSE_device_driver()
-{
-}
-
-/*
-	ATOSE_DEVICE_DRIVER::~ATOSE_DEVICE_DRIVER()
-	-------------------------------------------
-*/
-ATOSE_device_driver::~ATOSE_device_driver()
-{
-}
-
-/*
 	ATOSE_DEVICE_DRIVER::ENABLE()
 	-----------------------------
 */

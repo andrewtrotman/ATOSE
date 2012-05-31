@@ -14,13 +14,9 @@ class ATOSE_IO_angel : public ATOSE_IO
 {
 private:
 	/*
-		Angel SWI numbers
+		Angel sits on SWI 0x123456 in ARM mode
 	*/
-	#ifdef __thumb__
-		static const int angel_swi_number = 0xAB;
-	#else
-		static const int angel_swi_number = 0x123456;
-	#endif
+	static const int angel_swi_number = 0x123456;
 
 	/*
 		Angel function numbers
@@ -43,10 +39,9 @@ private:
 	int angel_swi(int function, void *parameter_block);
 	int angel_open(const char *filename, int mode);
 
-
 public:
-	ATOSE_IO_angel();
-	virtual ~ATOSE_IO_angel() {};
+	ATOSE_IO_angel() : ATOSE_IO() {}
+	virtual void init(void);
 
 	virtual int read(char *buffer, int bytes);
 	virtual int write(const char *buffer, int bytes);

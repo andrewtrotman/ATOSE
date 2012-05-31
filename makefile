@@ -7,7 +7,6 @@ CFLAGS = -mcpu=arm926ej-s -ffreestanding -fno-exceptions
 AS = arm-none-eabi-as
 ASFLAGS = -mcpu=arm926ej-s
 
-
 SOURCE_DIR = source
 OBJ_DIR = obj
 BIN_DIR = bin
@@ -20,15 +19,16 @@ OBJECTS =	$(OBJ_DIR)\io_angel.o					\
 			$(OBJ_DIR)\timer.o						\
 			$(OBJ_DIR)\pic.o 						\
 			$(OBJ_DIR)\stack.o 						\
-			$(OBJ_DIR)\device_driver.o
+			$(OBJ_DIR)\atose.o						\
+			$(OBJ_DIR)\device_driver.o				\
 
 all : $(BIN_DIR)\dump_cpu_state.elf $(BIN_DIR)\atose.elf $(BIN_DIR)\elf_reader.exe
 
 #
 # ATOSE
 #
-$(BIN_DIR)\atose.elf : $(SOURCE_DIR)\atose.c startup.o $(OBJECTS) $(SOURCE_DIR)\atose.ld
-	$(CC) $(CFLAGS) -o $(BIN_DIR)\atose.elf $(SOURCE_DIR)\atose.c $(OBJECTS) startup.o -T $(SOURCE_DIR)\atose.ld
+$(BIN_DIR)\atose.elf : $(SOURCE_DIR)\main.c startup.o $(OBJECTS) $(SOURCE_DIR)\atose.ld
+	$(CC) $(CFLAGS) -o $(BIN_DIR)\atose.elf $(SOURCE_DIR)\main.c $(OBJECTS) startup.o -T $(SOURCE_DIR)\atose.ld
 
 startup.o : $(SOURCE_DIR)\atose_startup.asm
 	$(AS) $(ASFLAGS) $(SOURCE_DIR)\atose_startup.asm -o startup.o

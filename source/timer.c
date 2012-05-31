@@ -22,22 +22,6 @@ volatile uint32_t *ATOSE_timer::timer_0_mis = (uint32_t *)(timer_base_address + 
 volatile uint32_t *ATOSE_timer::timer_0_bgload = (uint32_t *)(timer_base_address + 0x18);
 
 /*
-	ATOSE_TIMER::ATOSE_TIMER()
-	--------------------------
-*/
-ATOSE_timer::ATOSE_timer() : ATOSE_device_driver()
-{
-}
-
-/*
-	ATOSE_TIMER::~ATOSE_TIMER()
-	---------------------------
-*/
-ATOSE_timer::~ATOSE_timer()
-{
-}
-
-/*
 	ATOSE_TIMER::ENABLE()
 	---------------------
 */

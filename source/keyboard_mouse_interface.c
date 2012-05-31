@@ -7,11 +7,16 @@
 #include "keyboard_mouse_interface.h"
 
 /*
-	ATOSE_KEYBOARD_MOUSE_INTERFACE::ATOSE_KEYBOARD_MOUSE_INTERFACE()
-	----------------------------------------------------------------
+	ATOSE_KEYBOARD_MOUSE_INTERFACE::INIT()
+	--------------------------------------
 */
-ATOSE_keyboard_mouse_interface::ATOSE_keyboard_mouse_interface(unsigned char *KMI_base_address) : ATOSE_IO_serial()
+void ATOSE_keyboard_mouse_interface::init(unsigned char *KMI_base_address)
 {
+/*
+	Construct my parent object then constuct me
+*/
+ATOSE_IO_serial::init();
+
 /*
 	KMI controller registers
 */
@@ -20,14 +25,6 @@ KMI_status_register = (uint32_t *)(KMI_base_address + 0x04);
 KMI_data_register = (uint32_t *)(KMI_base_address + 0x08);
 KMI_clock_divisor_register = (uint32_t *)(KMI_base_address + 0x0C);
 KMI_interrupt_identification_register = (uint32_t *)(KMI_base_address + 0x10);
-}
-
-/*
-	ATOSE_KEYBOARD_MOUSE_INTERFACE::~ATOSE_KEYBOARD_MOUSE_INTERFACE()
-	-----------------------------------------------------------------
-*/
-ATOSE_keyboard_mouse_interface::~ATOSE_keyboard_mouse_interface()
-{
 }
 
 /*

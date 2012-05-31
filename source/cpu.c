@@ -5,14 +5,6 @@
 #include "cpu.h"
 
 /*
-	ATOSE_CPU::ATOSE_CPU()
-	----------------------
-*/
-ATOSE_cpu::ATOSE_cpu()
-{
-}
-
-/*
 	ATOSE_CPU::GET_CPSR()
 	---------------------
 */

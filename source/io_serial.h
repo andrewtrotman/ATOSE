@@ -22,8 +22,8 @@ protected:
 	void push(unsigned char *byte);
 
 public:
-	ATOSE_IO_serial();
-	virtual ~ATOSE_IO_serial();
+	ATOSE_IO_serial() : ATOSE_IO(), ATOSE_device_driver() {}
+	virtual void init(void) { ATOSE_IO::init(); }
 
 	virtual int read(char *buffer, int bytes);
 	virtual int write(const char *buffer, int bytes);

@@ -10,12 +10,9 @@
 #include <stdint.h>
 #include "device_driver.h"
 
-extern "C"
-{
-void __attribute__ ((interrupt ("IRQ"))) __cs3_isr_irq();
-}	
-
 class ATOSE_device_driver;
+
+extern "C" {void __attribute__ ((interrupt ("IRQ"))) __cs3_isr_irq();}
 /*
 	class ATOSE_PIC
 	---------------
@@ -76,8 +73,8 @@ private:
 	ATOSE_device_driver *secondary_table[32];
 
 public:
-	ATOSE_pic();
-	virtual ~ATOSE_pic();
+	ATOSE_pic() {}
+	virtual void init(void);
 
 	virtual void enable(ATOSE_device_driver *driver, uint32_t primary, uint32_t secondary = NO_SECONDARY);
 	virtual void acknowledge(void);

@@ -23,15 +23,14 @@ private:
 	volatile uint32_t *KMI_interrupt_identification_register;
 
 public:
-	ATOSE_keyboard_mouse_interface(unsigned char *KMI_base_address);
-	virtual ~ATOSE_keyboard_mouse_interface();
+	ATOSE_keyboard_mouse_interface() : ATOSE_IO_serial() {}
+	virtual void init(unsigned char *KMI_base_address);
 
 	virtual void enable(void);
 	virtual void disable(void);
 	virtual void acknowledge(void);
 
 	virtual int write(const char *buffer, int bytes);
-
 } ;
 
 #endif /* KEYBOARD_MOUSE_INTERFACE_H_ */
