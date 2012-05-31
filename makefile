@@ -22,7 +22,7 @@ OBJECTS =	$(OBJ_DIR)\io_angel.o					\
 			$(OBJ_DIR)\stack.o 						\
 			$(OBJ_DIR)\device_driver.o
 
-all : $(BIN_DIR)\dump_cpu_state.elf $(BIN_DIR)\atose.elf
+all : $(BIN_DIR)\dump_cpu_state.elf $(BIN_DIR)\atose.elf $(BIN_DIR)\elf_reader.exe
 
 #
 # ATOSE
@@ -39,6 +39,9 @@ startup.o : $(SOURCE_DIR)\atose_startup.asm
 $(BIN_DIR)\dump_cpu_state.elf : $(TOOLS_DIR)\dump_cpu_state.c
 	$(CC) -o $(BIN_DIR)\dump_cpu_state.elf $(TOOLS_DIR)\dump_cpu_state.c -T generic-hosted.ld
 
+$(BIN_DIR)\elf_reader.exe : $(TOOLS_DIR)\elf_reader.c
+	cl /Tp $(TOOLS_DIR)\elf_reader.c -Fe$(BIN_DIR)\elf_reader.exe
+
 #
 # Management
 #
@@ -49,7 +52,7 @@ qemu:
 	"\Program Files\qemu\qemu-system-arm.exe" -semihosting -M versatileab -kernel $(BIN_DIR)\atose.elf -serial stdio
 
 clean:
-	del *.bak *.elf *.o /s
+	del *.bak *.elf *.o *.obj *.exe /s
 
 #
 # Implicit rules
