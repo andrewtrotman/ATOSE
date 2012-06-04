@@ -21,6 +21,7 @@ OBJECTS =	$(OBJ_DIR)\io_angel.o					\
 			$(OBJ_DIR)\stack.o 						\
 			$(OBJ_DIR)\atose.o						\
 			$(OBJ_DIR)\device_driver.o				\
+			$(OBJ_DIR)\interrupts.o	
 
 all : $(BIN_DIR)\dump_cpu_state.elf $(BIN_DIR)\atose.elf $(BIN_DIR)\elf_reader.exe
 

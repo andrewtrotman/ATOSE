@@ -8,11 +8,11 @@
 #define PIC_H_
 
 #include <stdint.h>
+#include "interrupts.h"
 #include "device_driver.h"
 
 class ATOSE_device_driver;
 
-extern "C" {void __attribute__ ((interrupt ("IRQ"))) __cs3_isr_irq();}
 /*
 	class ATOSE_PIC
 	---------------
@@ -20,7 +20,7 @@ extern "C" {void __attribute__ ((interrupt ("IRQ"))) __cs3_isr_irq();}
 class ATOSE_pic : public ATOSE_device_driver
 {
 friend
-	void __attribute__ ((interrupt ("IRQ"))) __cs3_isr_irq();
+	void __cs3_isr_irq(void);
 
 private:
 	/*
