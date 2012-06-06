@@ -62,7 +62,7 @@ void __attribute__ ((interrupt("ABORT"))) __cs3_isr_pabort(void)
 {
 ATOSE_registers regs;
 
-regs.get();
+ATOSE_registers_get(&regs);
 }
 
 /*
