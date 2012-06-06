@@ -3,6 +3,7 @@
 	------------
 */
 #include "interrupts.h"
+#include "registers.h"
 #include "pic.h"
 
 /*
@@ -59,6 +60,9 @@ else
 */
 void __attribute__ ((interrupt("ABORT"))) __cs3_isr_pabort(void)
 {
+ATOSE_registers regs;
+
+regs.get();
 }
 
 /*
