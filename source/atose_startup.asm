@@ -1,31 +1,174 @@
 .global _Reset
 .global ATOSE_vectors_start
 .global ATOSE_vectors_end
+.global ATOSE_addr
 
 ATOSE_vectors_start:
+
 _Reset:
- LDR PC, reset_handler_addr
- LDR PC, undef_handler_addr
- LDR PC, swi_handler_addr
- LDR PC, prefetch_abort_handler_addr
- LDR PC, data_abort_handler_addr
- LDR PC, reserved_handler_addr
- LDR PC, irq_handler_addr
- LDR PC, fiq_handler_addr
+	ldr pc, reset_handler_addr
+	ldr pc, undef_handler_addr
+	ldr pc, swi_handler_addr
+	ldr pc, prefetch_abort_handler_addr
+	ldr pc, data_abort_handler_addr
+	ldr pc, reserved_handler_addr
+	ldr pc, irq_handler_addr
+	ldr pc, fiq_handler_addr
 
 reset_handler_addr: .word reset_handler
 undef_handler_addr: .word __cs3_isr_undef
-swi_handler_addr: .word __cs3_isr_swi
+swi_handler_addr: .word swi_handler
 prefetch_abort_handler_addr: .word  __cs3_isr_pabort
 data_abort_handler_addr: .word __cs3_isr_dabort
 reserved_handler_addr: .word __cs3_isr_reserved
-irq_handler_addr: .word __cs3_isr_irq
+irq_handler_addr: .word irq_handler
 fiq_handler_addr: .word __cs3_isr_fiq
 
 ATOSE_vectors_end:
 
+ATOSE_addr: .word 0
+
+/*
+	INTERRUPT_PREAMBLE
+	------------------
+*/
+.macro interrupt_preamble
+	/*
+		Shove all the other registers on the stack
+	*/
+
+	/*
+		cannot do an "stm !" as it confuses the two R13s
+	*/
+	/*
+		Don't do this (below) until we have a user space
+
+		stmfd sp, {r0-r14}^
+	
+		do this (below, 1 line) instead
+
+		stmfd sp, {r0-r14}
+	*/
+	
+	stmfd sp, {r0-r14}^			/* save the user mode registers */
+	nop							/* and no op */
+	sub sp, sp, #60				/* shift the stack pointer 15 * 4 bytes */
+
+.endm
+
+/*
+	INTERRUPT_POSTAMBLE
+	-------------------
+*/
+.macro interrupt_postamble
+	/*
+		Restore the registers
+	*/
+	/*
+		Don't do this (below) until we have a user space
+
+		ldmfd sp, {r0-r14}^
+		nop
+		add sp, sp, #60
+
+		do this (below, 2 lines) instead
+
+		ldmfd sp, {r0-r14}
+		nop
+	*/
+
+	ldmfd sp, {r0-r14}^				/* restore the user mode registers */
+	nop								/* and no op */
+	add sp, sp, #60					/* return my own stack pointer */
+
+.endm
+
+/*
+	RTI_IRQ
+	-------
+*/
+.macro rti_irq
+	subs pc, r14, #4
+.endm
+
+/*
+	RTI_SWI
+*/
+.macro rti_swi
+	movs pc, r14
+.endm
+
+
+/*
+	RESET_HANDLER
+	-------------
+*/
 reset_handler:
-  LDR sp, =stack_top
-  BL c_entry
-  B .
+	ldr sp, =stack_top
+	bl c_entry
+	b .
+
+/*
+	IRQ_HANDLER
+	-----------
+*/
+irq_handler:
+	/*
+		Shove the registers on the stack
+	*/
+	interrupt_preamble
+
+	/*
+		get a pointer to the registers and pass that to the interrupt handler
+	*/
+	mov r0, sp
+
+/* PUSH R14 */
+	stmfd sp!, {r14}
+/* */
+
+	bl  ATOSE_isr_irq
+
+/* POP R14 */
+	ldmfd sp!, {r14}
+/* */
+	/*
+		clean up the stack and return
+	*/
+	interrupt_postamble
+	rti_irq
+
+/*
+	SWI_HANDLER
+	-----------
+*/
+swi_handler:
+	/*
+		Shove the registers on the stack
+	*/
+	interrupt_preamble
+
+	/*
+		Call the C/C++ interrupt handler
+		Put a pointer to the on-stack registers into r0 as this is the first parameter to ATOSE_isr_swi.
+		note that because it has a pointer to the registers on the stack (which are pulled on return) it can
+		cause a return of multiple values by simply changing those values
+	*/
+	mov r0, sp
+
+/* PUSH R14 */
+	stmfd sp!, {r14}
+/* */
+
+	bl ATOSE_isr_swi
+
+/* POP R14 */
+	ldmfd sp!, {r14}
+/* */
+
+	/*
+		Restore the registers and return
+	*/
+	interrupt_postamble
+	rti_swi
 

@@ -76,33 +76,28 @@ int main(void)
 ATOSE os;
 ATOSE_API_ATOSE api;
 uint32_t ans;
-uint8_t byte;
 
-os.io.hex();
+api.io.hex();
 
 extern uint32_t ATOSE_top_of_memory;
 
-if (&ATOSE_top_of_memory == 0)
-	os.io << "Top of Memory:" << "zero" << ATOSE_IO::eoln;
-else
-	os.io << "Top of Memory:" << (long)&ATOSE_top_of_memory << ATOSE_IO::eoln;
+//os.keyboard.write_byte(0xFF);
+//os.mouse.write_byte(0xFF);
+//os.mouse.write_byte(0xF4);
 
-os.keyboard.write_byte(0xFF);
-os.mouse.write_byte(0xFF);
-os.mouse.write_byte(0xF4);
 for (;;)
 	{
 	char got;
 
-	if (os.keyboard.read_byte(&got))
-		os.io << "KBM: " << (long)got << ATOSE_IO::eoln;
-	if (os.mouse.read_byte(&got))
-		os.io << "MOU: " << (long)got << ATOSE_IO::eoln;
-	if (os.io.read_byte(&got))
+//	if (os.keyboard.read_byte(&got))
+//		os.io << "KBM: " << (long)got << ATOSE_IO::eoln;
+//	if (os.mouse.read_byte(&got))
+//		os.io << "MOU: " << (long)got << ATOSE_IO::eoln;
+//	if (api.io.read_byte(&got))
 		{
-		os.io << "COM: " << (long)got << ATOSE_IO::eoln;
-		ans = api.mouse.read_byte(&byte);
-		os.io << "API got: " << (long)byte << " ans:" << (long)ans << ATOSE_IO::eoln;
+//		api.io << "COM: " << (long)got << ATOSE_IO::eoln;
+//		ans = os.mouse.read_byte(&got);
+//		os.io << "API got: " << (long)got << " ans:" << (long)ans << ATOSE_IO::eoln;
 		}
 	}
 

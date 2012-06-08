@@ -4,12 +4,20 @@
 */
 #include "atose.h"
 
+extern ATOSE *ATOSE_addr;
+
 /*
 	ATOSE::ATOSE()
 	--------------
 */
 ATOSE::ATOSE()
 {
+/*
+	First things first... put a pointer to me at the end of the interrupt space so that
+	we can at ant time get a pointer to this object (by calling ATOSE::get_global_entry_point()
+*/
+ATOSE_addr = this;
+
 /*
 	Initialise each of the essential core objects
 */
@@ -33,4 +41,18 @@ pic.enable(&keyboard, 0x1F, 0x03);
 keyboard.enable();
 pic.enable(&mouse, 0x1F, 0x04);
 mouse.enable();
+
+/*
+	Now drop into user mode
+*/
+cpu.enter_user_mode();
+}
+
+/*
+	ATOSE::GET_GLOBAL_ENTRY_POINT()
+	-------------------------------
+*/
+ATOSE *ATOSE::get_global_entry_point(void)
+{
+return ATOSE_addr;
 }

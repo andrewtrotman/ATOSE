@@ -47,7 +47,7 @@ $(BIN_DIR)\elf_reader.exe : $(TOOLS_DIR)\elf_reader.c
 # Management
 #
 run:
-	"\Program Files (x86)\qemu\qemu-system-arm.exe" -semihosting -M versatileab -kernel $(BIN_DIR)\atose.elf -serial stdio
+	"\Program Files (x86)\qemu\qemu-system-arm.exe" -semihosting -M versatileab -cpu arm926 -kernel $(BIN_DIR)\atose.elf -serial stdio
 
 qemu:
 	"\Program Files\qemu\qemu-system-arm.exe" -semihosting -M versatileab -kernel $(BIN_DIR)\atose.elf -serial stdio

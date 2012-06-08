@@ -30,6 +30,7 @@ public:
 
 public:
 	ATOSE();
+	static ATOSE *get_global_entry_point();
 
 	void enable(void);
 } ;

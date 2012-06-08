@@ -24,6 +24,8 @@ public:
 
 	void enable_IRQ(void);
 	void disable_IRQ(void);
+
+	void enter_user_mode(void);
 } ;
 
 #endif /* CPU_H_ */

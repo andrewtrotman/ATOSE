@@ -19,8 +19,7 @@ class ATOSE_device_driver;
 */
 class ATOSE_pic : public ATOSE_device_driver
 {
-friend
-	void __cs3_isr_irq(void);
+friend uint32_t ATOSE_isr_irq(ATOSE_registers *registers);
 
 private:
 	/*

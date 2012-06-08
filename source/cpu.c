@@ -56,3 +56,11 @@ void ATOSE_cpu::disable_IRQ(void)
 set_cpsr(get_cpsr() | 0x80);
 }
 
+/*
+	ATOSE_CPU::ENTER_USER_MODE()
+	----------------------------
+*/
+void ATOSE_cpu::enter_user_mode(void)
+{
+set_cpsr((get_cpsr() & ~0x01F) | 0x10);
+}

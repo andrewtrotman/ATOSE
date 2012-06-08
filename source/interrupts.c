@@ -3,18 +3,15 @@
 	------------
 */
 #include "interrupts.h"
-#include "registers.h"
-#include "pic.h"
+#include "atose.h"
+#include "api_atose.h"
 
 /*
-	__CS3_ISR_IRQ()
+	ATOSE_ISR_IRQ()
 	---------------
 */
-void __attribute__ ((interrupt ("IRQ"))) __cs3_isr_irq()
+uint32_t ATOSE_isr_irq(ATOSE_registers *registers)
 {
-/*
-	FIX:MAKE SURE THE REGISTERS ARE ALL SAVED (WHICH AT THE MOMENT THEY ARE NOT)
-*/
 ATOSE_device_driver *device_driver;
 
 device_driver = (ATOSE_device_driver *)*ATOSE_pic::PIC_vector_address_register;
@@ -24,35 +21,6 @@ if (device_driver != 0)
 *ATOSE_pic::PIC_vector_address_register = 0;
 }
 
-/*
-	__CS3_ISR_SWI()
-	---------------
-*/
-void __attribute__ ((interrupt("SWI"))) __cs3_isr_swi(void)
-{
-/*
-	FIX:MAKE SURE THE REGISTERS ARE ALL SAVED (WHICH AT THE MOMENT THEY ARE NOT)
-*/
-static uint32_t val = 0;
-uint32_t swi_id;
-static const uint32_t ATOSE_SWI = 0x6174;
-
-/*
-	First we need to determine whether or no the swi is for us.  We do this by getting the SWI number,
-	that number is stored in the instruction just executed, which is stored at R14.  So we subtract 4 from
-	R14 to get the instruction then turn off the top bits to get the number
-*/
-asm volatile ("ldr %0, [r14,#-4]" : "=r"(swi_id));
-
-swi_id &= 0x00FFFFFF;
-if (swi_id == ATOSE_SWI)
-	{
-	val++;
-	asm volatile ("mov r0, %[val]" : : [val]"r"(val));
-	}
-else
-	asm volatile ("mov r0, #0");
-}
 
 /*
 	__CS3_ISR_PABORT()
@@ -60,9 +28,6 @@ else
 */
 void __attribute__ ((interrupt("ABORT"))) __cs3_isr_pabort(void)
 {
-ATOSE_registers regs;
-
-ATOSE_registers_get(&regs);
 }
 
 /*
@@ -98,3 +63,66 @@ void __attribute__ ((interrupt("FIQ"))) __cs3_isr_fiq(void)
 {
 }
 
+/*
+	ATOSE_ISR_SWI()
+	---------------
+*/
+uint32_t ATOSE_isr_swi(ATOSE_registers *registers)
+{
+static uint32_t val = 0;
+ATOSE_IO *object;
+ATOSE *os = ATOSE::get_global_entry_point();
+
+/*
+	First we need to determine whether or no the swi is for us.  We do this by getting the SWI number,
+	that number is stored in the instruction just executed, which is stored at R14.  So we subtract 4 from
+	R14 to get the instruction then turn off the top bits to get the number
+*/
+if (( (*(uint32_t *)(registers->r14 - 4)) & 0x00FFFFFF) != ATOSE_SWI)
+	return 0;
+
+/*
+	The SWI is for us.
+	First get the object
+*/
+switch (registers->r0)
+	{
+	case ATOSE_API::id_object_keyboard:
+		object = &os->keyboard;
+		break;
+	case ATOSE_API::id_object_mouse:
+		object = &os->mouse;
+		break;
+	case ATOSE_API::id_object_serial:
+		object = &os->io;
+		break;
+	default:
+		return 0;
+	}
+
+/*
+	Now get the method
+*/
+switch (registers->r1)
+	{
+	case ATOSE_API::id_function_read_byte:
+		{
+		char byte;
+
+		registers->r0 = object->read_byte(&byte);
+		registers->r1 = byte;
+		break;
+		}
+	case ATOSE_API::id_function_write_byte:
+		{
+//		registers->r0 = object->write_byte(registers->r2);
+//		object->write_byte(registers->r2);
+		os->io.write_byte('.');
+		break;
+		}
+	default:
+		return 0;
+	}
+
+return 1;
+}
