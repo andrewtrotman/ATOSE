@@ -16,17 +16,17 @@
 class ATOSE_IO_serial : public ATOSE_IO, public ATOSE_device_driver
 {
 private:
-	ATOSE_circular_buffer<unsigned char, 1024> buffer;
+	ATOSE_circular_buffer<uint8_t, 1024> buffer;
 
 protected:
-	void push(unsigned char *byte);
+	void push(uint8_t *byte);
 
 public:
 	ATOSE_IO_serial() : ATOSE_IO(), ATOSE_device_driver() {}
 	virtual void init(void) { ATOSE_IO::init(); }
 
-	virtual int read(char *buffer, int bytes);
-	virtual int write(const char *buffer, int bytes);
+	virtual uint32_t read(uint8_t *buffer, uint32_t bytes);
+	virtual uint32_t write(const uint8_t *buffer, uint32_t bytes);
 
 	virtual void enable(void);
 	virtual void disable(void);

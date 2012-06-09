@@ -5,6 +5,7 @@
 #ifndef IO_H_
 #define IO_H_
 
+#include <stdint.h>
 #include "ascii_str.h"
 
 /*
@@ -29,27 +30,28 @@ public:
 		-----------
 		read one byte from the I/O device and return the number of bytes read (0 = fail, 1 = success)
 	*/
-	virtual int read_byte(char *buffer) { return read(buffer, 1); }
+	virtual uint32_t read_byte(uint8_t *buffer) { return read(buffer, 1); }
 
 	/*
 		WRITE_BYTE()
 		------------
 		write one byte to the I/O device and return the number of bytes written (0 = fail, 1 = success)
 	*/
-	virtual int write_byte(const char buffer) { return write(&buffer, 1); }
+	virtual uint32_t write_byte(const uint8_t buffer) { return write(&buffer, 1); }
 
 	/*
 		READ()
 		------
 		read a string of bytes from the input stream and return the number read (0 = fail)
 	*/
-	virtual int read(char *buffer, int bytes)
+	virtual uint32_t read(uint8_t *buffer, uint32_t bytes)
 		{
-		int gone;
+		uint32_t gone;
 
 		for (gone = 0; gone < bytes; gone++)
 			if (read_byte(buffer++) == 0)
 				return gone;
+
 		return bytes;
 		}
 
@@ -58,13 +60,14 @@ public:
 		-------
 		write a string of bytes to the output stream and return the number written (0 = fail)
 	*/
-	virtual int write(const char *buffer, int bytes)
+	virtual uint32_t write(const uint8_t *buffer, uint32_t bytes)
 		{
 		int gone;
 
 		for (gone = 0; gone < bytes; gone++)
 			if (write_byte(*buffer++) == 0)
 				return gone;
+
 		return bytes;
 		}
 
@@ -73,10 +76,14 @@ public:
 		------
 		print a string to the output stream and add a <cr> to the end
 	*/
-	virtual int puts(const char *message)
+	virtual uint32_t puts(const uint8_t *message)
 		{
-		write(message, ASCII_strlen(message));
+		uint32_t length = ASCII_strlen((char *)message);
+
+		write(message, length);
 		write_byte('\n');
+
+		return length + 1;
 		}
 
 	/*
@@ -84,12 +91,20 @@ public:
 		-------------
 		dump stuff to the outout channel
 	*/
-	ATOSE_IO &operator << (const char character) { write(&character, 1); return *this; }
-	ATOSE_IO &operator << (const unsigned char character) { *this << (char)character; return *this; }
+	ATOSE_IO &operator << (const uint8_t character) 		{ write(&character, 1); return *this; }
+	ATOSE_IO &operator << (const int8_t character) 			{ *this << (uint8_t)character; return *this; }
+	ATOSE_IO &operator << (const char character) 			{ *this << (uint8_t)character; return *this; }
+//	ATOSE_IO &operator << (const unsigned char character) 	{ *this << (uint8_t)character; return *this; }
 
-	ATOSE_IO &operator << (const char *string) { write(string, ASCII_strlen(string)); return *this; }
-	ATOSE_IO &operator << (const unsigned char *string) { *this << (const char *)string; return *this; }
-	ATOSE_IO &operator << (long value) { char buffer[sizeof(long) * 8 + 2]; ASCII_itoa(value, buffer, base); *this << buffer; return *this; }
+	ATOSE_IO &operator << (const uint8_t *string) 			{ write(string, ASCII_strlen((char *)string)); return *this; }
+	ATOSE_IO &operator << (const int8_t *string) 			{ *this << (uint8_t *) string; return *this; }
+	ATOSE_IO &operator << (const char *string) 				{ *this << (uint8_t *) string; return *this; }
+//	ATOSE_IO &operator << (const unsigned char *string) 	{ *this << (uint8_t *) string; return *this; }
+
+	ATOSE_IO &operator << (long value) 						{ char buffer[sizeof(long) * 8 + 2]; ASCII_itoa(value, buffer, base); *this << "{" << buffer << "}"; return *this; }
+	ATOSE_IO &operator << (uint32_t value) 					{ *this << (long)value; return *this; }
+	ATOSE_IO &operator << (int value) 						{ *this << (long)value; return *this; }
+	ATOSE_IO &operator << (short value) 					{ *this << (long)value; return *this; }
 
 	/*
 		HEX()
@@ -103,7 +118,7 @@ public:
 		---------
 		Turn on decimal output
 	*/
-	ATOSE_IO *decimal(void) { base = 16; return this; }
+	ATOSE_IO *decimal(void) { base = 10; return this; }
 } ;
 
 #endif /* IO_H_ */

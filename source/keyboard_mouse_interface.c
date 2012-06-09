@@ -57,7 +57,7 @@ void ATOSE_keyboard_mouse_interface::disable(void)
 */
 void ATOSE_keyboard_mouse_interface::acknowledge(void)
 {
-unsigned char got;
+uint8_t got;
 
 got = *KMI_data_register;
 push(&got);
@@ -67,9 +67,9 @@ push(&got);
 	ATOSE_KEYBOARD_MOUSE_INTERFACE::WRITE()
 	---------------------------------------
 */
-int ATOSE_keyboard_mouse_interface::write(const char *buffer, int bytes)
+uint32_t ATOSE_keyboard_mouse_interface::write(const uint8_t *buffer, uint32_t  bytes)
 {
-int current;
+uint32_t  current;
 
 for (current = 0; current < bytes; current++)
 	*KMI_data_register = buffer[current];

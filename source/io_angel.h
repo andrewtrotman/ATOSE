@@ -43,8 +43,8 @@ public:
 	ATOSE_IO_angel() : ATOSE_IO() {}
 	virtual void init(void);
 
-	virtual int read(char *buffer, int bytes);
-	virtual int write(const char *buffer, int bytes);
+	virtual uint32_t read(uint8_t *buffer, uint32_t bytes);
+	virtual uint32_t write(const uint8_t *buffer, uint32_t bytes);
 } ;
 
 

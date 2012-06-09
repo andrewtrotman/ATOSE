@@ -58,10 +58,10 @@ return angel_swi(angel_swi_open, param_block);
 	read a string of bytes from stdin
 	Returns the number of bytes read (or 0 on read past EOF)
 */
-int ATOSE_IO_angel::read(char *buffer, int bytes)
+uint32_t ATOSE_IO_angel::read(uint8_t *buffer, uint32_t  bytes)
 {
 int param_block[3];
-char answer;
+uint32_t answer;
 
 param_block[0] = stdin;
 param_block[1] = (int)buffer;
@@ -86,10 +86,10 @@ else
 	write a byte buffer to stdout
 	Returns the numner of bytes written (which might be zero)
 */
-int ATOSE_IO_angel::write(const char *buffer, int bytes)
+uint32_t  ATOSE_IO_angel::write(const uint8_t *buffer, uint32_t  bytes)
 {
 int param_block[3];
-char answer;
+uint32_t answer;
 
 param_block[0] = stdout;
 param_block[1] = (int)buffer;

@@ -30,7 +30,7 @@ public:
 	virtual void disable(void);
 	virtual void acknowledge(void);
 
-	virtual int write(const char *buffer, int bytes);
+	virtual uint32_t write(const uint8_t *buffer, uint32_t bytes);
 } ;
 
 #endif /* KEYBOARD_MOUSE_INTERFACE_H_ */

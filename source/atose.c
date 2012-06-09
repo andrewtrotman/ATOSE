@@ -41,11 +41,6 @@ pic.enable(&keyboard, 0x1F, 0x03);
 keyboard.enable();
 pic.enable(&mouse, 0x1F, 0x04);
 mouse.enable();
-
-/*
-	Now drop into user mode
-*/
-cpu.enter_user_mode();
 }
 
 /*

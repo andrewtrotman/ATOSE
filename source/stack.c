@@ -5,12 +5,12 @@
 */
 #include "stack.h"
 
-unsigned char ATOSE_stack::FIRQ_stack[STACK_SIZE_IRQ];
+unsigned char ATOSE_stack::FIRQ_stack[STACK_SIZE_FIRQ];
 unsigned char ATOSE_stack::IRQ_stack[STACK_SIZE_IRQ];
 unsigned char ATOSE_stack::supervisor_stack[STACK_SIZE_SUPERVISOR];
 unsigned char ATOSE_stack::abort_stack[STACK_SIZE_ABORT];
+unsigned char ATOSE_stack::system_stack[STACK_SIZE_SYSTEM];		// and USER
 unsigned char ATOSE_stack::undefined_stack[STACK_SIZE_UNDEFINED];
-unsigned char ATOSE_stack::system_stack[STACK_SIZE_SUPERVISOR];
 
 /*
 	ATOSE_STACK::INIT()
@@ -50,7 +50,7 @@ set_stack(IRQ_stack + STACK_SIZE_IRQ, (status_register & ~0x1F) | 0x12);					// 
 //set_stack(supervisor_stack + STACK_SIZE_SUPERVISOR, (status_register & ~0x1F) | 0x13);		// supervisor mode (we're in supervisor mode already!)
 set_stack(abort_stack + STACK_SIZE_ABORT, (status_register & ~0x1F) | 0x17);				// abort mode
 set_stack(undefined_stack + STACK_SIZE_UNDEFINED, (status_register & ~0x1F) | 0x1B);		// undefined mode
-set_stack(system_stack + STACK_SIZE_SYSTEM, (status_register & ~0x1F) | 0x1F);				// system mode
+set_stack(system_stack + STACK_SIZE_SYSTEM, (status_register & ~0x1F) | 0x1F);				// system (user) mode
 
 /*
 	Go back into what ever mode we were in before (Supervisor mode)

@@ -41,7 +41,8 @@ $(BIN_DIR)\dump_cpu_state.elf : $(TOOLS_DIR)\dump_cpu_state.c
 	$(CC) -o $(BIN_DIR)\dump_cpu_state.elf $(TOOLS_DIR)\dump_cpu_state.c -T generic-hosted.ld
 
 $(BIN_DIR)\elf_reader.exe : $(TOOLS_DIR)\elf_reader.c
-	cl /Tp $(TOOLS_DIR)\elf_reader.c -Fe$(BIN_DIR)\elf_reader.exe
+#	cl /Tp $(TOOLS_DIR)\elf_reader.c -Fe$(BIN_DIR)\elf_reader.exe
+
 
 #
 # Management

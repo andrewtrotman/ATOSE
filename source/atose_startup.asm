@@ -34,26 +34,12 @@ ATOSE_addr: .word 0
 */
 .macro interrupt_preamble
 	/*
-		Shove all the other registers on the stack
+		push my link register (R14) on the stack then with all the user mode registers
 	*/
-
-	/*
-		cannot do an "stm !" as it confuses the two R13s
-	*/
-	/*
-		Don't do this (below) until we have a user space
-
-		stmfd sp, {r0-r14}^
-	
-		do this (below, 1 line) instead
-
-		stmfd sp, {r0-r14}
-	*/
-	
-	stmfd sp, {r0-r14}^			/* save the user mode registers */
+	stmfd sp!, {r14}			/* push my R14 */
+	stmfd sp, {r0-r14}^			/* save the user mode registers (cannot do swtfd! because it confises the two r13s) */
 	nop							/* and no op */
 	sub sp, sp, #60				/* shift the stack pointer 15 * 4 bytes */
-
 .endm
 
 /*
@@ -62,25 +48,12 @@ ATOSE_addr: .word 0
 */
 .macro interrupt_postamble
 	/*
-		Restore the registers
+		Restore the user mode registers and my r14
 	*/
-	/*
-		Don't do this (below) until we have a user space
-
-		ldmfd sp, {r0-r14}^
-		nop
-		add sp, sp, #60
-
-		do this (below, 2 lines) instead
-
-		ldmfd sp, {r0-r14}
-		nop
-	*/
-
-	ldmfd sp, {r0-r14}^				/* restore the user mode registers */
-	nop								/* and no op */
-	add sp, sp, #60					/* return my own stack pointer */
-
+	ldmfd sp, {r0-r14}^			/* restore the user mode registers */
+	nop							/* and no op */
+	add sp, sp, #60				/* return my own stack pointer */
+	ldmfd sp!, {r14}			/* get my R14 */
 .endm
 
 /*
@@ -122,16 +95,8 @@ irq_handler:
 		get a pointer to the registers and pass that to the interrupt handler
 	*/
 	mov r0, sp
-
-/* PUSH R14 */
-	stmfd sp!, {r14}
-/* */
-
 	bl  ATOSE_isr_irq
 
-/* POP R14 */
-	ldmfd sp!, {r14}
-/* */
 	/*
 		clean up the stack and return
 	*/
@@ -155,16 +120,7 @@ swi_handler:
 		cause a return of multiple values by simply changing those values
 	*/
 	mov r0, sp
-
-/* PUSH R14 */
-	stmfd sp!, {r14}
-/* */
-
 	bl ATOSE_isr_swi
-
-/* POP R14 */
-	ldmfd sp!, {r14}
-/* */
 
 	/*
 		Restore the registers and return

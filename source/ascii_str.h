@@ -72,6 +72,7 @@ for (from = destination; from < into; from++, into--)
 	*from = *into;
 	*into = tmp;
 	}
+
 return destination;
 }
 

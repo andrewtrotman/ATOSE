@@ -64,7 +64,7 @@ void ATOSE_IO_serial::disable(void)
 */
 void ATOSE_IO_serial::acknowledge(void)
 {
-unsigned char got;
+uint8_t got;
 /*
 	Clear the interrupt bits
 */
@@ -81,7 +81,7 @@ push(&got);
 	ATOSE_IO_SERIAL::PUSH()
 	-----------------------
 */
-void ATOSE_IO_serial::push(unsigned char *byte)
+void ATOSE_IO_serial::push(uint8_t *byte)
 {
 buffer.write(*byte);
 }
@@ -90,9 +90,9 @@ buffer.write(*byte);
 	ATOSE_IO_SERIAL::WRITE()
 	------------------------
 */
-int ATOSE_IO_serial::write(const char *buffer, int bytes)
+uint32_t ATOSE_IO_serial::write(const uint8_t *buffer, uint32_t bytes)
 {
-int current;
+uint32_t current;
 
 for (current = 0; current < bytes; current++)
 	*UART_0_data_register = buffer[current];
@@ -101,12 +101,12 @@ return bytes;
 }
 
 /*
-	ATOSE_IO_SERILA::READ()
+	ATOSE_IO_SERIAL::READ()
 	-----------------------
 */
-int ATOSE_IO_serial::read(char *into, int bytes)
+uint32_t ATOSE_IO_serial::read(uint8_t *into, uint32_t  bytes)
 {
-int which;
+uint32_t which;
 
 for (which = 0; which < bytes; which++)
 	{

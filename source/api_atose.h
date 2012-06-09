@@ -6,10 +6,10 @@
 #define API_ATOSE_H_
 
 #include <stdint.h>
+#include <stdio.h>
 #include "registers.h"
 
 #define ATOSE_SWI 0x6174
-
 
 /*
 	class ATOSE_API
@@ -32,14 +32,13 @@ public:
 */
 class ATOSE_API_io : public ATOSE_API, public ATOSE_IO
 {
-protected:
+public:
 	uint32_t id_object;
 
 public:
 	ATOSE_API_io()	{ id_object = id_object_none; }
 
-
-	virtual int read_byte(char *buffer)
+	virtual uint32_t read_byte(uint8_t *buffer)
 	{
 	uint32_t answer;
 	uint32_t the_byte;
@@ -56,11 +55,11 @@ public:
 		: "r0", "r1"
 		);
 
-	*buffer = (char)the_byte;
+	*buffer = (uint8_t)the_byte;
 	return answer;
 	}
 
-	virtual int write_byte(const char buffer)
+	virtual uint32_t write_byte(const uint8_t buffer)
 	{
 	uint32_t answer;
 
@@ -87,7 +86,7 @@ public:
 class ATOSE_API_mouse : public ATOSE_API_io
 {
 public:
-	ATOSE_API_mouse() : ATOSE_API_io() { id_object = id_object_mouse; }
+	ATOSE_API_mouse() : ATOSE_API_io() { id_object = id_object_mouse; init(); }
 } ;
 
 /*
@@ -97,7 +96,7 @@ public:
 class ATOSE_API_keyboard : public ATOSE_API_io
 {
 public:
-	ATOSE_API_keyboard() : ATOSE_API_io() { id_object = id_object_keyboard; }
+	ATOSE_API_keyboard() : ATOSE_API_io() { id_object = id_object_keyboard; init(); }
 } ;
 
 /*
@@ -107,7 +106,7 @@ public:
 class ATOSE_API_serial : public ATOSE_API_io
 {
 public:
-	ATOSE_API_serial() : ATOSE_API_io() { id_object = id_object_serial; }
+	ATOSE_API_serial() : ATOSE_API_io() { id_object = id_object_serial; init(); }
 } ;
 
 /*
