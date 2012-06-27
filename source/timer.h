@@ -28,9 +28,9 @@ private:
 public:
 	ATOSE_timer() : ATOSE_device_driver() {}
 
-	void enable(void);
-	void disable(void);
-	void acknowledge(void) { *timer_0_intclr = 0; }
+	virtual void enable(void);
+	virtual void disable(void);
+	virtual void acknowledge(void);
 } ;
 
 #endif /* TIMER_H_ */

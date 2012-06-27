@@ -6,22 +6,45 @@
 #include "atose.h"
 #include "api_atose.h"
 
+#ifdef IMX233
+	#include "../systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsicoll.h"
+#endif
+
+
 /*
 	ATOSE_ISR_IRQ()
 	---------------
 */
 uint32_t ATOSE_isr_irq(ATOSE_registers *registers)
 {
-ATOSE_device_driver *device_driver;
+#ifdef IMX233
 
-device_driver = (ATOSE_device_driver *)*ATOSE_pic::PIC_vector_address_register;
-if (device_driver != 0)
-	device_driver->acknowledge();
+	ATOSE_device_driver *device_driver;
 
-ATOSE *os = ATOSE::get_global_entry_point();
-os->io << ".";
+	device_driver = *((ATOSE_device_driver **)HW_ICOLL_VECTOR_RD());				// tell the CPU that we've entered the interrupt service routine and get the ISR address
+	
+	if (device_driver != 0)
+		device_driver->acknowledge();
 
-*ATOSE_pic::PIC_vector_address_register = 0;
+	ATOSE *os = ATOSE::get_global_entry_point();
+	os->io << ".";
+
+	HW_ICOLL_LEVELACK_WR(BV_ICOLL_LEVELACK_IRQLEVELACK__LEVEL0);			// finished processing the interrupt
+
+#else
+
+	ATOSE_device_driver *device_driver;
+
+	device_driver = (ATOSE_device_driver *)*ATOSE_pic::PIC_vector_address_register;
+	if (device_driver != 0)
+		device_driver->acknowledge();
+
+	ATOSE *os = ATOSE::get_global_entry_point();
+	os->io << ".";
+
+	*ATOSE_pic::PIC_vector_address_register = 0;
+
+#endif
 }
 
 /*
@@ -89,6 +112,8 @@ if (( (*(uint32_t *)(registers->r14_current - 4)) & 0x00FFFFFF) != ATOSE_SWI)
 */
 switch (registers->r0)
 	{
+#ifndef IMX233
+
 	case ATOSE_API::id_object_keyboard:
 //		os->io << "[Keyboard]\n";
 		object = &os->keyboard;
@@ -97,6 +122,7 @@ switch (registers->r0)
 //		os->io << "[Mouse]\n";
 		object = &os->mouse;
 		break;
+#endif
 	case ATOSE_API::id_object_serial:
 //		os->io << "[Serial]\n";
 		object = &os->io;

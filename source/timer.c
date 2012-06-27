@@ -40,3 +40,12 @@ void ATOSE_timer::disable(void)
 *timer_0_control &= 0xFFFFFF10;
 }
 
+
+/*
+	ATOSE_TIMER::ACKNOWLEDGE()
+	--------------------------
+*/
+void ATOSE_timer::acknowledge(void)
+{
+*timer_0_intclr = 0;
+}

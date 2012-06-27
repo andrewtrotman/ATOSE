@@ -79,31 +79,14 @@ uint32_t status_register;
 */
 asm volatile
 	(
-	"mrs %[status_register], cpsr \n"
-	: [status_register]"=r"(status_register)
+	"mov r0, %[address];"
+	"mov r1, %[mode];"
+	"mrs r2, cpsr;"
+	"msr cpsr, r1;"
+	"mov sp, r0;"
+	"msr cpsr, r2;"
 	:
-	:
-	);
-
-/*
-	change mode and set the stack pointer
-*/
-asm volatile
-	(
-	"msr cpsr, %[mode] \n"
-	"mov sp, %[address] \n"
-	:
-	: [mode]"r"(mode), [address]"r"((uint32_t)address)
-	);
-
-/*
-	Go back to what ever mode we were in before
-*/
-asm volatile
-	(
-	"msr cpsr, %[status_register] \n"
-	:
-	: [status_register]"r"(status_register)
-	:
+	: [address]"r"(address), [mode]"r"(mode)
+	: "r0", "r1", "r2"
 	);
 }

@@ -101,7 +101,7 @@ public:
 	ATOSE_IO &operator << (const char *string) 				{ *this << (uint8_t *) string; return *this; }
 //	ATOSE_IO &operator << (const unsigned char *string) 	{ *this << (uint8_t *) string; return *this; }
 
-	ATOSE_IO &operator << (long value) 						{ char buffer[sizeof(long) * 8 + 2]; ASCII_itoa(value, buffer, base); *this << "{" << buffer << "}"; return *this; }
+	ATOSE_IO &operator << (long value) 						{ char buffer[sizeof(long) * 8 + 2]; ASCII_itoa(value, buffer, base); *this << buffer; return *this; }
 	ATOSE_IO &operator << (uint32_t value) 					{ *this << (long)value; return *this; }
 	ATOSE_IO &operator << (int value) 						{ *this << (long)value; return *this; }
 	ATOSE_IO &operator << (short value) 					{ *this << (long)value; return *this; }

@@ -20,10 +20,12 @@ private:
 public:
 	ATOSE_cpu() {}
 
-	void init(void) {}
+	void init(void);
 
 	void enable_IRQ(void);
 	void disable_IRQ(void);
+
+	void move_interrupt_vector_table_to_zero(void);
 
 	void enter_user_mode(void);
 } ;

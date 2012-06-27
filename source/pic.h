@@ -62,6 +62,8 @@ private:
 	static volatile uint32_t *SEC_picenable;
 	static volatile uint32_t *SEC_picenclr;
 
+
+protected:
 	/*
 		Sentinal constants
 	*/

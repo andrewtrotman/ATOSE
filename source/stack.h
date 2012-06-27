@@ -15,12 +15,12 @@
 class ATOSE_stack
 {
 private:
-	static const int STACK_SIZE_FIRQ = 4096;
-	static const int STACK_SIZE_IRQ = 4096;
-	static const int STACK_SIZE_SUPERVISOR = 4096;
-	static const int STACK_SIZE_ABORT = 4096;
-	static const int STACK_SIZE_UNDEFINED = 4096;
-	static const int STACK_SIZE_SYSTEM = 4096;					// and user
+	static const int STACK_SIZE_FIRQ = 4;
+	static const int STACK_SIZE_IRQ = 1024;
+	static const int STACK_SIZE_SUPERVISOR = 128;
+	static const int STACK_SIZE_ABORT = 4;
+	static const int STACK_SIZE_UNDEFINED = 4;
+	static const int STACK_SIZE_SYSTEM = 1024;					// and user
 
 private:
 	static unsigned char FIRQ_stack[STACK_SIZE_FIRQ];

@@ -4,6 +4,16 @@
 */
 #include "cpu.h"
 
+
+/*
+	ATOSE_CPU::INIT()
+	-----------------
+*/
+void ATOSE_cpu::init(void)
+{
+move_interrupt_vector_table_to_zero();
+}
+
 /*
 	ATOSE_CPU::GET_CPSR()
 	---------------------
@@ -55,6 +65,24 @@ void ATOSE_cpu::disable_IRQ(void)
 {
 set_cpsr(get_cpsr() | 0x80);
 }
+
+/*
+	ATOSE_CPU::MOVE_INTERRUPT_VECTOR_TABLE_TO_ZERO()
+	------------------------------------------------
+*/
+void ATOSE_cpu::move_interrupt_vector_table_to_zero(void)
+{
+uint32_t p15;
+asm volatile
+	(
+	"mrc p15, 0, r0, c1, c0, 0;"			// read control register
+	"and r0, #~(1<<13);"					// turn off the high-interrupt vector table bit
+	"mcr p15, 0, r0, c1, c0, 0;"			// write control register
+	:
+	:
+	: "r0");
+}
+
 
 /*
 	ATOSE_CPU::ENTER_USER_MODE()

@@ -34,6 +34,7 @@ public:
 			}
 		return 1;
 		}
+
 	base read(void)
 		{
 		if (!is_empty())

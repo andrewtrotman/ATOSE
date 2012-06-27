@@ -2,7 +2,8 @@ ENTRY(_Reset)
 
 SECTIONS
 {
-. = 0x10000;
+. = 0x00000000;
+. = ALIGN(4);
 .startup . : { startup.o(.text) }
 
  __exidx_start = .;

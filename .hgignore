@@ -1,0 +1,11 @@
+^ARM/
+^BLOB/
+^Paul/
+^OpenOCD/
+^bootlets/
+^test/
+^libusb/
+\.bak$
+\.o$
+\.elf$
+

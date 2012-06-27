@@ -1,34 +1,102 @@
 /*
-	CPU.C
-	-----
+	DUMP_CPU_STATE.C
+	----------------
 */
+#include <stdarg.h>
+#include "../systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsuartdbg.h"
+#include "../source/ascii_str.h"
 
-#include <stdio.h>
+void __cs3_isr_undef(void){}
+void __cs3_isr_pabort(void){}
+void __cs3_isr_dabort(void){}
+void __cs3_isr_reserved(void){}
+void __cs3_isr_fiq(void){}
+void ATOSE_isr_irq(void){}
+void ATOSE_isr_swi(void){}
 
 /*
-	class ATOSE_CPU
-	---------------
+	PUTC()
+	------
 */
-class ATOSE_cpu
+void debug_putc(char ch)
 {
-protected:
-	static void decode_domain_register(int value);
-	static void decode_fault_status_register(int cp15);
-	static void text_render_decode_cache_size(int cache_size);
-	static void decode_p15_TCM_size(int value);
+int loop = 0;
 
-public:
-	ATOSE_cpu() {}
-	virtual ~ATOSE_cpu() {}
+while (HW_UARTDBGFR_RD()&BM_UARTDBGFR_TXFF)
+	if (++loop > 10000)
+		break;
 
-	static void text_render(void);
-} ;
+/* if(!(HW_UARTDBGFR_RD() &BM_UARTDBGFR_TXFF)) */
+HW_UARTDBGDR_WR(ch);
+}
+
 
 /*
-	ATOSE_CPU::TEXT_RENDER_DECODE_CACHE_SIZE()
-	------------------------------------------
+	PRINT_STRING()
+	--------------
 */
-void ATOSE_cpu::text_render_decode_cache_size(int cache_size)
+void print_string(char *string)
+{
+while (*string)
+	{
+	debug_putc(*string);
+	string++;
+	}
+}
+
+/*
+	PRINTF()
+	--------
+*/
+void debug_printf(const char *fmt, ...)
+{
+va_list args;
+int one;
+char buffer[32];
+
+
+va_start(args, fmt);
+while (*fmt)
+	{
+	if (*fmt == '%')
+		{
+		fmt++;
+		switch (*fmt)
+			{
+			case 'x':
+			case 'X':
+				ASCII_itoa(va_arg(args, int), buffer, 16);
+				print_string(buffer);
+				break;
+			case 's':
+				print_string(va_arg(args, char *));
+				break;
+			case 'd':
+				ASCII_itoa(va_arg(args, int), buffer, 10);
+				print_string(buffer);
+				break;
+			case 'c':
+				debug_putc(va_arg(args, int));
+				break;
+			case '%':
+				debug_putc('%');
+				break;
+			default:
+				break;
+			}
+		}
+	else
+		debug_putc(*fmt);
+	fmt++;
+	}
+va_end(args);
+}
+
+/*
+	TEXT_RENDER_DECODE_CACHE_SIZE()
+	-------------------------------
+*/
+void text_render_decode_cache_size(int cache_size)
 {
 const char *string;
 
@@ -61,8 +129,8 @@ else
 		default: string = "Unknown"; break;
 		}
 
-printf("      Size             : %s\n", string);
-printf("      Restrictions (P) : %s\n", cache_size >> 11 ? "Some" : "No");
+debug_printf("      Size             : %s\n", string);
+debug_printf("      Restrictions (P) : %s\n", cache_size >> 11 ? "Some" : "No");
 switch (cache_size &0x03)
 	{
 	case 0: string = "8 bytes"; break;
@@ -70,7 +138,7 @@ switch (cache_size &0x03)
 	case 2: string = "32 bytes"; break;
 	case 3: string = "64 bytes"; break;
 	}
-printf("      Cache lines      : %s\n", string);
+debug_printf("      Cache lines      : %s\n", string);
 
 
 if (cache_size & 0x04)		// check the M bit
@@ -101,7 +169,7 @@ else
 		case 7: string = "128" ; break;
 		}
 	}
-printf("      Associativity    : %s-way\n", string);
+debug_printf("      Associativity    : %s-way\n", string);
 }
 
 
@@ -109,14 +177,14 @@ printf("      Associativity    : %s-way\n", string);
 	DECODE_DOMAIN_REGISTER()
 	------------------------
 */
-void ATOSE_cpu::decode_domain_register(int value)
+void decode_domain_register(int value)
 {
 switch (value & 0x03)
 	{
-	case 0: printf("No access\n"); break;
-	case 1: printf("Client access\n"); break;
-	case 2: printf("Reserved\n"); break;
-	case 3: printf("Manager\n"); break;
+	case 0: debug_printf("No access\n"); break;
+	case 1: debug_printf("Client access\n"); break;
+	case 2: debug_printf("Reserved\n"); break;
+	case 3: debug_printf("Manager\n"); break;
 	}
 }
 
@@ -124,7 +192,7 @@ switch (value & 0x03)
 	DECODE_FAULT_STATUS_REGISTER()
 	------------------------------
 */
-void ATOSE_cpu::decode_fault_status_register(int cp15)
+void decode_fault_status_register(int cp15)
 {
 const char *string;
 
@@ -147,7 +215,7 @@ switch (cp15 & 0x0F)
 	case 14: string = "External abort on translation (second level)"; break;
 	case 15: string = "Permission"; break;
 	}
-printf("  Fault Type              : %s\n", string);
+debug_printf("  Fault Type              : %s\n", string);
 switch (cp15 & 0x0F)
 	{
 	case 7:
@@ -156,20 +224,20 @@ switch (cp15 & 0x0F)
 	case 13:
 	case 14:
 	case 15:
-		printf("  in Domain               : %X\n", (cp15 >> 4) & 0x0F);
+		debug_printf("  in Domain               : %X\n", (cp15 >> 4) & 0x0F);
 		break;
 	}
 }
 
 /*
-	ATOSE_CPU::DECODE_P15_TCM_SIZE()
-	--------------------------------
+	DECODE_P15_TCM_SIZE()
+	---------------------
 */
-void ATOSE_cpu::decode_p15_TCM_size(int value)
+void decode_p15_TCM_size(int value)
 {
 const char *string;
 
-printf("  Enable bit              : %s\n", (value & 0x01) ? "Enabled" : "Disabled");
+debug_printf("  Enable bit              : %s\n", (value & 0x01) ? "Enabled" : "Disabled");
 
 switch ((value >> 2) & 0x0F)
 	{
@@ -191,15 +259,15 @@ switch ((value >> 2) & 0x0F)
 	case 15: string = "Reserved"; break;
 	}
 
-printf("  Size                    : %s\n", string);
-printf("  Address                 : %04X\n", value >> 12);
+debug_printf("  Size                    : %s\n", string);
+debug_printf("  Address                 : %X\n", value >> 12);
 }
 
 /*
-	ATOSE_CPU::TEXT_RENDER()
-	------------------------
+	TEXT_RENDER()
+	-------------
 */
-void ATOSE_cpu::text_render(void)
+void text_render(void)
 {
 int cpsr;		// the ARM cpsr program status register
 int j, t;		// the values of the J (jazelle) and T (thumb) bits of the cpsr
@@ -214,40 +282,40 @@ int domain;				// current domain number;
 	see section A.25 of the "ARM Architecture Reference Manual"
 */
 asm volatile ("mrs %0, cpsr" : "=r"(cpsr));
-printf("CPSR: 0x%08X\n", cpsr);
-printf("  Negative   (N): %2X\n", (cpsr >> 31) & 0x01);
-printf("  Zero       (Z): %2X\n", (cpsr >> 30) & 0x01);
-printf("  Carry      (C): %2X\n", (cpsr >> 29) & 0x01);
-printf("  Overflow   (V): %2X\n", (cpsr >> 28) & 0x01);
-printf("  Saturation (Q): %2X\n", (cpsr >> 27) & 0x01);
-printf("  SIMD >=   (GE): %2X\n", (cpsr >> 16) & 0x0F);
+debug_printf("CPSR: 0x%X\n", cpsr);
+debug_printf("  Negative   (N): %X\n", (cpsr >> 31) & 0x01);
+debug_printf("  Zero       (Z): %X\n", (cpsr >> 30) & 0x01);
+debug_printf("  Carry      (C): %X\n", (cpsr >> 29) & 0x01);
+debug_printf("  Overflow   (V): %X\n", (cpsr >> 28) & 0x01);
+debug_printf("  Saturation (Q): %X\n", (cpsr >> 27) & 0x01);
+debug_printf("  SIMD >=   (GE): %X\n", (cpsr >> 16) & 0x0F);
 
-printf("  Jazelle    (J): %2X\n", j = (cpsr >> 24) & 0x01);
-printf("  Thumb      (T): %2X\n", t = (cpsr >> 5) & 0x01);
+debug_printf("  Jazelle    (J): %X\n", j = (cpsr >> 24) & 0x01);
+debug_printf("  Thumb      (T): %X\n", t = (cpsr >> 5) & 0x01);
 switch ((j << 1) | t)
 	{
-	case 0x00: printf("    ARM instruction set\n");	break;
-	case 0x01: printf("    Thumb instruction set\n");	break;
-	case 0x02: printf("    Jazelle (Java) instruction set\n");	break;
-	case 0x03: printf("    Unknown instruction set (invalid)\n");	break;
+	case 0x00: debug_printf("    ARM instruction set\n");	break;
+	case 0x01: debug_printf("    Thumb instruction set\n");	break;
+	case 0x02: debug_printf("    Jazelle (Java) instruction set\n");	break;
+	case 0x03: debug_printf("    Unknown instruction set (invalid)\n");	break;
 	}
 
-printf("  Endianness (E): %2X (%s)\n", (cpsr >> 9) & 0x01, ((cpsr >> 9) & 0x01) ? "Big Endian" : "Little Endian");
-printf("  Data abort (A): %2X (%s)\n", (cpsr >> 8) & 0x01, ((cpsr >> 8) & 0x01) ? "Disabled" : "Enabled");
-printf("  IRQ        (I): %2X (%s)\n", (cpsr >> 7) & 0x01, ((cpsr >> 7) & 0x01) ? "Disabled" : "Enabled");
-printf("  FIRQ       (F): %2X (%s)\n", (cpsr >> 6) & 0x01, ((cpsr >> 6) & 0x01) ? "Disabled" : "Enabled");
-printf("  Mode       (M): 0x%02X\n", cpsr & 0x1F);
+debug_printf("  Endianness (E): %X (%s)\n", (cpsr >> 9) & 0x01, ((cpsr >> 9) & 0x01) ? "Big Endian" : "Little Endian");
+debug_printf("  Data abort (A): %X (%s)\n", (cpsr >> 8) & 0x01, ((cpsr >> 8) & 0x01) ? "Disabled" : "Enabled");
+debug_printf("  IRQ        (I): %X (%s)\n", (cpsr >> 7) & 0x01, ((cpsr >> 7) & 0x01) ? "Disabled" : "Enabled");
+debug_printf("  FIRQ       (F): %X (%s)\n", (cpsr >> 6) & 0x01, ((cpsr >> 6) & 0x01) ? "Disabled" : "Enabled");
+debug_printf("  Mode       (M): 0x%X\n", cpsr & 0x1F);
 
 switch (cpsr & 0x1F)
 	{
-	case 0x10: printf("    USER mode\n");	break;
-	case 0x11: printf("    FIRQ mode\n");	break;
-	case 0x12: printf("    IRQ mode\n");	break;
-	case 0x13: printf("    SUPERVISOR mode\n");	break;
-	case 0x17: printf("    ABORT mode\n");	break;
-	case 0x1C: printf("    UNDEFINED mode\n");	break;
-	case 0x1F: printf("    SYSTEM mode\n");	break;
-	default:   printf("    mode is unknown and undefined\n");	break;
+	case 0x10: debug_printf("    USER mode\n");	break;
+	case 0x11: debug_printf("    FIRQ mode\n");	break;
+	case 0x12: debug_printf("    IRQ mode\n");	break;
+	case 0x13: debug_printf("    SUPERVISOR mode\n");	break;
+	case 0x17: debug_printf("    ABORT mode\n");	break;
+	case 0x1C: debug_printf("    UNDEFINED mode\n");	break;
+	case 0x1F: debug_printf("    SYSTEM mode\n");	break;
+	default:   debug_printf("    mode is unknown and undefined\n");	break;
 	}
 
 /*
@@ -256,24 +324,24 @@ switch (cpsr & 0x1F)
 */
 asm("mrc p15, 0, %0, c0, c0, 0" : "=r"(cp15));
 
-printf("\n");
-printf("CP15-C0 ID code : 0x%08X\n", cp15);
-printf("  Implementer   : 0x%X ('%c')\n",  cp15 >> 24, cp15 >> 24);
+debug_printf("\n");
+debug_printf("CP15-C0 ID code : 0x%X\n", cp15);
+debug_printf("  Implementer   : 0x%X ('%c')\n",  cp15 >> 24, cp15 >> 24);
 if ((cp15 & (1 << 19)) == 0)
 	{
 	architecture = (cp15 >> 12) & 0x0F;
 	if (architecture == 0x00)
-		printf("  pre-ARMv4 CPU (obsolete)\n");
+		debug_printf("  pre-ARMv4 CPU (obsolete)\n");
 	else 
-		printf("  ARM V%X\n", architecture);
+		debug_printf("  ARM V%X\n", architecture);
 	}
 
 if (architecture != 0x00 && architecture != 0x07)
 	{
-	printf("    Variant       : 0x%02X\n", (cp15 >> 20) & 0x0F);
-	printf("    Architecture  : 0x%02X\n", (cp15 >> 16) & 0x0F);
-	printf("    Part Number   : 0x%03X\n", (cp15 >>  4) & 0xFFF);
-	printf("    Revision      : 0x%02X\n", cp15 & 0x0F);
+	debug_printf("    Variant       : 0x%X\n", (cp15 >> 20) & 0x0F);
+	debug_printf("    Architecture  : 0x%X\n", (cp15 >> 16) & 0x0F);
+	debug_printf("    Part Number   : 0x%X\n", (cp15 >>  4) & 0xFFF);
+	debug_printf("    Revision      : 0x%X\n", cp15 & 0x0F);
 	}
 
 
@@ -281,128 +349,128 @@ if (architecture != 0x00 && architecture != 0x07)
 	CP15 register 0, cache type register
 */
 asm("mrc p15, 0, %0, c0, c0, 1" : "=r"(cp15));
-printf("\n");
-printf("CP15-C0 Cache type register: 0x%08X\n", cp15);
-printf("    Ctype              : %X (should be 0x0E)\n", (cp15 >> 25) & 0x0F);
-printf("    Seperate Caches (S): %X (caches are %s)\n", (cp15 >> 24) % 0x01, (cp15 >> 24) & 0x01 ? "Seperate (Harvard)" : "Unified");
+debug_printf("\n");
+debug_printf("CP15-C0 Cache type register: 0x%X\n", cp15);
+debug_printf("    Ctype              : %X (should be 0x0E)\n", (cp15 >> 25) & 0x0F);
+debug_printf("    Seperate Caches (S): %X (caches are %s)\n", (cp15 >> 24) % 0x01, (cp15 >> 24) & 0x01 ? "Seperate (Harvard)" : "Unified");
 /*
 	Data cache
 */
 cache_size = (cp15 >> 12) & 0xFFF;
-printf("    Dsize              : 0x%03X\n", cache_size);
+debug_printf("    Dsize              : 0x%X\n", cache_size);
 text_render_decode_cache_size(cache_size);
 
 /*
 	Instruction Cache
 */
 cache_size = cp15 & 0xFFF;
-printf("    Isize              : 0x%03X\n", cache_size);
+debug_printf("    Isize              : 0x%X\n", cache_size);
 text_render_decode_cache_size(cache_size);
 
 /*
 	CP15 register 0, Tighly coupled memory (TCM) type register
 */
 asm("mrc p15, 0, %0, c0, c0, 2" : "=r"(cp15));
-printf("\n");
-printf("CP15-C0 Tightly Coupled Memory (TCM) register: 0x%08X\n", cp15);
-printf("  Banks of Instruction TCM:%d\n", cp15 & 0x7);
-printf("  Banks of Data TCM       :%d\n", (cp15 >> 16) & 0x7);
+debug_printf("\n");
+debug_printf("CP15-C0 Tightly Coupled Memory (TCM) register: 0x%X\n", cp15);
+debug_printf("  Banks of Instruction TCM:%d\n", cp15 & 0x7);
+debug_printf("  Banks of Data TCM       :%d\n", (cp15 >> 16) & 0x7);
 
 /*
 	CP15 register 1, Control Register
 */
 asm("mrc p15, 0, %0, c1, c0, 0" : "=r"(cp15));
-printf("\n");
-printf("CP15-C1 Control Register  : 0x%08X\n", cp15);
-printf("  MMU                 (M) : %s\n", (cp15 & 1) ? "Enabled" : "Disabled");
-printf("  Alignment faults    (A) : %s\n", (cp15 & 2) ? "Enabled" : "Disabled");
-printf("  DCache              (C) : %s\n", (cp15 & 4) ? "Enabled" : "Disabled");
-printf("  ICache              (I) : %s\n", (cp15 & 4096) ? "Enabled" : "Disabled");
-printf("  Endian              (B) : %s\n", (cp15 & 128) ? "Big-endian" : "Little-endian");
-printf("  System Protection   (S) : %s\n", (cp15 & 256) ? "Enabled" : "Disabled");
-printf("  ROM Protection      (R) : %s\n", (cp15 & 512) ? "Enabled" : "Disabled");
-printf("  Interrupt Vectors   (V) : %s\n", (cp15 & 8192) ? "0xFFFF0000 - 0xFFFF001C" : "0x00000000 - 0x0000001C");
-printf("  Cache Replacement  (RR) : %s\n", (cp15 & 16384) ? "Round Robin" : "Random");
-printf("  Set T on PC load   (L4) : %s\n", (cp15 & 32768) ? "Set" : "Don't set");
+debug_printf("\n");
+debug_printf("CP15-C1 Control Register  : 0x%X\n", cp15);
+debug_printf("  MMU                 (M) : %s\n", (cp15 & 1) ? "Enabled" : "Disabled");
+debug_printf("  Alignment faults    (A) : %s\n", (cp15 & 2) ? "Enabled" : "Disabled");
+debug_printf("  DCache              (C) : %s\n", (cp15 & 4) ? "Enabled" : "Disabled");
+debug_printf("  ICache              (I) : %s\n", (cp15 & 4096) ? "Enabled" : "Disabled");
+debug_printf("  Endian              (B) : %s\n", (cp15 & 128) ? "Big-endian" : "Little-endian");
+debug_printf("  System Protection   (S) : %s\n", (cp15 & 256) ? "Enabled" : "Disabled");
+debug_printf("  ROM Protection      (R) : %s\n", (cp15 & 512) ? "Enabled" : "Disabled");
+debug_printf("  Interrupt Vectors   (V) : %s\n", (cp15 & 8192) ? "0xFFFF0000 - 0xFFFF001C" : "0x00000000 - 0x0000001C");
+debug_printf("  Cache Replacement  (RR) : %s\n", (cp15 & 16384) ? "Round Robin" : "Random");
+debug_printf("  Set T on PC load   (L4) : %s\n", (cp15 & 32768) ? "Set" : "Don't set");
 
 
 /*
 	CP15 register 2, Translation Table Base Register (TTBR register)s
 */
 asm("mrc p15, 0, %0, c2, c0, 0" : "=r"(cp15));
-printf("\n");
-printf("CP15-C2 Translation Table Base Register : 0x%08X\n", cp15);
-printf("  Translation Table Base:%04X\n", (cp15 >> 14) << 14);
+debug_printf("\n");
+debug_printf("CP15-C2 Translation Table Base Register : 0x%X\n", cp15);
+debug_printf("  Translation Table Base:%X\n", (cp15 >> 14) << 14);
 
 /*
 	CP15 register 3 Domain Access Control Register
 
 */
 asm("mrc p15, 0, %0, c3, c0, 0" : "=r"(cp15));
-printf("\n");
-printf("CP15-C3 Domain Access Control Register : 0x%08X\n", cp15);
+debug_printf("\n");
+debug_printf("CP15-C3 Domain Access Control Register : 0x%X\n", cp15);
 for (domain = 0; domain < 16; domain++)
 	{
-	printf("  Domain %02X                 : ", domain);
+	debug_printf("  Domain %X                 : ", domain);
 	decode_domain_register((cp15 >> 30) & 0x03);
 	}
 
 /*
 	CP15 register 4 is undefined
 */
-printf("\n");
-printf("CP15-C4 Undefined\n");
+debug_printf("\n");
+debug_printf("CP15-C4 Undefined\n");
 
 /*
 	CP15 register 5 Fault Status Registers
 */
 asm("mrc p15, 0, %0, c5, c0, 0" : "=r"(cp15));
-printf("\n");
-printf("CP15-C5 Data Fault Status Register (DFSR) : 0x%08X\n", cp15);
+debug_printf("\n");
+debug_printf("CP15-C5 Data Fault Status Register (DFSR) : 0x%X\n", cp15);
 decode_fault_status_register(cp15);
 
 asm("mrc p15, 0, %0, c5, c0, 1" : "=r"(cp15));
-printf("\n");
-printf("CP15-C5 Instruction Fault Status Register (DFSR) : 0x%08X\n", cp15);
+debug_printf("\n");
+debug_printf("CP15-C5 Instruction Fault Status Register (DFSR) : 0x%X\n", cp15);
 decode_fault_status_register(cp15);
 
 /*
 	CP15 register 6 Fault Address Register
 */
 asm("mrc p15, 0, %0, c6, c0, 0" : "=r"(cp15));
-printf("\n");
-printf("CP15-C6 Fault Address Register (FAR) : 0x%08X\n", cp15);
+debug_printf("\n");
+debug_printf("CP15-C6 Fault Address Register (FAR) : 0x%X\n", cp15);
 
 /*
 	CP15 register 7 Cache Operations Register
 */
-printf("\n");
-printf("CP15-C7 Cache Operations Register (cannot be read)\n");
+debug_printf("\n");
+debug_printf("CP15-C7 Cache Operations Register (cannot be read)\n");
 
 /*
 	CP15 register 8 Fault Address Register
 */
-printf("\n");
-printf("CP15-C8 TLB Operations Register (cannot be read)\n");
+debug_printf("\n");
+debug_printf("CP15-C8 TLB Operations Register (cannot be read)\n");
 
 /*
 	CP15 register 9 Cache Lockdown Register
 */
 asm("mrc p15, 0, %0, c9, c0, 0" : "=r"(cp15));
-printf("\n");
-printf("CP15-C9 DCache Lockdown Register : 0x%08X\n", cp15);
-printf("  DCache Way 0 is         : %s\n", (cp15 & 1) ? "Locked" : "Unlocked");
-printf("  DCache Way 1 is         : %s\n", (cp15 & 2) ? "Locked" : "Unlocked");
-printf("  DCache Way 2 is         : %s\n", (cp15 & 4) ? "Locked" : "Unlocked");
-printf("  DCache Way 3 is         : %s\n", (cp15 & 8) ? "Locked" : "Unlocked");
+debug_printf("\n");
+debug_printf("CP15-C9 DCache Lockdown Register : 0x%X\n", cp15);
+debug_printf("  DCache Way 0 is         : %s\n", (cp15 & 1) ? "Locked" : "Unlocked");
+debug_printf("  DCache Way 1 is         : %s\n", (cp15 & 2) ? "Locked" : "Unlocked");
+debug_printf("  DCache Way 2 is         : %s\n", (cp15 & 4) ? "Locked" : "Unlocked");
+debug_printf("  DCache Way 3 is         : %s\n", (cp15 & 8) ? "Locked" : "Unlocked");
 
 asm("mrc p15, 0, %0, c9, c0, 1" : "=r"(cp15));
-printf("\n");
-printf("CP15-C9 ICache Lockdown Register : 0x%08X\n", cp15);
-printf("  ICache Way 0 is         : %s\n", (cp15 & 1) ? "Locked" : "Unlocked");
-printf("  ICache Way 1 is         : %s\n", (cp15 & 2) ? "Locked" : "Unlocked");
-printf("  ICache Way 2 is         : %s\n", (cp15 & 4) ? "Locked" : "Unlocked");
-printf("  ICache Way 3 is         : %s\n", (cp15 & 8) ? "Locked" : "Unlocked");
+debug_printf("\n");
+debug_printf("CP15-C9 ICache Lockdown Register : 0x%X\n", cp15);
+debug_printf("  ICache Way 0 is         : %s\n", (cp15 & 1) ? "Locked" : "Unlocked");
+debug_printf("  ICache Way 1 is         : %s\n", (cp15 & 2) ? "Locked" : "Unlocked");
+debug_printf("  ICache Way 2 is         : %s\n", (cp15 & 4) ? "Locked" : "Unlocked");
+debug_printf("  ICache Way 3 is         : %s\n", (cp15 & 8) ? "Locked" : "Unlocked");
 
 
 /*
@@ -413,82 +481,72 @@ printf("  ICache Way 3 is         : %s\n", (cp15 & 8) ? "Locked" : "Unlocked");
 	CP15 register 9 TCM Region Register
 */
 asm("mrc p15, 0, %0, c9, c1, 0" : "=r"(cp15));
-printf("\n");
-printf("CP15-C9 Data TCM Region Register : 0x%08X\n", cp15);
+debug_printf("\n");
+debug_printf("CP15-C9 Data TCM Region Register : 0x%X\n", cp15);
 decode_p15_TCM_size(cp15);
 
 asm("mrc p15, 0, %0, c9, c1, 1" : "=r"(cp15));
-printf("\n");
-printf("CP15-C9 Instruction TCM Region Register : 0x%08X\n", cp15);
+debug_printf("\n");
+debug_printf("CP15-C9 Instruction TCM Region Register : 0x%X\n", cp15);
 decode_p15_TCM_size(cp15);
 #endif
 /*
 	CP15 register 10 TLB Lockdown Register
 */
 asm("mrc p15, 0, %0, c10, c0, 0" : "=r"(cp15));
-printf("\n");
-printf("CP15-C10 TLB Lockdown Register : 0x%08X\n", cp15);
-printf("  Go into %s part of TLB\n", (cp15 & 0x01) ? "lockdown" : "set associative");
-printf("  Victim                  : 0x%02X\n", (cp15 >> 26) & 0x07);
+debug_printf("\n");
+debug_printf("CP15-C10 TLB Lockdown Register : 0x%X\n", cp15);
+debug_printf("  Go into %s part of TLB\n", (cp15 & 0x01) ? "lockdown" : "set associative");
+debug_printf("  Victim                  : 0x%X\n", (cp15 >> 26) & 0x07);
 
 /*
 	CP15 register 11
 */
-printf("\n");
-printf("CP15-C11 cannot be read\n");
+debug_printf("\n");
+debug_printf("CP15-C11 cannot be read\n");
 
 /*
 	CP15 register 12
 */
-printf("\n");
-printf("CP15-C12 cannot be read\n");
+debug_printf("\n");
+debug_printf("CP15-C12 cannot be read\n");
 
 /*
 	CP15 register 13 Process ID Register
 */
 asm("mrc p15, 0, %0, c13, c0, 0" : "=r"(cp15));
-printf("\n");
-printf("CP15-C13 Fast Context Switch Extension (FCSE) Process Identifier (PID) : 0x%08X\n", cp15);
-printf("  Current process ID      : 0x%02X\n", cp15 >> 25);
+debug_printf("\n");
+debug_printf("CP15-C13 Fast Context Switch Extension (FCSE) Process Identifier (PID) : 0x%X\n", cp15);
+debug_printf("  Current process ID      : 0x%X\n", cp15 >> 25);
 
 /*
 	CP15 register 13 Context ID Register
 */
 asm("mrc p15, 0, %0, c13, c0, 1" : "=r"(cp15));
-printf("\n");
-printf("CP15-C13 Context ID Register : 0x%08X\n", cp15);
+debug_printf("\n");
+debug_printf("CP15-C13 Context ID Register : 0x%X\n", cp15);
 
 /*
 	CP15 register 14
 */
-printf("\n");
-printf("CP15-C14 cannot be read\n");
+debug_printf("\n");
+debug_printf("CP15-C14 cannot be read\n");
 
 /*
 	CP15 register 15 Test and debug register
 */
-printf("\n");
-printf("CP15-C15 is the Test and Debug Register\n");
+debug_printf("\n");
+debug_printf("CP15-C15 is the Test and Debug Register\n");
 }
 
 
 /*
-	MAIN()
-	------
+	C_ENTRY()
+	---------
 */
-int main(void)
+int c_entry(void)
 {
-ATOSE_cpu::text_render();
+text_render();
 
 return 0;
 }
-
-
-
-
-
-
-
-
-
-

@@ -11,7 +11,7 @@
 	The size of the kernel heap can be configured in the makefile, but defaults here
 */
 #ifndef ATOSE_KERNEL_HEAP_SIZE
-	#define ATOSE_KERNEL_HEAP_SIZE 1024
+	#define ATOSE_KERNEL_HEAP_SIZE 128
 #endif
 
 /*
@@ -34,8 +34,6 @@ public:
 
 	void *alloc(size_t bytes);
 	void *free(void *memory);
-
-
 } ;
 
 #endif /* HEAP_H_ */
