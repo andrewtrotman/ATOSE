@@ -31,7 +31,7 @@ OBJECTS =	$(OBJ_DIR)\io_angel.o					\
 			$(OBJ_DIR)\device_driver.o				\
 			$(OBJ_DIR)\interrupts.o	
 
-all : $(BIN_DIR)\dump_cpu_state.elf $(BIN_DIR)\atose.elf $(BIN_DIR)\elf_reader.exe $(BIN_DIR)\imx233_timer.elf
+all : $(BIN_DIR)\dump_cpu_state.elf $(BIN_DIR)\atose.elf $(BIN_DIR)\elf_reader.exe $(BIN_DIR)\imx233_timer.elf $(BIN_DIR)\imx233_nand.elf
 
 #
 # ATOSE
@@ -47,6 +47,9 @@ startup.o : $(SOURCE_DIR)\atose_startup.asm
 #
 $(BIN_DIR)\imx233_timer.elf : $(TESTS_DIR)\imx233_timer.c startup.o $(SOURCE_DIR)\atose.ld
 	$(CCC) -O3 -o $(BIN_DIR)\imx233_timer.elf startup.o $(TESTS_DIR)\imx233_timer.c -T $(SOURCE_DIR)\atose.ld
+
+$(BIN_DIR)\imx233_nand.elf : $(TESTS_DIR)\imx233_nand.c startup.o $(SOURCE_DIR)\atose.ld
+	$(CCC) -O3 -o $(BIN_DIR)\imx233_nand.elf startup.o $(TESTS_DIR)\imx233_nand.c -T $(SOURCE_DIR)\atose.ld
 
 $(BIN_DIR)\dump_cpu_state.elf : $(TOOLS_DIR)\dump_cpu_state.c startup.o $(SOURCE_DIR)\atose.ld
 	$(CCC) -O3 -o $(BIN_DIR)\dump_cpu_state.elf startup.o $(TOOLS_DIR)\dump_cpu_state.c -T $(SOURCE_DIR)\atose.ld
