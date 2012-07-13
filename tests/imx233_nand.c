@@ -248,13 +248,28 @@ set_cpsr(get_cpsr() & ~0x80);
 
 
 /*
+	NS_TO_CYCLES()
+	--------------
+	time is is nanoseconds
+	period is in cycles per second (Hz)
+*/
+uint32_t ns_to_cycles(unsigned int time, unsigned int period, unsigned int min)
+{
+uint32_t cycles;
+
+cycles = (time + period - 1) / period;
+return cycles > min ? cycles : min;
+}
+
+/*
 	NS_TO_GPMI_CLOCKS()
-	-------------------
-	1ns = 1Ghz = 1000MHz = 1000000KHz = 1000000000Hz
+	--------------------
 */
 uint32_t ns_to_gpmi_clocks(uint32_t ns, uint32_t freq_in_mhz)
 {
-return (ns * 1000) / freq_in_mhz;
+uint32_t clock_period_in_ns = 1000000000 / (freq_in_mhz * 1000000);
+
+return ns_to_cycles(ns, clock_period_in_ns, 1);
 }
 
 /*
@@ -267,7 +282,7 @@ uint32_t index;
 uint8_t irq_stack[1024];
 uint8_t *irq_sp = irq_stack + sizeof(irq_stack);
 
-uint32_t gpmi_freq = 40; // MHz
+uint32_t gpmi_freq = 10; // MHz
 
 
 /*
@@ -319,21 +334,38 @@ HW_ICOLL_CTRL_SET(BM_ICOLL_CTRL_ARM_RSE_MODE | BM_ICOLL_CTRL_IRQ_FINAL_ENABLE);	
 nand_select_pins();
 
 /*
-	Program the GPMI
+	reset the GPMI
 */
-HW_GPMI_CTRL0_CLR(BM_GPMI_CTRL0_SFTRST | BM_GPMI_CTRL0_CLKGATE);						// enable the controller
+HW_GPMI_CTRL0_CLR(BM_GPMI_CTRL0_SFTRST);				// make sure soft-reset is not enabled
+delay_us(1000);										// wait a microsecond (should be 3 GPMI clocks)
+
+HW_GPMI_CTRL0_CLR(BM_GPMI_CTRL0_CLKGATE);				// gate it
+HW_GPMI_CTRL0_SET(BM_GPMI_CTRL0_SFTRST);				// soft reset
+while (!HW_GPMI_CTRL0.B.CLKGATE)	/* wait */ ;		// wait for the clock to gate
+
+HW_GPMI_CTRL0_CLR(BM_GPMI_CTRL0_SFTRST);				// come out of reset
+delay_us(1000);										// wait a microsecond (should be 3 GPMI clocks)
+
+HW_GPMI_CTRL0_CLR(BM_GPMI_CTRL0_CLKGATE);				// enter non gated state
+while (HW_GPMI_CTRL0.B.CLKGATE)	/* wait */ ;		// wait until were done.
+
+
+/*
+	set up the GPMI for the FourARM
+*/
+while (HW_GPMI_CTRL0.B.RUN) /* wait */ ;				// wait until RUN is zero (i.e. not processing a command)
 HW_GPMI_CTRL0_SET(BF_GPMI_CTRL0_WORD_LENGTH(BV_GPMI_CTRL0_WORD_LENGTH__8_BIT));		// set 8-bit databus
 
 /*
 	We must disable ENABLE before programming then re-enable afterwards.
 */
 HW_GPMI_CTRL1_CLR(BM_GPMI_CTRL1_DLL_ENABLE);
-HW_GPMI_CTRL1_WR(BM_GPMI_CTRL1_RDN_DELAY | BM_GPMI_CTRL1_ATA_IRQRDY_POLARITY);
+HW_GPMI_CTRL1_WR(BM_GPMI_CTRL1_RDN_DELAY | BM_GPMI_CTRL1_ATA_IRQRDY_POLARITY);			// RDN delay = 0xF and polarity = RDY_BUSY is busy on low ready on high
 HW_GPMI_CTRL1_SET(BM_GPMI_CTRL1_DLL_ENABLE);
 /*
 	Now we must wait 64 GPMI cycles before continuing
 */
-delay_us(111000);
+delay_us(64000);
 
 
 HW_GPMI_TIMING0_WR(
@@ -345,12 +377,11 @@ HW_GPMI_TIMING0_WR(
 
 
 /*
-	Enable the GPMI clock at 40MHz
+	Enable the GPMI clock at (initially) gpmi_freq MHz
 */
 uint32_t gpmi_div = 480 / gpmi_freq;		// CPU speed divided by the NAND frequency
 HW_CLKCTRL_GPMI_WR((HW_CLKCTRL_GPMI_RD() & 0xFFFFFC00) | gpmi_div);
 HW_CLKCTRL_CLKSEQ_CLR(BM_CLKCTRL_CLKSEQ_BYPASS_GPMI);			// start from 480MHz
-
 
 /*
 	Enable IRQ
@@ -361,10 +392,12 @@ enable_IRQ();
 	Now set up a DMA request to reset the chip
 */
 debug_print_string("reset DMA controller\n");
-HW_APBH_CTRL0_CLR(1 << 31);
+HW_APBH_CTRL0_CLR(1 << 31);			// Soft reset
+delay_us(1000);						// wait
 
 debug_print_string("gate DMA controller\n");
-HW_APBH_CTRL0_CLR(1 << 30);
+HW_APBH_CTRL0_CLR(1 << 30);			// gate
+delay_us(1000);						// wait
 
 debug_print_string("reset DMA chanel 4\n");
 HW_APBH_CTRL0_SET(0x10 << 16);
@@ -373,9 +406,11 @@ while (HW_APBH_CTRL0_RD() & (0xFF << 16) != 0)
 
 debug_print_string("Gate DMA chanel 4\n");
 HW_APBH_CTRL0_CLR(0xFF);
+delay_us(1000);						// wait
 
 debug_print_string("Enable IRQ on DMA chanel 4\n");
 HW_APBH_CTRL1_WR(0x00100010);		// enable IRQ on chanel 4
+delay_us(1000);						// wait
 
 /*
 	Now do a DMA transfer
@@ -394,12 +429,11 @@ DMA_request[1] = 0x00001048;
 DMA_request[2] = (uint32_t)DMA_answer;
 DMA_request[3] = 0xFFFFFFFF;
 
-
 HW_APBH_CHn_NXTCMDAR_WR(4, (uint32_t)(&DMA_request[0]));		// the address of the DMA request
 HW_APBH_CHn_SEMA_WR(4, 1);							// tell the DMA controller to issue the request
 
 debug_print_string("Wait...");
-delay_us(11000);
+delay_us(1000);
 debug_print_string("Done\n");
 
 /*
@@ -415,7 +449,7 @@ HW_APBH_CHn_NXTCMDAR_WR(4, (uint32_t)(&DMA_request[0]));		// the address of the 
 HW_APBH_CHn_SEMA_WR(4, 1);							// tell the DMA controller to issue the request
 
 debug_print_string("Wait...");
-delay_us(11000);
+delay_us(1000);
 debug_print_string("Done\n");
 
 //for (;;)
