@@ -12,10 +12,10 @@
 #include "io_angel.h"
 #include "io_debug_imx233.h"
 
-#include "pic.h"
+#include "pic_pl190.h"
 #include "pic_imx233.h"
 
-#include "timer.h"
+#include "timer_sp804.h"
 #include "timer_imx233.h"
 
 #include "keyboard_mouse_interface.h"
@@ -34,9 +34,9 @@ public:
 	ATOSE_IO_debug_imx233 io;
 	ATOSE_timer_imx233 timer;
 #else
-	ATOSE_pic pic;
+	ATOSE_pic_pl190 pic;
 	ATOSE_IO_serial io;
-	ATOSE_timer timer;
+	ATOSE_timer_sp804 timer;
 
 	ATOSE_keyboard_mouse_interface keyboard;
 	ATOSE_keyboard_mouse_interface mouse;

@@ -21,7 +21,7 @@ private:
 	ATOSE_device_driver *interrupt_vector_table[HW_ICOLL_INTERRUPTn_COUNT];
 
 public:
-	ATOSE_pic_imx233() {}
+	ATOSE_pic_imx233() : ATOSE_pic() {}
 	virtual void init(void);
 
 	virtual void enable(ATOSE_device_driver *driver, uint32_t primary, uint32_t secondary = NO_SECONDARY);

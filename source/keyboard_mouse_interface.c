@@ -3,7 +3,6 @@
 	--------------------------
 	ARM PrimeCell PS2 Keyboard/Mouse Interface (PL050)
 */
-#include <stdio.h>
 #include "keyboard_mouse_interface.h"
 
 /*

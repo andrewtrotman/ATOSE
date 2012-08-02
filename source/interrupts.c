@@ -10,6 +10,14 @@
 	#include "../systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsicoll.h"
 #endif
 
+/*
+	__CXA_PURE_VIRTUAL()
+	--------------------
+*/
+int __cxa_pure_virtual(void)
+{
+return 0;
+}
 
 /*
 	ATOSE_ISR_IRQ()
@@ -35,14 +43,14 @@ uint32_t ATOSE_isr_irq(ATOSE_registers *registers)
 
 	ATOSE_device_driver *device_driver;
 
-	device_driver = (ATOSE_device_driver *)*ATOSE_pic::PIC_vector_address_register;
+	device_driver = (ATOSE_device_driver *)*ATOSE_pic_pl190::PIC_vector_address_register;
 	if (device_driver != 0)
 		device_driver->acknowledge();
 
 	ATOSE *os = ATOSE::get_global_entry_point();
 	os->io << ".";
 
-	*ATOSE_pic::PIC_vector_address_register = 0;
+	*ATOSE_pic_pl190::PIC_vector_address_register = 0;
 
 #endif
 }

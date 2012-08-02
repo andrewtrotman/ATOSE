@@ -2,11 +2,25 @@
 # Makefile for ATOSE and the associated tools
 #
 
-TARGET = IMX233
+#
+#	Choose a Target for ATOSE
+#
+#
+TARGET = FourARM
+#
+#TARGET = QEMU
+#
+
+!IF "$(TARGET)" == "FourARM"
+CPU = IMX233
+!ELSE
+CPU = ARM926
+!ENDIF
 
 CC = arm-none-eabi-g++
 CCC = arm-none-eabi-gcc
-CFLAGS = -mcpu=arm926ej-s -ffreestanding -fno-exceptions -fno-rtti -D$(TARGET) -g3
+CFLAGS = -mcpu=arm926ej-s -ffreestanding -fno-exceptions -fno-rtti -nostdlib -nodefaultlibs -nostartfiles -D$(CPU) -g3
+CLINKFLAGS = -l gcc
 
 AS = arm-none-eabi-as
 ASFLAGS = -mcpu=arm926ej-s
@@ -17,19 +31,36 @@ BIN_DIR = bin
 TOOLS_DIR = tools
 TESTS_DIR = tests
 
-OBJECTS =	$(OBJ_DIR)\io_angel.o					\
-			$(OBJ_DIR)\io_serial.o 					\
-			$(OBJ_DIR)\io_debug_imx233.o 			\
-			$(OBJ_DIR)\keyboard_mouse_interface.o 	\
+ATOSE_OBJECTS =									\
 			$(OBJ_DIR)\cpu.o 						\
-			$(OBJ_DIR)\timer.o						\
-			$(OBJ_DIR)\timer_imx233.o				\
-			$(OBJ_DIR)\pic.o 						\
-			$(OBJ_DIR)\pic_imx233.o 				\
 			$(OBJ_DIR)\stack.o 						\
 			$(OBJ_DIR)\atose.o						\
 			$(OBJ_DIR)\device_driver.o				\
-			$(OBJ_DIR)\interrupts.o	
+			$(OBJ_DIR)\interrupts.o
+
+FourARM_OBJECTS =									\
+			$(OBJ_DIR)\io_debug_imx233.o 			\
+			$(OBJ_DIR)\timer_imx233.o				\
+			$(OBJ_DIR)\pic_imx233.o
+
+QEMU_OBJECTS =									\
+			$(OBJ_DIR)\io_angel.o					\
+			$(OBJ_DIR)\io_serial.o 					\
+			$(OBJ_DIR)\keyboard_mouse_interface.o 	\
+			$(OBJ_DIR)\timer_sp804.o				\
+			$(OBJ_DIR)\pic_pl190.o
+
+
+!IF "$(TARGET)" == "FourARM"
+
+OBJECTS = $(ATOSE_OBJECTS) $(FourARM_OBJECTS)
+
+!ELSE
+
+OBJECTS = $(ATOSE_OBJECTS) $(QEMU_OBJECTS)
+
+!ENDIF
+
 
 all : $(BIN_DIR)\dump_cpu_state.elf $(BIN_DIR)\atose.elf $(BIN_DIR)\elf_reader.exe $(BIN_DIR)\imx233_timer.elf $(BIN_DIR)\imx233_nand.elf
 
@@ -37,7 +68,7 @@ all : $(BIN_DIR)\dump_cpu_state.elf $(BIN_DIR)\atose.elf $(BIN_DIR)\elf_reader.e
 # ATOSE
 #
 $(BIN_DIR)\atose.elf : startup.o $(OBJ_DIR)\main.o $(OBJECTS) $(SOURCE_DIR)\atose.ld
-	$(CC) $(CFLAGS) -o $(BIN_DIR)\atose.elf startup.o $(OBJ_DIR)\main.o $(OBJECTS) -T $(SOURCE_DIR)\atose.ld
+	$(CC) $(CFLAGS) -o $(BIN_DIR)\atose.elf startup.o $(OBJ_DIR)\main.o $(OBJECTS) -T $(SOURCE_DIR)\atose.ld $(CLINKFLAGS)
 
 startup.o : $(SOURCE_DIR)\atose_startup.asm
 	$(AS) $(ASFLAGS) $(SOURCE_DIR)\atose_startup.asm -o startup.o

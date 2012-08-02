@@ -6,7 +6,6 @@
 #define API_ATOSE_H_
 
 #include <stdint.h>
-#include <stdio.h>
 #include "registers.h"
 
 #define ATOSE_SWI 0x6174

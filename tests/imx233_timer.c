@@ -177,19 +177,20 @@ HW_POWER_VDDIOCTRL.B.PWDN_BRNOUT = 0;
 /*
 	Set up the IRQ stack
 */
+
 asm volatile
 	(
+	"mov r2, %[stack];"
 	"mrs r0, cpsr;"							// get the current mode
 	"bic r1, r0, #0x1F;"					// turn off the mode bits
 	"orr r1, r1, #0x12;"					// turn on the IRQ bits
 	"msr cpsr, r1;"							// go into IRQ mode
-	"mov sp, %[stack];"						// set the stack top
+	"mov sp, r2;"							// set the stack top
 	"msr cpsr, r0;"							// back to original mode
 	:
 	: [stack]"r"(irq_sp)
-	: "r0", "r1"
+	: "r0", "r1", "r2"
 	);
-
 
 /*
 	Move the interrupt vector table to 0x00000000

@@ -1,23 +1,21 @@
 /*
-	PIC.H
-	-----
+	PIC_PL190.H
+	-----------
 	Programmable Interrupt controller
 	See the ARMPL190 VIC Technical Reference Manual for more information
 */
-#ifndef PIC_H_
-#define PIC_H_
+#ifndef PIC_PL190_H_
+#define PIC_PL190_H_
 
 #include <stdint.h>
 #include "interrupts.h"
-#include "device_driver.h"
-
-class ATOSE_device_driver;
+#include "pic.h"
 
 /*
 	class ATOSE_PIC
 	---------------
 */
-class ATOSE_pic : public ATOSE_device_driver
+class ATOSE_pic_pl190 : public ATOSE_pic
 {
 friend uint32_t ATOSE_isr_irq(ATOSE_registers *registers);
 
@@ -63,22 +61,16 @@ private:
 	static volatile uint32_t *SEC_picenclr;
 
 
-protected:
-	/*
-		Sentinal constants
-	*/
-	static const uint32_t NO_SECONDARY = 0xFFFFFFFF;
-
 private:
 	uint32_t next_interrupt_id;
 	ATOSE_device_driver *secondary_table[32];
 
 public:
-	ATOSE_pic() {}
+	ATOSE_pic_pl190() : ATOSE_pic() {}
 	virtual void init(void);
 
 	virtual void enable(ATOSE_device_driver *driver, uint32_t primary, uint32_t secondary = NO_SECONDARY);
 	virtual void acknowledge(void);
 } ;
 
-#endif /* PIC_H_ */
+#endif /* PIC_PL190_H_ */

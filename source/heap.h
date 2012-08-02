@@ -5,8 +5,6 @@
 #ifndef HEAP_H_
 #define HEAP_H_
 
-#include <stddef.h>
-
 /*
 	The size of the kernel heap can be configured in the makefile, but defaults here
 */

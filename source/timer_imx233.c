@@ -3,6 +3,7 @@
 	--------------
 	Control the 1ms timer on the i.MX233
 */
+#include <stdint.h>
 #include "timer_imx233.h"
 #include "../systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsrtc.h"
 

@@ -19,7 +19,7 @@ private:
 
 public:
 	ATOSE_circular_buffer() { rewind(); }
-	virtual ~ATOSE_circular_buffer() {};
+//	virtual ~ATOSE_circular_buffer() {};
 
 	void rewind(void) { read_index = write_index = 0; }
 	long is_empty(void) { return read_index == write_index; }

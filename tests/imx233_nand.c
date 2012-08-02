@@ -5,6 +5,7 @@
  */
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include "../source/registers.h"
 #include "../systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsuartdbg.h"
 #include "../systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regspower.h"

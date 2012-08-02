@@ -7,7 +7,6 @@
 #define REGISTERS_H_
 
 #include <stdint.h>
-#include <string.h>
 
 /*
 	struct ATOSE_REGISTERS
