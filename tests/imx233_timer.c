@@ -166,7 +166,7 @@ void c_entry(void)
 {
 uint32_t index;
 uint32_t cpsr, irq_cpsr;
-uint8_t irq_stack[1024];
+uint8_t irq_stack[1024] __attribute__ ((aligned (4)));
 uint8_t *irq_sp = irq_stack + sizeof(irq_stack);
 
 /*

@@ -6,9 +6,9 @@
 #	Choose a Target for ATOSE
 #
 #
-TARGET = FourARM
+#TARGET = FourARM
 #
-#TARGET = QEMU
+TARGET = QEMU
 #
 
 !IF "$(TARGET)" == "FourARM"
@@ -19,7 +19,7 @@ CPU = ARM926
 
 CC = arm-none-eabi-g++
 CCC = arm-none-eabi-gcc
-CFLAGS = -mcpu=arm926ej-s -ffreestanding -fno-exceptions -fno-rtti -nostdlib -nodefaultlibs -nostartfiles -D$(CPU) -g3
+CFLAGS = -mcpu=arm926ej-s -ffreestanding -fno-exceptions -fno-rtti -nostdlib -nodefaultlibs -nostartfiles -D$(CPU) -D$(TARGET) -Os -g3
 CLINKFLAGS = -l gcc
 
 AS = arm-none-eabi-as
@@ -77,13 +77,13 @@ startup.o : $(SOURCE_DIR)\atose_startup.asm
 # ATOSE Tools
 #
 $(BIN_DIR)\imx233_timer.elf : $(TESTS_DIR)\imx233_timer.c startup.o $(SOURCE_DIR)\atose.ld
-	$(CCC) -O3 -o $(BIN_DIR)\imx233_timer.elf startup.o $(TESTS_DIR)\imx233_timer.c -T $(SOURCE_DIR)\atose.ld
+	$(CCC) -Os -o $(BIN_DIR)\imx233_timer.elf startup.o $(TESTS_DIR)\imx233_timer.c -T $(SOURCE_DIR)\atose.ld
 
 $(BIN_DIR)\imx233_nand.elf : $(TESTS_DIR)\imx233_nand.c startup.o $(SOURCE_DIR)\atose.ld
-	$(CCC) -O3 -o $(BIN_DIR)\imx233_nand.elf startup.o $(TESTS_DIR)\imx233_nand.c -T $(SOURCE_DIR)\atose.ld
+	$(CCC) -Os -o $(BIN_DIR)\imx233_nand.elf startup.o $(TESTS_DIR)\imx233_nand.c -T $(SOURCE_DIR)\atose.ld
 
 $(BIN_DIR)\dump_cpu_state.elf : $(TOOLS_DIR)\dump_cpu_state.c startup.o $(SOURCE_DIR)\atose.ld
-	$(CCC) -O3 -o $(BIN_DIR)\dump_cpu_state.elf startup.o $(TOOLS_DIR)\dump_cpu_state.c -T $(SOURCE_DIR)\atose.ld
+	$(CCC) -Os -o $(BIN_DIR)\dump_cpu_state.elf startup.o $(TOOLS_DIR)\dump_cpu_state.c -T $(SOURCE_DIR)\atose.ld
 
 $(BIN_DIR)\elf_reader.exe : $(TOOLS_DIR)\elf_reader.c
 #	cl /Tp $(TOOLS_DIR)\elf_reader.c -Fe$(BIN_DIR)\elf_reader.exe

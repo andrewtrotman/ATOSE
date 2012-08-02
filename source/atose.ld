@@ -28,7 +28,7 @@ __exidx_end = .;
 	*(.rodata*)
 	*(.gnu.linkonce.r*)
 	}
-
+. = ALIGN(4);
 . = . + 0x1000; /* 4kB of stack memory */
 stack_top = .;
 ATOSE_top_of_memory = .;

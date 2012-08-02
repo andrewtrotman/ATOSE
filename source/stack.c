@@ -5,12 +5,12 @@
 */
 #include "stack.h"
 
-unsigned char ATOSE_stack::FIRQ_stack[STACK_SIZE_FIRQ];
-unsigned char ATOSE_stack::IRQ_stack[STACK_SIZE_IRQ];
-unsigned char ATOSE_stack::supervisor_stack[STACK_SIZE_SUPERVISOR];
-unsigned char ATOSE_stack::abort_stack[STACK_SIZE_ABORT];
-unsigned char ATOSE_stack::system_stack[STACK_SIZE_SYSTEM];		// and USER
-unsigned char ATOSE_stack::undefined_stack[STACK_SIZE_UNDEFINED];
+unsigned char ATOSE_stack::FIRQ_stack[STACK_SIZE_FIRQ] 			__attribute__ ((aligned (4)));
+unsigned char ATOSE_stack::IRQ_stack[STACK_SIZE_IRQ] 				__attribute__ ((aligned (4)));
+unsigned char ATOSE_stack::supervisor_stack[STACK_SIZE_SUPERVISOR] __attribute__ ((aligned (4)));
+unsigned char ATOSE_stack::abort_stack[STACK_SIZE_ABORT] 			__attribute__ ((aligned (4)));
+unsigned char ATOSE_stack::system_stack[STACK_SIZE_SYSTEM] 		__attribute__ ((aligned (4))); // and USER
+unsigned char ATOSE_stack::undefined_stack[STACK_SIZE_UNDEFINED] 	__attribute__ ((aligned (4)));
 
 /*
 	ATOSE_STACK::INIT()
