@@ -20,6 +20,8 @@
 
 #include "keyboard_mouse_interface.h"
 
+#include "nand_imx233.h"
+
 /*
 	class ATOSE
 	-----------
@@ -30,16 +32,21 @@ public:
 	ATOSE_cpu cpu;
 	ATOSE_stack stack;
 #ifdef IMX233
+
 	ATOSE_pic_imx233 pic;
 	ATOSE_IO_debug_imx233 io;
 	ATOSE_timer_imx233 timer;
+	ATOSE_nand_imx233 disk;
+
 #else
+
 	ATOSE_pic_pl190 pic;
 	ATOSE_IO_serial io;
 	ATOSE_timer_sp804 timer;
 
 	ATOSE_keyboard_mouse_interface keyboard;
 	ATOSE_keyboard_mouse_interface mouse;
+
 #endif
 
 public:

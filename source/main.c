@@ -23,7 +23,7 @@ extern "C"
 	*/
 	void c_entry() 
 	{
-	#ifdef IMX233
+	#ifdef FourARM
 		/*
 			Magic to get around the brownout problem in the FourARM
 		*/

@@ -15,7 +15,10 @@ public:
 	virtual void enable(void);
 	virtual void disable(void);
 	virtual void acknowledge(void);
+
+	static void delay_us(uint32_t ticks);
 } ;
+
 
 
 #endif /* TIMER_IMX233_H_ */

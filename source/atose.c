@@ -28,6 +28,7 @@ ATOSE_addr = this;
 	pic.init();
 	io.init();
 	timer.init();
+	disk.init();
 #else
 	stack.init();
 	cpu.init();
@@ -43,10 +44,24 @@ ATOSE_addr = this;
 */
 #ifdef IMX233
 	cpu.enable_IRQ();
+
 //	pic.enable(&timer, VECTOR_IRQ_RTC_1MSEC);
 //	timer.enable();
+
 	pic.enable(&io, VECTOR_IRQ_DEBUG_UART);
 	io.enable();
+
+	/*
+		The NAND interface can cause three possible interrupts!
+	*/
+	pic.enable(&disk, VECTOR_IRQ_GPMI);
+	pic.enable(&disk, VECTOR_IRQ_GPMI_DMA);
+	pic.enable(&disk, VECTOR_IRQ_BCH);
+	disk.enable();
+
+
+	disk.reset();		// FIX THIS
+
 #else
 	cpu.enable_IRQ();
 	pic.enable(&timer, 0x04);

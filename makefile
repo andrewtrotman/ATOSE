@@ -6,9 +6,9 @@
 #	Choose a Target for ATOSE
 #
 #
-#TARGET = FourARM
+TARGET = FourARM
 #
-TARGET = QEMU
+#TARGET = QEMU
 #
 
 !IF "$(TARGET)" == "FourARM"
@@ -36,12 +36,14 @@ ATOSE_OBJECTS =									\
 			$(OBJ_DIR)\stack.o 						\
 			$(OBJ_DIR)\atose.o						\
 			$(OBJ_DIR)\device_driver.o				\
-			$(OBJ_DIR)\interrupts.o
+			$(OBJ_DIR)\interrupts.o					\
+			$(OBJ_DIR)\nand.o
 
 FourARM_OBJECTS =									\
 			$(OBJ_DIR)\io_debug_imx233.o 			\
 			$(OBJ_DIR)\timer_imx233.o				\
-			$(OBJ_DIR)\pic_imx233.o
+			$(OBJ_DIR)\pic_imx233.o					\
+			$(OBJ_DIR)\nand_imx233.o
 
 QEMU_OBJECTS =									\
 			$(OBJ_DIR)\io_angel.o					\
