@@ -26,7 +26,7 @@ HW_PINCTRL_MUXSEL0_CLR(BM_PINCTRL_MUXSEL0_BANK0_PIN07 | BM_PINCTRL_MUXSEL0_BANK0
 /*
 	Turn on the control lines between the CPU and the NAND chip
 */
-HW_PINCTRL_MUXSEL1_CLR(BM_PINCTRL_MUXSEL1_BANK0_PIN24 | BM_PINCTRL_MUXSEL1_BANK0_PIN23	| BM_PINCTRL_MUXSEL1_BANK0_PIN19 | BM_PINCTRL_MUXSEL1_BANK0_PIN17 | BM_PINCTRL_MUXSEL1_BANK0_PIN16);
+HW_PINCTRL_MUXSEL1_CLR(BM_PINCTRL_MUXSEL1_BANK0_PIN25 | BM_PINCTRL_MUXSEL1_BANK0_PIN24 | BM_PINCTRL_MUXSEL1_BANK0_PIN23	| BM_PINCTRL_MUXSEL1_BANK0_PIN19 | BM_PINCTRL_MUXSEL1_BANK0_PIN17 | BM_PINCTRL_MUXSEL1_BANK0_PIN16);
 HW_PINCTRL_MUXSEL5_CLR(BM_PINCTRL_MUXSEL5_BANK2_PIN28 | BM_PINCTRL_MUXSEL5_BANK2_PIN25);
 
 /*
@@ -250,6 +250,11 @@ HW_APBH_CTRL0_CLR(BV_APBH_CTRL0_FREEZE_CHANNEL__NAND0);
 	Enable interrupts
 */
 HW_APBH_CTRL1.B.CH4_CMDCMPLT_IRQ_EN = 1;
+
+/*
+	Ungate the clock
+*/
+HW_APBH_CTRL0_CLR(1 << (4 + BP_APBH_CTRL0_CLKGATE_CHANNEL));
 }
 
 /*
@@ -282,6 +287,21 @@ void ATOSE_nand_imx233::disable(void)
 */
 void ATOSE_nand_imx233::acknowledge(void)
 {
+/*
+	Signal to the GPMI that we're done
+*/
+HW_GPMI_CTRL1_CLR(BM_GPMI_CTRL1_DEV_IRQ | BM_GPMI_CTRL1_TIMEOUT_IRQ);
+
+/*
+	Signal to the DMA that we're done
+*/
+HW_APBH_CTRL1_CLR(BM_APBH_CTRL1_CH4_CMDCMPLT_IRQ);
+HW_APBH_CTRL2_CLR(BM_APBH_CTRL2_CH4_ERROR_IRQ);
+
+/*
+	Signal to the BCH error correcton that we're done
+*/
+HW_BCH_CTRL_CLR(BM_BCH_CTRL_COMPLETE_IRQ);
 }
 
 #ifdef FourARM
@@ -385,7 +405,7 @@ ATOSE_nand_imx233_dma *request = dma_chain;
 */
 request->next = 0;
 request->command = BV_APBH_CHn_CMD_COMMAND__DMA_READ;
-request->chain = 1;
+request->chain = 0;
 request->irq = 1;
 request->nand_lock = 0;
 request->nand_wait_4_ready = 0;
@@ -395,6 +415,7 @@ request->halt_on_terminate = 0;
 request->terminate_flush = 0;
 request->pio_words = 1;
 request->bytes = *command;
+request->resv2 = 0;
 request->address = command + 1;
 
 request->pio[0] = BM_GPMI_CTRL0_LOCK_CS | BF_GPMI_CTRL0_COMMAND_MODE(BV_GPMI_CTRL0_COMMAND_MODE__WRITE) | BM_GPMI_CTRL0_WORD_LENGTH | BF_GPMI_CTRL0_CS(0) | BF_GPMI_CTRL0_ADDRESS(BV_GPMI_CTRL0_ADDRESS__NAND_CLE) | BM_GPMI_CTRL0_ADDRESS_INCREMENT | BF_GPMI_CTRL0_XFER_COUNT(*command);
@@ -438,9 +459,11 @@ request->halt_on_terminate = 0;
 request->terminate_flush = 0;
 request->pio_words = 1;
 request->bytes = length;
+request->resv2 = 0;
 request->address = buffer;
 
-request->pio[0] = BM_GPMI_CTRL0_LOCK_CS | BF_GPMI_CTRL0_COMMAND_MODE(BV_GPMI_CTRL0_COMMAND_MODE__READ) | BM_GPMI_CTRL0_WORD_LENGTH |BF_GPMI_CTRL0_CS(0) | BF_GPMI_CTRL0_ADDRESS(BV_GPMI_CTRL0_ADDRESS__NAND_DATA) | BF_GPMI_CTRL0_XFER_COUNT(length);
+request->pio[0] = BM_GPMI_CTRL0_LOCK_CS | BF_GPMI_CTRL0_COMMAND_MODE(BV_GPMI_CTRL0_COMMAND_MODE__READ) | BM_GPMI_CTRL0_WORD_LENGTH | BF_GPMI_CTRL0_CS(0) | BF_GPMI_CTRL0_ADDRESS(BV_GPMI_CTRL0_ADDRESS__NAND_DATA) | BF_GPMI_CTRL0_XFER_COUNT(length);
+
 /*
 	Give the controller the address of the request
 */
