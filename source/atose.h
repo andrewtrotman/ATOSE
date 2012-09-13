@@ -31,6 +31,7 @@ class ATOSE
 public:
 	ATOSE_cpu cpu;
 	ATOSE_stack stack;
+
 #ifdef IMX233
 
 	ATOSE_pic_imx233 pic;

@@ -60,7 +60,20 @@ ATOSE_addr = this;
 	disk.enable();
 
 
+
+	{
+	/*
+		Remove this block code.  Move the reset() into the disk.enable().
+	*/
+	io.hex();
 	disk.reset();		// FIX THIS
+//	uint8_t status = disk.status();
+	uint8_t buffer[4096 + 224];
+	disk.read_sector(buffer, 123);
+
+	for (int x = 0; x < 4096; x++)
+		io << buffer[x] << " ";
+	}
 
 #else
 	cpu.enable_IRQ();
