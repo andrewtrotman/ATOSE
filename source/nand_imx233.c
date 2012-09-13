@@ -403,12 +403,15 @@ request->dec_sem = 1;
 request->wait4end = 1;
 request->halt_on_terminate = 0;
 request->terminate_flush = 0;
-request->pio_words = 1;
+request->pio_words = 3;
 request->bytes = *command;
 request->resv2 = 0;
+
 request->address = command + 1;
 
 request->pio[0] = BM_GPMI_CTRL0_LOCK_CS | BF_GPMI_CTRL0_COMMAND_MODE(BV_GPMI_CTRL0_COMMAND_MODE__WRITE) | BM_GPMI_CTRL0_WORD_LENGTH | BF_GPMI_CTRL0_CS(0) | BF_GPMI_CTRL0_ADDRESS(BV_GPMI_CTRL0_ADDRESS__NAND_CLE) | BM_GPMI_CTRL0_ADDRESS_INCREMENT | BF_GPMI_CTRL0_XFER_COUNT(*command);
+request->pio[1] = 0;
+request->pio[2] = 0;	// disable BCH ECC
 
 #ifdef FourARM
 	twiddle_one_command(command);
@@ -432,8 +435,7 @@ HW_APBH_CHn_SEMA_WR(4, 1);
 	Now we spin waiting for the command to finish
 */
 if (lock != 0)
-	while (lock->wait())
-		;	// do nothing;
+	lock->wait();
 this->lock = 0;
 
 #ifdef FourARM
@@ -489,8 +491,7 @@ HW_APBH_CHn_SEMA_WR(4, 1);
 */
 if (lock != 0)
 	{
-	while (lock->wait())
-		;	// do nothing;
+	lock->wait();
 
 	#ifdef FourARM
 		for (uint8_t i = 0; i < length; i++)
@@ -556,7 +557,7 @@ request2->address = 0;
 
 request2->pio[0] = BF_GPMI_CTRL0_COMMAND_MODE(BV_GPMI_CTRL0_COMMAND_MODE__WAIT_FOR_READY) | BM_GPMI_CTRL0_LOCK_CS | BM_GPMI_CTRL0_WORD_LENGTH | BF_GPMI_CTRL0_CS(0) | BF_GPMI_CTRL0_ADDRESS(BV_GPMI_CTRL0_ADDRESS__NAND_DATA) | BF_GPMI_CTRL0_XFER_COUNT(0);
 request2->pio[1] = 0;
-request2->pio[2] = 0; //Reset the BCH
+request2->pio[2] = 0; // Reset the BCH
 
 /*
 	Store a handle to the lock
@@ -574,11 +575,10 @@ HW_APBH_CHn_SEMA_WR(4, 1);
 */
 if (lock != 0)
 	{
-	while (lock->wait())
-		;	// do nothing;
+	lock->wait();
 
 	#ifdef FourARM
-		for (uint8_t i = 0; i < length; i++)
+		for (uint32_t i = 0; i < length; i++)
 			buffer[i] = twiddle(buffer[i]);
 	#endif
 	}
@@ -586,3 +586,67 @@ if (lock != 0)
 this->lock = 0;
 }
 
+/*
+	ATOSE_NAND_IMX233::WRITE_ECC_SECTOR()
+	-------------------------------------
+*/
+void ATOSE_nand_imx233::write_ecc_sector(uint8_t *buffer, uint32_t length, ATOSE_lock *lock)
+{
+/*
+	Get a new DMA object
+*/
+ATOSE_nand_imx233_dma *request = dma_chain;
+
+/*
+	Tell the BCH to do the write
+*/
+request->command = BV_APBH_CHn_CMD_COMMAND__NO_DMA_XFER;
+request->chain = 1;
+request->irq = 1;
+request->nand_lock = 0;
+request->nand_wait_4_ready = 0;
+request->dec_sem = 0;
+request->wait4end = 1;
+request->halt_on_terminate = 0;
+request->terminate_flush = 0;
+request->pio_words = 6;
+request->bytes = 0;
+
+request->address = 0;
+
+request->pio[0] = BM_GPMI_CTRL0_LOCK_CS | BF_GPMI_CTRL0_COMMAND_MODE(BV_GPMI_CTRL0_COMMAND_MODE__WRITE) | BM_GPMI_CTRL0_WORD_LENGTH | BF_GPMI_CTRL0_CS(0) | BF_GPMI_CTRL0_ADDRESS(BV_GPMI_CTRL0_ADDRESS__NAND_DATA) | BF_GPMI_CTRL0_XFER_COUNT(0);
+request->pio[1] = 0;
+request->pio[2] = BF_GPMI_ECCCTRL_HANDLE(0x321) | BF_GPMI_ECCCTRL_ECC_CMD(BV_GPMI_ECCCTRL_ECC_CMD__ENCODE_8_BIT) | BF_GPMI_ECCCTRL_ENABLE_ECC(1) | BF_GPMI_ECCCTRL_BUFFER_MASK(BV_GPMI_ECCCTRL_BUFFER_MASK__BCH_PAGE);
+request->pio[3] = length;
+request->pio[4] = (uint32_t)buffer;
+request->pio[5] = 0;
+
+#ifdef FourARM
+	for (uint32_t i = 0; i < length; i++)
+		buffer[i] = twiddle(buffer[i]);
+#endif
+
+/*
+	Store a handle to the lock
+*/
+this->lock = lock;
+
+/*
+	Tell the DMA controller to do the request
+*/
+HW_APBH_CHn_NXTCMDAR_WR(4, (uint32_t)(request));
+HW_APBH_CHn_SEMA_WR(4, 1);
+
+/*
+	Spinlock here.
+*/
+if (lock != 0)
+	lock->wait();
+
+this->lock = 0;
+
+#ifdef FourARM
+	for (uint32_t i = 0; i < length; i++)
+		buffer[i] = twiddle(buffer[i]);
+#endif
+}

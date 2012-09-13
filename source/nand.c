@@ -14,7 +14,10 @@
 uint8_t ATOSE_nand_command_reset[] = {0x01, 0xFF};
 uint8_t ATOSE_nand_command_status[] = {0x01, 0x70};
 uint8_t ATOSE_nane_command_read_parameter_page[] = {0x01, 0xEC, 0x00 };
-uint8_t ATOSE_nand_command_read[] = {0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x30};
+uint8_t ATOSE_nand_command_read[] = {0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+uint8_t ATOSE_nand_command_read_end[] = {0x01, 0x30};
+uint8_t ATOSE_nand_command_write[] = {0x06, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00};
+uint8_t ATOSE_nand_command_write_end[] = {0x01, 0x10};
 
 /*
 	We have a default NAND device which is set to async mode 0 (10 MHz)
@@ -55,13 +58,14 @@ return (nanoseconds + period - 1) / period;
 */
 void ATOSE_nand::reset(void)
 {
+ATOSE_spin_lock lock;
 uint8_t command, current_status;
 
 /*
 	Send the reset command
 	The NAND will never respond to the CPU on a reset so we have to wait 1us for it to respond
 */
-send_command(ATOSE_nand_command_reset);
+send_command(ATOSE_nand_command_reset, lock.clear());
 ATOSE_timer_imx233::delay_us(1);				// FIX - put the timer somewhere appropriate
 
 /*
@@ -93,22 +97,41 @@ return answer;
 */
 void ATOSE_nand::read_sector(uint8_t *destination, uint64_t sector)
 {
-uint16_t column;
-uint32_t row;
-uint8_t metadata_buffer[bytes_of_metadata_per_sector];
-uint8_t command[sizeof(ATOSE_nand_command_read)];
+__attribute__((aligned(0x4))) uint8_t metadata_buffer[sectors_per_page];
+uint8_t command[7];
 ATOSE_spin_lock lock;
 
-sector_to_address(sector, &column, &row);
 command[0] = ATOSE_nand_command_read[0];
 command[1] = ATOSE_nand_command_read[1];
-command[2] = column & 0xFF;
-command[3] = (column >> 8) & 0xFF;
-command[4] = row & 0xFF;
-command[5] = (row >> 8) & 0xFF;
-command[6] = (row >> 16) & 0xFF;
-command[7] = ATOSE_nand_command_read[7];
+command[2] = 0;							 	// Column number must be 0
+command[3] = 0;								// Column number must be 0
+command[4] = sector & 0xFF;
+command[5] = (sector >> 8) & 0xFF;
+command[6] = (sector >> 16) & 0xFF;
 
 send_command(command, lock.clear());
+send_command(ATOSE_nand_command_read_end, lock.clear());
 read_ecc_sector(destination, bytes_per_page, metadata_buffer, lock.clear());
+}
+
+/*
+	ATOSE_NAND::WRITE_SECTOR()
+	--------------------------
+*/
+void ATOSE_nand::write_sector(uint8_t *data, uint64_t sector)
+{
+uint8_t command[7];
+ATOSE_spin_lock lock;
+
+command[0] = ATOSE_nand_command_write[0];
+command[1] = ATOSE_nand_command_write[1];
+command[2] = 0;							 	// Column number must be 0
+command[3] = 0;								// Column number must be 0
+command[4] = sector & 0xFF;
+command[5] = (sector >> 8) & 0xFF;
+command[6] = (sector >> 16) & 0xFF;
+
+send_command(command, lock.clear());
+write_ecc_sector(data, bytes_per_page, lock.clear());
+send_command(ATOSE_nand_command_write_end, lock.clear());
 }

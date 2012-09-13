@@ -37,9 +37,10 @@ private:
 #endif
 
 protected:
-	void send_command(uint8_t *command,  ATOSE_lock *lock);
-	void read(uint8_t *buffer, uint32_t length, ATOSE_lock *lock);
-	void read_ecc_sector(uint8_t *buffer, uint32_t length, uint8_t *metadata_buffer, ATOSE_lock *lock);
+	virtual void send_command(uint8_t *command,  ATOSE_lock *lock);
+	virtual void read(uint8_t *buffer, uint32_t length, ATOSE_lock *lock);
+	virtual void read_ecc_sector(uint8_t *buffer, uint32_t length, uint8_t *metadata_buffer, ATOSE_lock *lock);
+	virtual void write_ecc_sector(uint8_t *buffer, uint32_t length, ATOSE_lock *lock);
 
 public:
 	ATOSE_nand_imx233() : ATOSE_nand() {}

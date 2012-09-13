@@ -67,12 +67,21 @@ ATOSE_addr = this;
 	*/
 	io.hex();
 	disk.reset();		// FIX THIS
-//	uint8_t status = disk.status();
-	uint8_t buffer[4096 + 224];
+	uint8_t status = disk.status();
+
+	static __attribute__((aligned(0x4))) uint8_t buffer[4096 + 224];
 	disk.read_sector(buffer, 123);
+	for (int x = 0; x < 4096; x++)
+		io << (uint32_t)buffer[x] << " ";
+
 
 	for (int x = 0; x < 4096; x++)
-		io << buffer[x] << " ";
+		buffer[x] = (uint8_t)x;
+	disk.write_sector(buffer, 122);
+	disk.read_sector(buffer, 123);
+	for (int x = 0; x < 4096; x++)
+		io << (uint32_t)buffer[x] << " ";
+
 	}
 
 #else
