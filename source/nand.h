@@ -17,11 +17,10 @@ class ATOSE_nand : public ATOSE_device_driver
 {
 protected:
 	static ATOSE_nand_device default_device;
-	static const uint32_t pages_per_block = 128;				// FIX (get this from the geometory of the device)
-//	static const uint32_t bytes_per_sector = 4096;				// FIX (get this from the geometory of the device)
-	static const uint32_t bytes_per_page = (4096 + 224);		// FIX (get this from the geometory of the device)
+	static const uint32_t sectors_per_erase_block = 128;		// FIX (get this from the geometory of the device)
+	static const uint32_t bytes_per_sector = (4096 + 224);		// FIX (get this from the geometory of the device)
 	static const uint32_t bytes_of_metadata_per_sector = 224;	// FIX (get this from the geometory of the device)
-	static const uint32_t sectors_per_page = 8;					// FIX (get this from the geometory of the device)
+	static const uint32_t subsectors_per_sector = 8;			// FIX (get this from the geometory of the device)
 
 protected:
 	ATOSE_lock *lock;
@@ -45,6 +44,7 @@ public:		// FIX THIS :: make protected
 	uint8_t status(void);
 	void read_sector(uint8_t *destination, uint64_t sector);
 	void write_sector(uint8_t *buffer, uint64_t sector);
+	void erase_block(uint64_t sector);
 
 
 public:

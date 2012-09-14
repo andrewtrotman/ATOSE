@@ -23,7 +23,7 @@ public:
 	uint32_t wait4end : 1;
 	uint32_t halt_on_terminate : 1;
 	uint32_t terminate_flush : 1;
-	uint32_t resv2 : 2;
+	uint32_t reserved : 2;
 	uint32_t pio_words : 4;
 	uint32_t bytes : 16;
 

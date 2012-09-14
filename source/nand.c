@@ -18,6 +18,8 @@ uint8_t ATOSE_nand_command_read[] = {0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 uint8_t ATOSE_nand_command_read_end[] = {0x01, 0x30};
 uint8_t ATOSE_nand_command_write[] = {0x06, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00};
 uint8_t ATOSE_nand_command_write_end[] = {0x01, 0x10};
+uint8_t ATOSE_nand_command_erase_block[] = {0x04, 0x60, 0x00, 0x00, 0x00};
+uint8_t ATOSE_nand_command_erase_block_end[] = {0x01, 0xD0};
 
 /*
 	We have a default NAND device which is set to async mode 0 (10 MHz)
@@ -97,7 +99,7 @@ return answer;
 */
 void ATOSE_nand::read_sector(uint8_t *destination, uint64_t sector)
 {
-__attribute__((aligned(0x4))) uint8_t metadata_buffer[sectors_per_page];
+__attribute__((aligned(0x4))) uint8_t metadata_buffer[subsectors_per_sector];
 uint8_t command[7];
 ATOSE_spin_lock lock;
 
@@ -111,7 +113,7 @@ command[6] = (sector >> 16) & 0xFF;
 
 send_command(command, lock.clear());
 send_command(ATOSE_nand_command_read_end, lock.clear());
-read_ecc_sector(destination, bytes_per_page, metadata_buffer, lock.clear());
+read_ecc_sector(destination, bytes_per_sector, metadata_buffer, lock.clear());
 }
 
 /*
@@ -132,6 +134,25 @@ command[5] = (sector >> 8) & 0xFF;
 command[6] = (sector >> 16) & 0xFF;
 
 send_command(command, lock.clear());
-write_ecc_sector(data, bytes_per_page, lock.clear());
+write_ecc_sector(data, bytes_per_sector, lock.clear());
 send_command(ATOSE_nand_command_write_end, lock.clear());
+}
+
+/*
+	ATOSE_NAND::ERASE_BLOCK()
+	-------------------------
+*/
+void ATOSE_nand::erase_block(uint64_t sector)
+{
+uint8_t command[5];
+uint32_t block = sector / sectors_per_erase_block;
+
+command[0] = ATOSE_nand_command_erase_block[0];
+command[1] = ATOSE_nand_command_erase_block[1];
+command[2] = block & 0xFF;
+command[3] = (block >> 8) & 0xFF;
+command[4] = (block >> 16) & 0xFF;
+
+send_command(command, lock.clear());
+send_command(ATOSE_nand_command_erase_block_end, lock.clear());
 }

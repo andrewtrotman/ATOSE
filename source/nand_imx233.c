@@ -601,11 +601,11 @@ ATOSE_nand_imx233_dma *request = dma_chain;
 	Tell the BCH to do the write
 */
 request->command = BV_APBH_CHn_CMD_COMMAND__NO_DMA_XFER;
-request->chain = 1;
+request->chain = 0;
 request->irq = 1;
 request->nand_lock = 0;
 request->nand_wait_4_ready = 0;
-request->dec_sem = 0;
+request->dec_sem = 1;
 request->wait4end = 1;
 request->halt_on_terminate = 0;
 request->terminate_flush = 0;
