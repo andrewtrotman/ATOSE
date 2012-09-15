@@ -9,7 +9,9 @@
 
 /*
 	These are the various NAND commands according to ONFI (http://onfi.org/)
-	the format is: bytes, then the command string
+	the format is: length(in bytes), then the command string.  Some commands are broken
+	into two parts because the single NAND command requires two transmissions with the
+	command line high before it happens.
 */
 uint8_t ATOSE_nand_command_reset[] = {0x01, 0xFF};
 uint8_t ATOSE_nand_command_status[] = {0x01, 0x70};
@@ -57,8 +59,9 @@ return (nanoseconds + period - 1) / period;
 /*
 	ATOSE_NAND::RESET()
 	-------------------
+	Return 0 on success
 */
-void ATOSE_nand::reset(void)
+uint32_t ATOSE_nand::reset(void)
 {
 ATOSE_spin_lock lock;
 uint8_t command, current_status;
@@ -76,28 +79,43 @@ ATOSE_timer_imx233::delay_us(1);				// FIX - put the timer somewhere appropriate
 do
 	current_status = status();
 while ((current_status & 0x60) != 0x60);
+
+return 0;
 }
 
 /*
 	ATOSE_NAND::STATUS()
 	--------------------
+	If *we* fail then it returns 0x100, else returns the ONFI status code returned from the Flash NAND:
+
+	Bit Name    Meaning
+	7   WP_n   If set to one, then the device is not write protected
+	6   RDY    If set to one, then the LUN or plane address is ready for another command and all other bits in the status value are valid
+	5   ARDY   If set to one, then there is no array operation in progress
+	4   VSP    Vendor Specific
+	3   CSP    Command Specific: This bit has command specific meaning
+	2   R      Reserved
+	1   FAILC  If set to one, then the command issued prior to the last command failed
+	0   FAIL   If set to one, then the last command failed
 */
-uint8_t ATOSE_nand::status(void)
+uint32_t ATOSE_nand::status(void)
 {
 ATOSE_spin_lock lock;
 uint8_t answer;
 
-send_command(ATOSE_nand_command_status, lock.clear());
-read(&answer, 1, lock.clear());
+if (send_command(ATOSE_nand_command_status, lock.clear()) == 0)		// success
+	if (read(&answer, 1, lock.clear()) == 0)		// success
+		return answer;
 
-return answer;
+return 0x0100;		// simulate a failure.
 }
 
 /*
 	ATOSE_NAND::READ_SECTOR()
 	-------------------------
+	Return 0 on success, 1 on failure
 */
-void ATOSE_nand::read_sector(uint8_t *destination, uint64_t sector)
+uint32_t ATOSE_nand::read_sector(uint8_t *destination, uint64_t sector)
 {
 __attribute__((aligned(0x4))) uint8_t metadata_buffer[subsectors_per_sector];
 uint8_t command[7];
@@ -111,16 +129,20 @@ command[4] = sector & 0xFF;
 command[5] = (sector >> 8) & 0xFF;
 command[6] = (sector >> 16) & 0xFF;
 
-send_command(command, lock.clear());
-send_command(ATOSE_nand_command_read_end, lock.clear());
-read_ecc_sector(destination, bytes_per_sector, metadata_buffer, lock.clear());
+if (send_command(command, lock.clear()) == 0)
+	if (send_command(ATOSE_nand_command_read_end, lock.clear()) == 0)
+		if (read_ecc_sector(destination, bytes_per_sector, metadata_buffer, lock.clear()) == 0)
+			return 0;
+
+return 0x01;
 }
 
 /*
 	ATOSE_NAND::WRITE_SECTOR()
 	--------------------------
+	Return 0 on success, 1 on failure
 */
-void ATOSE_nand::write_sector(uint8_t *data, uint64_t sector)
+uint32_t ATOSE_nand::write_sector(uint8_t *data, uint64_t sector)
 {
 uint8_t command[7];
 ATOSE_spin_lock lock;
@@ -133,17 +155,22 @@ command[4] = sector & 0xFF;
 command[5] = (sector >> 8) & 0xFF;
 command[6] = (sector >> 16) & 0xFF;
 
-send_command(command, lock.clear());
-write_ecc_sector(data, bytes_per_sector, lock.clear());
-send_command(ATOSE_nand_command_write_end, lock.clear());
+if (send_command(command, lock.clear()) == 0)
+	if (write_ecc_sector(data, bytes_per_sector, lock.clear()) == 0)
+		if (send_command(ATOSE_nand_command_write_end, lock.clear()) == 0)
+			return 0;
+
+return 0x01;
 }
 
 /*
 	ATOSE_NAND::ERASE_BLOCK()
 	-------------------------
+	Return 0 on success, 1 on failure
 */
-void ATOSE_nand::erase_block(uint64_t sector)
+uint32_t ATOSE_nand::erase_block(uint64_t sector)
 {
+ATOSE_spin_lock lock;
 uint8_t command[5];
 uint32_t block = sector / sectors_per_erase_block;
 
@@ -153,6 +180,9 @@ command[2] = block & 0xFF;
 command[3] = (block >> 8) & 0xFF;
 command[4] = (block >> 16) & 0xFF;
 
-send_command(command, lock.clear());
-send_command(ATOSE_nand_command_erase_block_end, lock.clear());
+if (send_command(command, lock.clear()) == 0)
+	if (send_command(ATOSE_nand_command_erase_block_end, lock.clear()) == 0)
+		return 0;
+
+return 0x01;
 }

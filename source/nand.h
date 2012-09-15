@@ -31,20 +31,20 @@ protected:
 	/*
 		Lowest level commands (send / read / write)
 	*/
-	virtual void send_command(uint8_t *command, ATOSE_lock *lock = 0) = 0;
-	virtual void read(uint8_t *buffer, uint32_t length, ATOSE_lock *lock = 0) = 0;
-	virtual void read_ecc_sector(uint8_t *buffer, uint32_t length, uint8_t *metadata_buffer, ATOSE_lock *lock) = 0;
-	virtual void write_ecc_sector(uint8_t *buffer, uint32_t length, ATOSE_lock *lock) = 0;
+	virtual uint32_t send_command(uint8_t *command, ATOSE_lock *lock = 0) = 0;
+	virtual uint32_t read(uint8_t *buffer, uint32_t length, ATOSE_lock *lock = 0) = 0;
+	virtual uint32_t read_ecc_sector(uint8_t *buffer, uint32_t length, uint8_t *metadata_buffer, ATOSE_lock *lock) = 0;
+	virtual uint32_t write_ecc_sector(uint8_t *buffer, uint32_t length, ATOSE_lock *lock) = 0;
 
 public:		// FIX THIS :: make protected
 	/*
 		The interface to the NAND chip
 	*/
-	void reset(void);
-	uint8_t status(void);
-	void read_sector(uint8_t *destination, uint64_t sector);
-	void write_sector(uint8_t *buffer, uint64_t sector);
-	void erase_block(uint64_t sector);
+	uint32_t reset(void);
+	uint32_t status(void);
+	uint32_t read_sector(uint8_t *destination, uint64_t sector);
+	uint32_t write_sector(uint8_t *buffer, uint64_t sector);
+	uint32_t erase_block(uint64_t sector);
 
 
 public:
