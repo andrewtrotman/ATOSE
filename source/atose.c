@@ -4,6 +4,7 @@
 */
 #include "atose.h"
 #include "../systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/hw_irq.h"
+#include "nand_onfi_parameters.h" // DELETE THIS LINE
 
 extern ATOSE *ATOSE_addr;
 
@@ -63,13 +64,26 @@ ATOSE_addr = this;
 
 	{
 	/*
-		Remove this block code.  Move the reset() into the disk.enable().
+		Remove this block of code.  Move the reset() into the disk.enable().
 	*/
 	io.hex();
 	disk.reset();		// FIX THIS
 	uint8_t status = disk.status();
 
-	static __attribute__((aligned(0x4))) uint8_t buffer[4096 + 224];
+	static __attribute__((aligned(0x04))) uint8_t buffer[4096 + 224];
+	ATOSE_nand_onfi_parameters *params = (ATOSE_nand_onfi_parameters *)buffer;
+	
+	disk.get_parameter_block(buffer);
+	for (int x = 0; x < 0xFF; x++)
+		io << (uint32_t)buffer[x] << " ";
+
+
+	io << "Number of data bytes per page  :" << params->bytes_per_page << "\r\n";
+	io << "Number of spare bytes per page :" << params->spare_bytes_per_page << "\r\n";
+	io << "Number of pages per block      :" << params->pages_per_block << "\r\n";
+	io << "Number of blocks per lun       :" << params->blocks_per_lun << "\r\n";
+	io << "Number of luns       :" << params->luns << "\r\n";
+/*
 	disk.read_sector(buffer, 123);
 	for (int x = 0; x < 4096; x++)
 		io << (uint32_t)buffer[x] << " ";
@@ -81,7 +95,7 @@ ATOSE_addr = this;
 	disk.read_sector(buffer, 123);
 	for (int x = 0; x < 4096; x++)
 		io << (uint32_t)buffer[x] << " ";
-
+*/
 	}
 
 #else

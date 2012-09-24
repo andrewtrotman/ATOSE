@@ -7,7 +7,9 @@
 #include "../systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsclkctrl.h"
 #include "../systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsapbh.h"
 #include "../systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsbch.h"
+#include "nand_device.h"
 #include "nand_imx233.h"
+#include "spin_lock.h"
 #include "timer_imx233.h"
 
 /*
@@ -401,7 +403,7 @@ uint32_t ATOSE_nand_imx233::transmit(ATOSE_nand_imx233_dma *request, ATOSE_lock 
 	If the DMA semaphore is non-zero then the DMA is currently executing a command and so we spin.
 	Theoretically this should not ever spin if we use spinlocks to wait for the commands to return.
 */
-while (HW_APBH_CHn_SEMA(4).PHORE != 0);		// do nothing
+while (HW_APBH_CHn_SEMA(4).B.PHORE != 0);		// do nothing
 
 /*
 	Give the controller the address of the request

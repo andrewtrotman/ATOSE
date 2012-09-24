@@ -15,6 +15,9 @@
 */
 class ATOSE_nand : public ATOSE_device_driver
 {
+public:
+	enum {FAIL = 1, FAILC = 2, R = 4, CSP = 8, VSP = 16, ARDY = 32, RDY = 64, WP_N = 128};
+
 protected:
 	static ATOSE_nand_device default_device;
 	static const uint32_t sectors_per_erase_block = 128;		// FIX (get this from the geometory of the device)
@@ -36,12 +39,13 @@ protected:
 	virtual uint32_t read_ecc_sector(uint8_t *buffer, uint32_t length, uint8_t *metadata_buffer, ATOSE_lock *lock) = 0;
 	virtual uint32_t write_ecc_sector(uint8_t *buffer, uint32_t length, ATOSE_lock *lock) = 0;
 
-public:		// FIX THIS :: make protected
+public:
 	/*
 		The interface to the NAND chip
 	*/
 	uint32_t reset(void);
 	uint32_t status(void);
+	uint32_t get_parameter_block(uint8_t *buffer);
 	uint32_t read_sector(uint8_t *destination, uint64_t sector);
 	uint32_t write_sector(uint8_t *buffer, uint64_t sector);
 	uint32_t erase_block(uint64_t sector);

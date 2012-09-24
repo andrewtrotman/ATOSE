@@ -4,6 +4,7 @@
 */
 #include <stdint.h>
 #include "nand.h"
+#include "nand_onfi_parameters.h"
 #include "spin_lock.h"
 #include "timer_imx233.h"		// remove this
 
@@ -15,7 +16,7 @@
 */
 uint8_t ATOSE_nand_command_reset[] = {0x01, 0xFF};
 uint8_t ATOSE_nand_command_status[] = {0x01, 0x70};
-uint8_t ATOSE_nane_command_read_parameter_page[] = {0x01, 0xEC, 0x00 };
+uint8_t ATOSE_nand_command_read_parameter_page[] = {0x01, 0xEC, 0x00 };
 uint8_t ATOSE_nand_command_read[] = {0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 uint8_t ATOSE_nand_command_read_end[] = {0x01, 0x30};
 uint8_t ATOSE_nand_command_write[] = {0x06, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00};
@@ -103,11 +104,38 @@ uint32_t ATOSE_nand::status(void)
 ATOSE_spin_lock lock;
 uint8_t answer;
 
-if (send_command(ATOSE_nand_command_status, lock.clear()) == 0)		// success
-	if (read(&answer, 1, lock.clear()) == 0)		// success
-		return answer;
+if (send_command(ATOSE_nand_command_status, lock.clear()) == 0)		// succeeds
+	if (read(&answer, 1, lock.clear()) == 0)							// succeeds
+		return answer;													// success
 
 return 0x0100;		// simulate a failure.
+}
+
+/*
+	ATOSE_NAND::GET_PARAMETER_BLOCK()
+	---------------------------------
+	Return 0 on success, 1 on failure
+*/
+uint32_t ATOSE_nand::get_parameter_block(uint8_t *buffer)
+{
+ATOSE_spin_lock lock;
+uint8_t trial;
+
+/*
+	The ONFI spec states that there are at least 3 copies of the 255-byte
+	parameter page.  Here we send one command and try reading each one
+	until we get one that checksums.  There might be more than 3, but
+	unless we get a page that does checksum we cannot determine how many
+	there are - so it is pointless checking for more than those initial
+	three.
+*/
+if (send_command(ATOSE_nand_command_read_parameter_page, lock.clear()) == 0)		// success
+	for (trial = 0; trial < 3; trial++)
+		if (read(buffer, sizeof(ATOSE_nand_onfi_parameters), lock.clear()) == 0)
+			if (ATOSE_nand_onfi_parameters::compute_crc(buffer, sizeof(ATOSE_nand_onfi_parameters)) == ((ATOSE_nand_onfi_parameters *)buffer)->crc)
+				return 0;
+
+return 0x01;
 }
 
 /*

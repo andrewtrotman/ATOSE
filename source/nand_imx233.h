@@ -8,6 +8,9 @@
 #include "nand.h"
 #include "nand_imx233_dma.h"
 
+class ATOSE_nand_device;
+class ATOSE_lock;
+
 /*
 	class ATOSE_NAND_IMX233
 	-----------------------
@@ -45,6 +48,7 @@ public:
 	virtual void disable(void);
 	virtual void acknowledge(void);
 } ;
+
 
 #endif /* NAND_IMX233_H_ */
 

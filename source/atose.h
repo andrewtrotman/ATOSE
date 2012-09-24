@@ -20,6 +20,8 @@
 
 #include "keyboard_mouse_interface.h"
 
+#include "nand.h"
+#include "nand_verify.h"
 #include "nand_imx233.h"
 
 /*
@@ -37,7 +39,7 @@ public:
 	ATOSE_pic_imx233 pic;
 	ATOSE_IO_debug_imx233 io;
 	ATOSE_timer_imx233 timer;
-	ATOSE_nand_imx233 disk;
+	ATOSE_nand_verify<ATOSE_nand_imx233> disk;
 
 #else
 

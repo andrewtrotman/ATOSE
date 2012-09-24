@@ -6,10 +6,10 @@
 #define NAND_ONFI_PARAMETERS_H_
 
 /*
-	class ATOSE_NAMD_ONFI_PARAMETER
-	-------------------------------
+	class ATOSE_NAND_ONFI_PARAMETERS
+	--------------------------------
 */
-class ATOSE_namd_onfi_parameter
+class ATOSE_nand_onfi_parameters
 {
 public:
 	/*
@@ -84,10 +84,10 @@ public:
 		1 1 = supports Multi-plane Page Program
 		0 1 = supports Random Data Out
 	*/
-	uint8_t advanced_command_support
+	uint8_t advanced_command_support;
 
 	uint8_t reserved_bytes_1[1];				// reserved [byte 11]
-	uint16_t extended_parameter_page_length		// Extended parameter page length [byte 12-13]
+	uint16_t extended_parameter_page_length;	// Extended parameter page length [byte 12-13]
 	uint8_t number_of_parameter_pages;			// Number of duplicate copies of the parameter page [byte 14]
 	uint8_t reserved_bytes_2[17];				// reserved [bytes 15-31]
 
@@ -105,7 +105,7 @@ public:
 		MEMORY ORGANIZATION BLOCK
 		-------------------------
 	*/
-	uint32_t byte_per_page;					// Number of data bytes per page [bytes 80-83]
+	uint32_t bytes_per_page;				// Number of data bytes per page [bytes 80-83]
 	uint16_t spare_bytes_per_page;			// Number of spare bytes per page [bytes 84-85]
 	uint8_t obsolete_bytes_1[4];			// Obsolete - Number of data bytes per partial page [bytes 86-89]
 	uint8_t obsolete_bytes_2[2];			// Obsolete - Number of spare bytes per partial page [bytes 90-91]
@@ -296,19 +296,21 @@ public:
 		to read several copies.
 	*/
 public:
-	uint16_t compute_crc(uint8_t *buffer, uint32_t length);
+	static uint16_t compute_crc(uint8_t *buffer, uint32_t length);
 
 } __attribute__((packed));
 
+
+
 /*
-	ATOSE_NAMD_ONFI_PARAMETER::COMPUTE_CRC()
-	----------------------------------------
+	INLINE UINT16_T ATOSE_NAND_ONFI_PARAMETERS::COMPUTE_CRC()
+	---------------------------------------------------------
 */
-uint16_t ATOSE_namd_onfi_parameter::compute_crc(uint8_t *buffer, uint32_t length)
+inline uint16_t ATOSE_nand_onfi_parameters::compute_crc(uint8_t *buffer, uint32_t length)
 {
 uint32_t bit;
-uint32_t byte
-uint16_6 crc = 0x4F4E;
+uint32_t byte;
+uint16_t crc = 0x4F4E;
 
 for (byte = 0; byte < length; byte++)
 	{
