@@ -74,8 +74,10 @@ ATOSE_addr = this;
 	ATOSE_nand_onfi_parameters *params = (ATOSE_nand_onfi_parameters *)buffer;
 	
 	disk.get_parameter_block(buffer);
-	for (int x = 0; x < 0xFF; x++)
-		io << (uint32_t)buffer[x] << " ";
+	int x = 0;
+	for (int row = 0; x < 0xF; x++)
+		for (int column = 0; x < 0xF; x++)
+			io << (uint32_t)buffer[x++] << " ";
 
 
 	io << "Number of data bytes per page  :" << params->bytes_per_page << "\r\n";
