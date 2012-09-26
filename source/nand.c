@@ -7,6 +7,7 @@
 #include "nand_onfi_parameters.h"
 #include "spin_lock.h"
 #include "timer_imx233.h"		// remove this
+#include "atose.h"				// DELETE THIS
 
 /*
 	These are the various NAND commands according to ONFI (http://onfi.org/)
@@ -137,10 +138,22 @@ uint8_t trial;
 	there are - so it is pointless checking for more than those initial
 	three.
 */
+ATOSE *os = ATOSE::get_global_entry_point();
+//os->io << "[SEND]" << "\r\n";;
+
 if (send_command(ATOSE_nand_command_read_parameter_page, lock.clear()) == 0)		// success
+	{
 	for (trial = 0; trial < 3; trial++)
+		{
+//		os->io << "[TRIAL:" << trial << "]" << "\r\n";
+
 		if (read(buffer, sizeof(ATOSE_nand_onfi_parameters), lock.clear()) == 0)
 			{
+
+//			uint32_t me = ATOSE_nand_onfi_parameters::compute_crc(buffer, 254);
+//			uint32_t you = ((ATOSE_nand_onfi_parameters *)buffer)->crc;
+//			os->io << "[me:" << me << " MICRON:" << you << "]\r\n";
+
 			/*
 				The ONFI spec stats that we only checksum bytes 0..253 inclusive
 				This is because bytes 254 and 255 contain the checksum itself.
@@ -148,7 +161,10 @@ if (send_command(ATOSE_nand_command_read_parameter_page, lock.clear()) == 0)		//
 			if (ATOSE_nand_onfi_parameters::compute_crc(buffer, 254) == ((ATOSE_nand_onfi_parameters *)buffer)->crc)
 				return trial;
 			}
+		}
+	}
 
+os->io << "[FAIL]\r\n";
 return INTERFACE_CURRUPT;
 }
 

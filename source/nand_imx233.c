@@ -11,7 +11,6 @@
 #include "nand_imx233.h"
 #include "spin_lock.h"
 #include "timer_imx233.h"
-#include "atose.h"					/// DELETE THIS LINE
 
 /*
 	ATOSE_NAND_IMX233::ENABLE_PINS()
@@ -232,6 +231,7 @@ HW_BCH_FLASH0LAYOUT1_WR(BF_BCH_FLASH0LAYOUT1_PAGE_SIZE(device->bytes_per_sector 
 
 /*
 	Enable interrupts
+	We don't need this because we can get it from the DMA controller
 */
 //HW_BCH_CTRL_SET(BM_BCH_CTRL_COMPLETE_IRQ_EN);
 }
@@ -302,23 +302,39 @@ void ATOSE_nand_imx233::disable(void)
 void ATOSE_nand_imx233::acknowledge(void)
 {
 /*
-	Signal to the GPMI that we're done
+	Check to see if the GPMI timed out
 */
-HW_GPMI_CTRL1_CLR(BM_GPMI_CTRL1_DEV_IRQ | BM_GPMI_CTRL1_TIMEOUT_IRQ);
+if (HW_GPMI_CTRL1.B.TIMEOUT_IRQ != 0)
+	HW_GPMI_CTRL1_CLR(BM_GPMI_CTRL1_TIMEOUT_IRQ);
 
 /*
-	Signal to the DMA that we're done
+	Check to see if the GPMI thinks its finished
 */
-HW_APBH_CTRL1_CLR(BM_APBH_CTRL1_CH4_CMDCMPLT_IRQ);
-HW_APBH_CTRL2_CLR(BM_APBH_CTRL2_CH4_ERROR_IRQ);
+if (HW_GPMI_CTRL1.B.DEV_IRQ != 0)
+	HW_GPMI_CTRL1_CLR(BM_GPMI_CTRL1_DEV_IRQ);
 
 /*
-	Signal to the BCH error correcton that we're done
+	Did the DMA controller think there was an error?
 */
-HW_BCH_CTRL_CLR(BM_BCH_CTRL_COMPLETE_IRQ);
+if (HW_APBH_CTRL2.B.CH4_ERROR_STATUS != 0)
+	HW_APBH_CTRL2_CLR(BM_APBH_CTRL2_CH4_ERROR_IRQ);
 
 /*
-	Signal the lock mechanism to say we're done
+	Tell the DMA that all's well
+*/
+if (HW_APBH_CTRL1.B.CH4_CMDCMPLT_IRQ != 0)
+	HW_APBH_CTRL1_CLR(BM_APBH_CTRL1_CH4_CMDCMPLT_IRQ);
+
+#ifdef NEVER
+	/*
+		Signal to the BCH error correcton that we're done
+		As we've turned off the BCH interrupt, this isn't necessary any more
+	*/
+	HW_BCH_CTRL_CLR(BM_BCH_CTRL_COMPLETE_IRQ);
+#endif
+
+/*
+	Signal the lock mechanism to say we're done when the GPMI say's we're done (not when the DMA say's we're done)
 */
 if (lock != 0)
 	lock->signal();
@@ -604,12 +620,7 @@ request2.pio[2] = 0; // Reset the BCH
 /*
 	Now tell the DMA controller to do the requests
 */
-ATOSE *os = ATOSE::get_global_entry_point();
-os->io << "(BCH_READ_TRANSMIT:";
-
 success = transmit(&request, lock);
-
-os->io << ")";
 
 #ifdef NEVER
 	#ifdef FourARM
