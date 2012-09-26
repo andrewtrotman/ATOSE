@@ -29,15 +29,15 @@ uint32_t ATOSE_isr_irq(ATOSE_registers *registers)
 
 	ATOSE_device_driver *device_driver;
 
-//	uint32_t got = HW_ICOLL_STAT_RD();		// get the interrupt number (in case we need it)
+	uint32_t got = HW_ICOLL_STAT_RD();										// get the interrupt number (in case we need it)
 
-	device_driver = *((ATOSE_device_driver **)HW_ICOLL_VECTOR_RD());				// tell the CPU that we've entered the interrupt service routine and get the ISR address
+	device_driver = *((ATOSE_device_driver **)HW_ICOLL_VECTOR_RD());		// tell the CPU that we've entered the interrupt service routine and get the ISR address
 	
 	if (device_driver != 0)
 		device_driver->acknowledge();
 
 	ATOSE *os = ATOSE::get_global_entry_point();
-	os->io << ".";
+	os->io << "[" << got << "]";
 
 	HW_ICOLL_LEVELACK_WR(BV_ICOLL_LEVELACK_IRQLEVELACK__LEVEL0);			// finished processing the interrupt
 

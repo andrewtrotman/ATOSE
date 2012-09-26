@@ -300,11 +300,9 @@ public:
 
 } __attribute__((packed));
 
-
-
 /*
-	INLINE UINT16_T ATOSE_NAND_ONFI_PARAMETERS::COMPUTE_CRC()
-	---------------------------------------------------------
+	ATOSE_NAND_ONFI_PARAMETERS::COMPUTE_CRC()
+	-----------------------------------------
 */
 inline uint16_t ATOSE_nand_onfi_parameters::compute_crc(uint8_t *buffer, uint32_t length)
 {

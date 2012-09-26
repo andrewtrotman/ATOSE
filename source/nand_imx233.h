@@ -18,6 +18,9 @@ class ATOSE_lock;
 class ATOSE_nand_imx233 : public ATOSE_nand
 {
 private:
+	static const uint32_t bytes_per_BCH_subsector = 512;
+
+private:
 	void enable_pins(void);
 	void enable_clock(ATOSE_nand_device *device);
 	void enable_interface(ATOSE_nand_device *device);
@@ -38,7 +41,7 @@ protected:
 	uint32_t transmit(ATOSE_nand_imx233_dma *request, ATOSE_lock *lock, uint8_t *command = 0);
 	virtual uint32_t send_command(uint8_t *command,  ATOSE_lock *lock);
 	virtual uint32_t read(uint8_t *buffer, uint32_t length, ATOSE_lock *lock);
-	virtual uint32_t read_ecc_sector(uint8_t *buffer, uint32_t length, uint8_t *metadata_buffer, ATOSE_lock *lock);
+	virtual uint32_t read_ecc_sector(uint8_t *buffer, uint32_t length, ATOSE_lock *lock);
 	virtual uint32_t write_ecc_sector(uint8_t *buffer, uint32_t length, ATOSE_lock *lock);
 
 public:

@@ -11,6 +11,7 @@
 #include "nand_imx233.h"
 #include "spin_lock.h"
 #include "timer_imx233.h"
+#include "atose.h"					/// DELETE THIS LINE
 
 /*
 	ATOSE_NAND_IMX233::ENABLE_PINS()
@@ -196,27 +197,43 @@ void ATOSE_nand_imx233::enable_bch(ATOSE_nand_device *device)
 
 /*
 	Come out of reset
+	Turn on the BCH
+	Wait for it to come up
 */
 
 HW_BCH_CTRL_CLR(BM_BCH_CTRL_SFTRST);
-ATOSE_timer_imx233::delay_us(1000);				// wait a microsecond (should be 3 BCH clocks)
-
-/*
-	Turn on the BCH and wait for it to come up
-*/
+// ATOSE_timer_imx233::delay_us(1000);	// wait a microsecond (should be 3 BCH clocks), but the i.MX233 manual doesn't do this (see pp15-16)!
 HW_BCH_CTRL_CLR(BM_BCH_CTRL_CLKGATE);
 while (HW_BCH_CTRL.B.CLKGATE);		// do nothing
 
 /*
-	Now program the NAND device's parameters into the BCH
+	Program the NAND device's parameters into the BCH
+
+	The i.MX233 BCH module "is capable of correcting from 2 to 20 single
+	bit errors within a block of data no larger than about 900 bytes (512
+	bytes is typical) in applications such as protecting data and
+	resources stored on modern NAND flash devices" (see  i.MX23
+	Applications Processor Reference Manual IMX23RM, Rev. 1, 11/2009, pp 15-1)
+
+	We must decompose the NAND sectors into smaller blocks of some size
+	smaller than "about 900" bytes.  Smaller blocks require more ECC bits
+	per sector and so your get fewer useful bits.  Large blocks require
+	fewer ECC bits per sector, but have a higher  chance of failure!
+	We'll go for a configurable size, but that will, presumably be 512 in
+	the normal case.
+
+	
+	The BCH allows a meta-data block at the start of the sector.  We don't use it
+	and so set metadata size to 0. This makes the first block a "regular" block
+	therefore we have n-1 "subsequent" blocks after block 0.
 */
-HW_BCH_FLASH0LAYOUT0_WR(BF_BCH_FLASH0LAYOUT0_NBLOCKS(device->blocks_per_page - 1) | BF_BCH_FLASH0LAYOUT0_META_SIZE(device->metadata_size) | BF_BCH_FLASH0LAYOUT0_ECC0(device->ecc_level >> 2) | BF_BCH_FLASH0LAYOUT0_DATA0_SIZE(device->block_size));
-HW_BCH_FLASH0LAYOUT1_WR(BF_BCH_FLASH0LAYOUT1_PAGE_SIZE(device->blocks_per_page * device->block_size + device->spare_per_page) | BF_BCH_FLASH0LAYOUT1_ECCN(device->ecc_level >> 2) | BF_BCH_FLASH0LAYOUT1_DATAN_SIZE(device->block_size));
+HW_BCH_FLASH0LAYOUT0_WR(BF_BCH_FLASH0LAYOUT0_NBLOCKS(device->bytes_per_sector / bytes_per_BCH_subsector - 1) | BF_BCH_FLASH0LAYOUT0_META_SIZE(0) | BF_BCH_FLASH0LAYOUT0_ECC0(device->ecc_level >> 1) | BF_BCH_FLASH0LAYOUT0_DATA0_SIZE(bytes_per_BCH_subsector));
+HW_BCH_FLASH0LAYOUT1_WR(BF_BCH_FLASH0LAYOUT1_PAGE_SIZE(device->bytes_per_sector + device->metadata_bytes_per_sector) | BF_BCH_FLASH0LAYOUT1_ECCN(device->ecc_level >> 1) | BF_BCH_FLASH0LAYOUT1_DATAN_SIZE(bytes_per_BCH_subsector));
 
 /*
 	Enable interrupts
 */
-HW_BCH_CTRL_SET(BM_BCH_CTRL_COMPLETE_IRQ_EN);
+//HW_BCH_CTRL_SET(BM_BCH_CTRL_COMPLETE_IRQ_EN);
 }
 
 /*
@@ -263,10 +280,11 @@ HW_APBH_CTRL0_CLR(1 << (4 + BP_APBH_CTRL0_CLKGATE_CHANNEL));
 void ATOSE_nand_imx233::enable(void)
 {
 enable_pins();
-enable_clock(&default_device);
-enable_interface(&default_device);
-enable_bch(&default_device);
+enable_clock(&current_device);
+enable_interface(&current_device);
+enable_bch(&current_device);
 enable_dma();
+reset();
 }
 
 /*
@@ -406,17 +424,17 @@ uint32_t ATOSE_nand_imx233::transmit(ATOSE_nand_imx233_dma *request, ATOSE_lock 
 while (HW_APBH_CHn_SEMA(4).B.PHORE != 0);		// do nothing
 
 /*
-	Give the controller the address of the request
-*/
-HW_APBH_CHn_NXTCMDAR_WR(4, (uint32_t)(&request));
-
-/*
 	Store a handle to the lock
 */
 this->lock = lock;
 
 /*
-	Now tell the controller to issue the request
+	Give the controller the address of the request
+*/
+HW_APBH_CHn_NXTCMDAR_WR(4, (uint32_t)(request));
+
+/*
+	Now tell the controller to issue the request by setting the semaphore to 1
 */
 HW_APBH_CHn_SEMA_WR(4, 1);
 
@@ -425,6 +443,7 @@ HW_APBH_CHn_SEMA_WR(4, 1);
 */
 if (lock != 0)
 	lock->wait();
+
 this->lock = 0;
 
 #ifdef FourARM
@@ -462,7 +481,6 @@ request.halt_on_terminate = 0;
 request.terminate_flush = 0;
 request.pio_words = 3;
 request.bytes = *command;
-
 request.address = command + 1;
 
 request.pio[0] = BM_GPMI_CTRL0_LOCK_CS | BF_GPMI_CTRL0_COMMAND_MODE(BV_GPMI_CTRL0_COMMAND_MODE__WRITE) | BM_GPMI_CTRL0_WORD_LENGTH | BF_GPMI_CTRL0_CS(0) | BF_GPMI_CTRL0_ADDRESS(BV_GPMI_CTRL0_ADDRESS__NAND_CLE) | BM_GPMI_CTRL0_ADDRESS_INCREMENT | BF_GPMI_CTRL0_XFER_COUNT(*command);
@@ -519,11 +537,21 @@ return success;
 /*
 	ATOSE_NAND_IMX233::READ_ECC_SECTOR()
 	------------------------------------
-	return 0 on success, and other result is an error
+	Returns:
+		0x00  (SUCCESS)           success (no errors, no bits corrected)
+		0x01 - 0xF0               the number of corrected bits in this sector
+		0xFE  (SECTOR_CURRUPT)    data corruption
+		0xFF  (SECTOR_BLANK)      sector is blank
+		0x100 (INTERFACE_CURRUPT) cannot communicate with the NAND (hardware failure)
 */
-uint32_t ATOSE_nand_imx233::read_ecc_sector(uint8_t *buffer, uint32_t length, uint8_t *metadata_buffer, ATOSE_lock *lock)
+uint32_t ATOSE_nand_imx233::read_ecc_sector(uint8_t *buffer, uint32_t length, ATOSE_lock *lock)
 {
-uint32_t success;
+/*
+	Each sub-sector returns an error code and so we must creare space here to recieve them from the BCH
+*/
+__attribute__((aligned(0x4))) uint8_t status_code[current_device.bytes_per_sector / bytes_per_BCH_subsector];
+uint32_t fixed_bits, blank_subsectors, success, current;
+
 /*
 	Get to DMA objects and join them together in a chain
 */
@@ -550,7 +578,7 @@ request.pio[1] = 0;
 request.pio[2] = BF_GPMI_ECCCTRL_HANDLE(0x123) | BF_GPMI_ECCCTRL_ECC_CMD(BV_GPMI_ECCCTRL_ECC_CMD__DECODE_8_BIT) | BF_GPMI_ECCCTRL_ENABLE_ECC(1) | BF_GPMI_ECCCTRL_BUFFER_MASK(BV_GPMI_ECCCTRL_BUFFER_MASK__BCH_PAGE);
 request.pio[3] = length;
 request.pio[4] = (uint32_t)buffer;
-request.pio[5] = (uint32_t)metadata_buffer;
+request.pio[5] = (uint32_t)status_code;
 
 /*
 	In the second request we disable the BCH
@@ -576,7 +604,12 @@ request2.pio[2] = 0; // Reset the BCH
 /*
 	Now tell the DMA controller to do the requests
 */
+ATOSE *os = ATOSE::get_global_entry_point();
+os->io << "(BCH_READ_TRANSMIT:";
+
 success = transmit(&request, lock);
+
+os->io << ")";
 
 #ifdef NEVER
 	#ifdef FourARM
@@ -584,7 +617,44 @@ success = transmit(&request, lock);
 	#endif
 #endif
 
-return success;
+if (success != 0)
+	return INTERFACE_CURRUPT;			// cannot talk to the hardware
+
+/*
+	Compute the number of bits we corrected in this sector...
+
+	As a consequence of the read the status_codes is loaded with one byte per sub-sector.
+	The meanings of the bytes are:
+
+	0x00      No error
+	0x01-0x14 Number of corrected errors
+	0xFE      Block is corrupt ("uncorrectable")
+	0xFF      Block is empty ("Erased")
+
+	So we can go though the array adding up the codes and return the numner of errors
+	that were corrected in the sector (or 0xFF for the entire sector is blank, or 0xFE for curruption)
+*/
+fixed_bits = blank_subsectors = 0;
+for (current = 0; current < current_device.bytes_per_sector / bytes_per_BCH_subsector; current++)
+	{
+	if (status_code[current] == BV_BCH_STATUS0_STATUS_BLK0__UNCORRECTABLE)
+		return SECTOR_CORRUPT;
+	else if (status_code[current] == BV_BCH_STATUS0_STATUS_BLK0__ERASED)
+		blank_subsectors++;
+	else
+		fixed_bits += status_code[current];
+	}
+
+/*
+	if the sector is blank then we tell the user this
+*/
+if (blank_subsectors == current_device.bytes_per_sector / bytes_per_BCH_subsector)
+	return SECTOR_BLANK;
+
+/*
+	Otherwise we tell them how many bits were corrected in this sector
+*/
+return fixed_bits;
 }
 
 /*
