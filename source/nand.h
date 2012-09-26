@@ -9,6 +9,8 @@
 #include "nand_device.h"
 #include "lock.h"
 
+class ATOSE_nand_onfi_parameters;
+
 /*
 	class ATOSE_NAND
 	----------------
@@ -33,6 +35,7 @@ protected:
 		Lowest level commands (send / read / write)
 	*/
 	virtual uint32_t send_command(uint8_t *command, ATOSE_lock *lock = 0) = 0;
+	virtual uint32_t wait_for_ready(ATOSE_lock *lock) = 0;
 	virtual uint32_t read(uint8_t *buffer, uint32_t length, ATOSE_lock *lock = 0) = 0;
 	virtual uint32_t read_ecc_sector(uint8_t *buffer, uint32_t length, ATOSE_lock *lock) = 0;
 	virtual uint32_t write_ecc_sector(uint8_t *buffer, uint32_t length, ATOSE_lock *lock) = 0;
@@ -52,7 +55,7 @@ public:
 	*/
 	uint32_t reset(void);
 	uint32_t status(void);
-	uint32_t get_parameter_block(uint8_t *buffer);
+	uint32_t get_parameter_block(ATOSE_nand_onfi_parameters *buffer);
 	uint32_t read_sector(uint8_t *destination, uint64_t sector);
 	uint32_t write_sector(uint8_t *buffer, uint64_t sector);
 	uint32_t erase_block(uint64_t sector);

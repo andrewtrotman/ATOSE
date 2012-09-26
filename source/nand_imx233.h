@@ -39,6 +39,7 @@ private:
 
 protected:
 	uint32_t transmit(ATOSE_nand_imx233_dma *request, ATOSE_lock *lock, uint8_t *command = 0);
+	virtual uint32_t wait_for_ready(ATOSE_lock *lock);
 	virtual uint32_t send_command(uint8_t *command,  ATOSE_lock *lock);
 	virtual uint32_t read(uint8_t *buffer, uint32_t length, ATOSE_lock *lock);
 	virtual uint32_t read_ecc_sector(uint8_t *buffer, uint32_t length, ATOSE_lock *lock);

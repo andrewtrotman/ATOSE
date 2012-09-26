@@ -7,17 +7,25 @@
 #include "nand_onfi_parameters.h"
 #include "spin_lock.h"
 #include "timer_imx233.h"		// remove this
-#include "atose.h"				// DELETE THIS
 
 /*
-	These are the various NAND commands according to ONFI (http://onfi.org/)
-	the format is: length(in bytes), then the command string.  Some commands are broken
-	into two parts because the single NAND command requires two transmissions with the
-	command line high before it happens.
+	These are the various NAND commands according to ONFI
+	(http://onfi.org/) the format is: length(in bytes), then the command
+	string.  Some commands are broken into two parts because the single
+	NAND command requires two transmissions with the command line high
+	before it happens.
+
+	Due to the FourARM hardware bug (the data bus to the Flash is
+	crossed) its necessary to shuffle the bits in the command before
+	sending to the NAND.  To so this the following strings must be in
+	modifiable space - which means they can't be static.  Oh why does C
+	use static to both restrict linkage and to make the strings const.
+	We're forced here to polute the global namespace.
 */
+uint8_t ATPSE_nand_command_enter_read_mode[] = {0x01, 0x00};
 uint8_t ATOSE_nand_command_reset[] = {0x01, 0xFF};
 uint8_t ATOSE_nand_command_status[] = {0x01, 0x70};
-uint8_t ATOSE_nand_command_read_parameter_page[] = {0x02, 0xEC, 0x00 };
+uint8_t ATOSE_nand_command_read_parameter_page[] = {0x02, 0xEC, 0x00};
 uint8_t ATOSE_nand_command_read[] = {0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 uint8_t ATOSE_nand_command_read_end[] = {0x01, 0x30};
 uint8_t ATOSE_nand_command_write[] = {0x06, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00};
@@ -125,7 +133,7 @@ return INTERFACE_CURRUPT;		// simulate a failure.
 	Return 0 on success, 0x100 (INTERFACE_CURRUPT) on failure
 	any other value is the number of bad parameter blocks we examined before we got a good one
 */
-uint32_t ATOSE_nand::get_parameter_block(uint8_t *buffer)
+uint32_t ATOSE_nand::get_parameter_block(ATOSE_nand_onfi_parameters *buffer)
 {
 ATOSE_spin_lock lock;
 uint8_t trial;
@@ -138,33 +146,33 @@ uint8_t trial;
 	there are - so it is pointless checking for more than those initial
 	three.
 */
-ATOSE *os = ATOSE::get_global_entry_point();
-//os->io << "[SEND]" << "\r\n";;
-
 if (send_command(ATOSE_nand_command_read_parameter_page, lock.clear()) == 0)		// success
 	{
-	for (trial = 0; trial < 3; trial++)
-		{
-//		os->io << "[TRIAL:" << trial << "]" << "\r\n";
+	/*
+		According to the ONFI spec, we must wait tR before reading the
+		result.  But it also says we can use Read Status to see when the
+		command has completed so that we can then do the read. This
+		second approach is the one we'll take here.
+	*/
+	while  (status() & (RDY | ARDY) != (RDY | ARDY))
+		/* do nothing */;
 
-		if (read(buffer, sizeof(ATOSE_nand_onfi_parameters), lock.clear()) == 0)
-			{
-
-//			uint32_t me = ATOSE_nand_onfi_parameters::compute_crc(buffer, 254);
-//			uint32_t you = ((ATOSE_nand_onfi_parameters *)buffer)->crc;
-//			os->io << "[me:" << me << " MICRON:" << you << "]\r\n";
-
-			/*
-				The ONFI spec stats that we only checksum bytes 0..253 inclusive
-				This is because bytes 254 and 255 contain the checksum itself.
-			*/
-			if (ATOSE_nand_onfi_parameters::compute_crc(buffer, 254) == ((ATOSE_nand_onfi_parameters *)buffer)->crc)
-				return trial;
-			}
-		}
+	/*
+		Now we put the NAND Flash into read mode before doing the read
+	*/
+	if (send_command(ATPSE_nand_command_enter_read_mode, lock.clear()) == 0)		// success
+		for (trial = 0; trial < 3; trial++)
+			if (read((uint8_t *)buffer, sizeof(ATOSE_nand_onfi_parameters), lock.clear()) == 0)
+				{
+				/*
+					The ONFI spec stats that we only checksum bytes 0..253 inclusive
+					This is because bytes 254 and 255 contain the checksum itself.
+				*/
+				if (ATOSE_nand_onfi_parameters::compute_crc((uint8_t *)buffer, 254) == buffer->crc)
+					return trial;
+				}
 	}
 
-os->io << "[FAIL]\r\n";
 return INTERFACE_CURRUPT;
 }
 
@@ -193,7 +201,15 @@ command[6] = (sector >> 16) & 0xFF;
 
 if (send_command(command, lock.clear()) == 0)
 	if (send_command(ATOSE_nand_command_read_end, lock.clear()) == 0)
-		return read_ecc_sector(destination, current_device.bytes_per_sector + current_device.metadata_bytes_per_sector, lock.clear());
+		{
+		/*
+			According to the ONFI spec, we must wait tR before reading
+			the result.  But it also says we can check the ready line.
+			This second approach is the one we'll take here.
+		*/
+		if (wait_for_ready(lock.clear()) == 0)
+			return read_ecc_sector(destination, current_device.bytes_per_sector + current_device.metadata_bytes_per_sector, lock.clear());
+		}
 
 return INTERFACE_CURRUPT;
 }
@@ -217,9 +233,27 @@ command[5] = (sector >> 8) & 0xFF;
 command[6] = (sector >> 16) & 0xFF;
 
 if (send_command(command, lock.clear()) == 0)
+	{
+	/*
+		We must now wait tADL (on the FourARM this is 70-100ns which is
+		30-50 clock cycles) before we send the data.  Note that the
+		i.MX233 Reference Manual (page 15-12) doesn't delay here (so we won't).
+	*/
+	/*
+		ATOSE_timer_imx233::delay_us(1);
+	*/
 	if (write_ecc_sector(data, current_device.bytes_per_sector + current_device.metadata_bytes_per_sector, lock.clear()) == 0)
 		if (send_command(ATOSE_nand_command_write_end, lock.clear()) == 0)
-			return 0;
+			{
+			/*
+				We must wait tPROG before we know the data got there, and
+				on the FourARM this can be as long as 500us! But, we can
+				also wait on the ready line.
+			*/
+			if (wait_for_ready(lock.clear()) == 0)
+				return 0;
+			}
+	}
 
 return INTERFACE_CURRUPT;
 }
@@ -243,7 +277,13 @@ command[4] = (block >> 16) & 0xFF;
 
 if (send_command(command, lock.clear()) == 0)
 	if (send_command(ATOSE_nand_command_erase_block_end, lock.clear()) == 0)
-		return 0;
+		{
+		/*
+			Now we wait tBERS when the ready line is reasserted
+		*/
+		if (wait_for_ready(lock.clear()) == 0)
+			return 0;
+		}
 
 return INTERFACE_CURRUPT;
 }

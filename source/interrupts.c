@@ -36,8 +36,8 @@ uint32_t ATOSE_isr_irq(ATOSE_registers *registers)
 	if (device_driver != 0)
 		device_driver->acknowledge();
 
-	ATOSE *os = ATOSE::get_global_entry_point();
-	os->io << "[" << got << "]";
+//	ATOSE *os = ATOSE::get_global_entry_point();
+//	os->io << "[" << got << "]";
 
 	HW_ICOLL_LEVELACK_WR(BV_ICOLL_LEVELACK_IRQLEVELACK__LEVEL0);			// finished processing the interrupt
 

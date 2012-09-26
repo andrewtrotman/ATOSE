@@ -81,9 +81,9 @@ ATOSE_addr = this;
 	
 	io << "NAND get parameter block ";
 
-	uint32_t trials = disk.get_parameter_block(buffer);
+	uint32_t trials = disk.get_parameter_block((ATOSE_nand_onfi_parameters *)buffer);
 	
-	io << "success after " << trials << "failures\r\n";
+	io << "success after " << trials << " failures\r\n";
 	
 
 	int x = 0;
@@ -110,6 +110,7 @@ ATOSE_addr = this;
 	io << "ECC bits                       :" << (uint32_t)(params->ecc_bits) <<  "\r\n";
 	io << "SDR Timing mode support        :" << (uint32_t)(params->sdr_timing_mode_support) <<  "\r\n";
 
+/*
 	for (int x = 0; x < sizeof(buffer); x++)
 		buffer[x] = 0;
 
@@ -122,16 +123,20 @@ ATOSE_addr = this;
 
 	io.decimal();
 	io << "\r\nFIXED: " << fixed_bits << " bits\r\n";
+*/
 
-/*
 	for (int x = 0; x < 4096; x++)
-		buffer[x] = (uint8_t)x;
-	disk.write_sector(buffer, 122);
+		buffer[x] = (uint8_t)(x + 102);
+	uint32_t ok = disk.write_sector(buffer, 102);
 
-	disk.read_sector(buffer, 122);
+	io << "\r\nWRITE STAUTS:" << ok << "\r\n";
+
+	uint32_t fixed_bits = disk.read_sector(buffer, 102);
 	for (int x = 0; x < 4096; x++)
 		io << (uint32_t)buffer[x] << " ";
-*/
+	io.decimal();
+	io << "\r\nFIXED: " << fixed_bits << " bits\r\n";
+
 
 	}
 

@@ -17,6 +17,7 @@ public:
 	virtual ATOSE_lock *clear(void) = 0;
 	virtual ATOSE_lock *signal(void) = 0;
 	virtual ATOSE_lock *wait(void) = 0;
+	virtual uint32_t get(void) = 0;
 } ;
 
 #endif /* LOCK_H_ */

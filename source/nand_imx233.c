@@ -231,9 +231,8 @@ HW_BCH_FLASH0LAYOUT1_WR(BF_BCH_FLASH0LAYOUT1_PAGE_SIZE(device->bytes_per_sector 
 
 /*
 	Enable interrupts
-	We don't need this because we can get it from the DMA controller
 */
-//HW_BCH_CTRL_SET(BM_BCH_CTRL_COMPLETE_IRQ_EN);
+HW_BCH_CTRL_SET(BM_BCH_CTRL_COMPLETE_IRQ_EN);
 }
 
 /*
@@ -323,21 +322,25 @@ if (HW_APBH_CTRL2.B.CH4_ERROR_STATUS != 0)
 	Tell the DMA that all's well
 */
 if (HW_APBH_CTRL1.B.CH4_CMDCMPLT_IRQ != 0)
+	{
 	HW_APBH_CTRL1_CLR(BM_APBH_CTRL1_CH4_CMDCMPLT_IRQ);
 
-#ifdef NEVER
 	/*
-		Signal to the BCH error correcton that we're done
-		As we've turned off the BCH interrupt, this isn't necessary any more
+		Signal the lock mechanism to say we're done when the GPMI say's we're done (not when the DMA say's we're done)
 	*/
-	HW_BCH_CTRL_CLR(BM_BCH_CTRL_COMPLETE_IRQ);
-#endif
+	if (lock != 0)
+		lock->signal();
+	}
 
 /*
-	Signal the lock mechanism to say we're done when the GPMI say's we're done (not when the DMA say's we're done)
+	Signal to the BCH error correcton that we're done
+	The i.MX233 manual is quite clear that both the GPMI and the BCH
+	will cause interrupts and that they can and will happen in any order.
+	We are, consequently, requited to look for both and to acknowledge both.  We
+	are also requited to wait for both before the lock can signal.
 */
-if (lock != 0)
-	lock->signal();
+HW_BCH_CTRL_CLR(BM_BCH_CTRL_COMPLETE_IRQ);
+
 }
 
 #ifdef FourARM
@@ -488,13 +491,13 @@ ATOSE_nand_imx233_dma request;
 request.next = 0;
 request.command = BV_APBH_CHn_CMD_COMMAND__DMA_READ;
 request.chain = 0;
-request.irq = 1;
-request.nand_lock = 0;
-request.nand_wait_4_ready = 0;
-request.dec_sem = 1;
-request.wait4end = 1;
-request.halt_on_terminate = 0;
-request.terminate_flush = 0;
+request.irqoncmplt = 1;
+request.nandlock = 0;
+request.nandwait4ready = 0;
+request.semaphore = 1;
+request.wait4endcmd = 1;
+request.haltonterminate = 1;
+request.terminateflush = 1;
 request.pio_words = 3;
 request.bytes = *command;
 request.address = command + 1;
@@ -507,6 +510,40 @@ request.pio[2] = 0;	// disable BCH ECC
 	Now tell the DMA controller to do the request
 */
 return transmit(&request, lock, command);
+}
+
+/*
+	ATOSE_NAND_IMX233::WAIT_FOR_READY()
+	-----------------------------------
+	return 0 on success, and other result is an error
+*/
+uint32_t ATOSE_nand_imx233::wait_for_ready(ATOSE_lock *lock)
+{
+ATOSE_nand_imx233_dma request;
+
+/*
+	Set up the DMA request
+*/
+request.next = 0;
+request.command = BV_APBH_CHn_CMD_COMMAND__NO_DMA_XFER;
+request.chain = 0;
+request.irqoncmplt = 1;
+request.nandlock = 0;
+request.nandwait4ready = 1;
+request.semaphore = 1;
+request.wait4endcmd = 1;
+request.haltonterminate = 1;
+request.terminateflush = 1;
+request.pio_words = 1;
+request.bytes = 0;
+request.address = 0;
+
+request.pio[0] = BM_GPMI_CTRL0_LOCK_CS | BF_GPMI_CTRL0_COMMAND_MODE(BV_GPMI_CTRL0_COMMAND_MODE__WAIT_FOR_READY) | BM_GPMI_CTRL0_WORD_LENGTH | BF_GPMI_CTRL0_CS(0) | BF_GPMI_CTRL0_ADDRESS(BV_GPMI_CTRL0_ADDRESS__NAND_DATA) | BF_GPMI_CTRL0_ADDRESS_INCREMENT(0) | BF_GPMI_CTRL0_XFER_COUNT(0);
+
+/*
+	Now tell the DMA controller to do the request
+*/
+return transmit(&request, lock);
 }
 
 /*
@@ -525,13 +562,13 @@ ATOSE_nand_imx233_dma request;
 request.next = 0;
 request.command = BV_APBH_CHn_CMD_COMMAND__DMA_WRITE;
 request.chain = 0;
-request.irq = 1;
-request.nand_lock = 0;
-request.nand_wait_4_ready = 0;
-request.dec_sem = 1;
-request.wait4end = 1;
-request.halt_on_terminate = 0;
-request.terminate_flush = 0;
+request.irqoncmplt = 1;
+request.nandlock = 0;
+request.nandwait4ready = 0;
+request.semaphore = 1;
+request.wait4endcmd = 1;
+request.haltonterminate = 1;
+request.terminateflush = 1;
 request.pio_words = 1;
 request.bytes = length;
 request.address = buffer;
@@ -579,13 +616,13 @@ request.next = &request2;
 */
 request.command = BV_APBH_CHn_CMD_COMMAND__NO_DMA_XFER;
 request.chain = 1;
-request.irq = 0;
-request.nand_lock = 0;
-request.nand_wait_4_ready = 0;
-request.dec_sem = 0;
-request.wait4end = 1;
-request.halt_on_terminate = 0;
-request.terminate_flush = 0;
+request.irqoncmplt = 0;
+request.nandlock = 0;
+request.nandwait4ready = 0;
+request.semaphore = 0;
+request.wait4endcmd = 1;
+request.haltonterminate = 1;
+request.terminateflush = 1;
 request.pio_words = 6;
 request.bytes = 0;
 
@@ -601,13 +638,13 @@ request.pio[5] = (uint32_t)status_code;
 */
 request2.command = BV_APBH_CHn_CMD_COMMAND__NO_DMA_XFER;
 request2.chain = 0;
-request2.irq = 1;
-request2.nand_lock = 0;
-request2.nand_wait_4_ready = 1;
-request2.dec_sem = 1;
-request2.wait4end = 1;
-request2.halt_on_terminate = 0;
-request2.terminate_flush = 0;
+request2.irqoncmplt = 1;
+request2.nandlock = 0;
+request2.nandwait4ready = 1;
+request2.semaphore = 1;
+request2.wait4endcmd = 1;
+request2.haltonterminate = 1;
+request2.terminateflush = 1;
 request2.pio_words = 3;
 request2.bytes = 0;
 
@@ -683,13 +720,13 @@ uint32_t success;
 */
 request.command = BV_APBH_CHn_CMD_COMMAND__NO_DMA_XFER;
 request.chain = 0;
-request.irq = 1;
-request.nand_lock = 0;
-request.nand_wait_4_ready = 0;
-request.dec_sem = 1;
-request.wait4end = 1;
-request.halt_on_terminate = 0;
-request.terminate_flush = 0;
+request.irqoncmplt = 1;
+request.nandlock = 0;
+request.nandwait4ready = 0;
+request.semaphore = 1;
+request.wait4endcmd = 1;
+request.haltonterminate = 1;
+request.terminateflush = 1;
 request.pio_words = 6;
 request.bytes = 0;
 

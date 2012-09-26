@@ -17,11 +17,12 @@ private:
 	volatile uint32_t lock;
 
 public:
-	ATOSE_spin_lock() { clear(); }
+	ATOSE_spin_lock() 					{ clear(); }
 
-	virtual ATOSE_lock *clear(void) { lock = 0; return this; }
-	virtual ATOSE_lock *signal(void) { lock++; return this; }
-	virtual ATOSE_lock *wait(void)   { while (lock == 0) /* nothing */; return this; }
+	virtual ATOSE_lock *clear(void) 	{ lock = 0; return this; }
+	virtual ATOSE_lock *signal(void) 	{ lock++; return this; }
+	virtual ATOSE_lock *wait(void)   	{ while (lock == 0) /* nothing */; return this; }
+	virtual uint32_t get(void) 			{ return lock; }
 } ;
 
 #endif /* SPIN_LOCK_H_ */
