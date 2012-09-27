@@ -79,11 +79,11 @@ ATOSE_addr = this;
 
 	ATOSE_nand_onfi_parameters *params = (ATOSE_nand_onfi_parameters *)buffer;
 	
-	io << "NAND get parameter block ";
+	io << "\r\nNAND get parameter block \r\n";
 
 	uint32_t trials = disk.get_parameter_block((ATOSE_nand_onfi_parameters *)buffer);
 	
-	io << "success after " << trials << " failures\r\n";
+	io << "\r\nsuccess after " << trials << " failures\r\n";
 	
 
 	int x = 0;
@@ -124,13 +124,14 @@ ATOSE_addr = this;
 	io.decimal();
 	io << "\r\nFIXED: " << fixed_bits << " bits\r\n";
 */
-
+	io << "\r\nWRITE\r\n";
 	for (int x = 0; x < 4096; x++)
 		buffer[x] = (uint8_t)(x + 102);
 	uint32_t ok = disk.write_sector(buffer, 102);
 
 	io << "\r\nWRITE STAUTS:" << ok << "\r\n";
 
+	io << "\r\nREAD\r\n";
 	uint32_t fixed_bits = disk.read_sector(buffer, 102);
 	for (int x = 0; x < 4096; x++)
 		io << (uint32_t)buffer[x] << " ";

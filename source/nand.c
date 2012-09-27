@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include "nand.h"
 #include "nand_onfi_parameters.h"
-#include "spin_lock.h"
+#include "lock_spin.h"
 #include "timer_imx233.h"		// remove this
 
 /*
@@ -79,7 +79,7 @@ return (nanoseconds + period - 1) / period;
 */
 uint32_t ATOSE_nand::reset(void)
 {
-ATOSE_spin_lock lock;
+ATOSE_lock_spin lock;
 uint32_t current_status;
 uint8_t command;
 
@@ -117,7 +117,7 @@ return 0;
 */
 uint32_t ATOSE_nand::status(void)
 {
-ATOSE_spin_lock lock;
+ATOSE_lock_spin lock;
 uint8_t answer;
 
 if (send_command(ATOSE_nand_command_status, lock.clear()) == 0)		// succeeds
@@ -135,7 +135,7 @@ return INTERFACE_CURRUPT;		// simulate a failure.
 */
 uint32_t ATOSE_nand::get_parameter_block(ATOSE_nand_onfi_parameters *buffer)
 {
-ATOSE_spin_lock lock;
+ATOSE_lock_spin lock;
 uint8_t trial;
 
 /*
@@ -189,7 +189,7 @@ return INTERFACE_CURRUPT;
 uint32_t ATOSE_nand::read_sector(uint8_t *destination, uint64_t sector)
 {
 uint8_t command[7];
-ATOSE_spin_lock lock;
+ATOSE_lock_spin lock;
 
 command[0] = ATOSE_nand_command_read[0];
 command[1] = ATOSE_nand_command_read[1];
@@ -222,7 +222,7 @@ return INTERFACE_CURRUPT;
 uint32_t ATOSE_nand::write_sector(uint8_t *data, uint64_t sector)
 {
 uint8_t command[7];
-ATOSE_spin_lock lock;
+ATOSE_lock_spin lock;
 
 command[0] = ATOSE_nand_command_write[0];
 command[1] = ATOSE_nand_command_write[1];
@@ -265,7 +265,7 @@ return INTERFACE_CURRUPT;
 */
 uint32_t ATOSE_nand::erase_block(uint64_t sector)
 {
-ATOSE_spin_lock lock;
+ATOSE_lock_spin lock;
 uint8_t command[5];
 uint32_t block = sector / current_device.sectors_per_block;
 

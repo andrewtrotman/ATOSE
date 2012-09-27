@@ -9,8 +9,9 @@
 #include "../systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsbch.h"
 #include "nand_device.h"
 #include "nand_imx233.h"
-#include "spin_lock.h"
+#include "lock_spin.h"
 #include "timer_imx233.h"
+#include "lock_countdown_trigger.h"
 
 /*
 	ATOSE_NAND_IMX233::ENABLE_PINS()
@@ -333,13 +334,18 @@ if (HW_APBH_CTRL1.B.CH4_CMDCMPLT_IRQ != 0)
 	}
 
 /*
-	Signal to the BCH error correcton that we're done
+	Signal to the BCH error corrector that we're done
 	The i.MX233 manual is quite clear that both the GPMI and the BCH
 	will cause interrupts and that they can and will happen in any order.
 	We are, consequently, requited to look for both and to acknowledge both.  We
 	are also requited to wait for both before the lock can signal.
 */
-HW_BCH_CTRL_CLR(BM_BCH_CTRL_COMPLETE_IRQ);
+if (HW_BCH_CTRL.B.COMPLETE_IRQ)
+	{
+	HW_BCH_CTRL_CLR(BM_BCH_CTRL_COMPLETE_IRQ);
+	if (lock != 0)
+		lock->signal();
+	}
 
 }
 
@@ -600,6 +606,14 @@ return success;
 uint32_t ATOSE_nand_imx233::read_ecc_sector(uint8_t *buffer, uint32_t length, ATOSE_lock *lock)
 {
 /*
+	We get an interrupt from the BCH and the GPMI and we must wait for
+	both before we know the command has finished, but we only get passed
+	an object with a single trigger.  The solution is to have our own
+	countdown trigger and to signal the (passed as a parameter) lock once
+	our own lock is signalled.
+*/
+ATOSE_lock_countdown_trigger trigger(2);
+/*
 	Each sub-sector returns an error code and so we must creare space here to recieve them from the BCH
 */
 __attribute__((aligned(0x4))) uint8_t status_code[current_device.bytes_per_sector / bytes_per_BCH_subsector];
@@ -655,9 +669,14 @@ request2.pio[1] = 0;
 request2.pio[2] = 0; // Reset the BCH
 
 /*
-	Now tell the DMA controller to do the requests
+	Now tell the DMA controller to do the request, but use our lock
 */
-success = transmit(&request, lock);
+success = transmit(&request, trigger.clear());
+
+/*
+	When both GPMI and BCH have signalled we signal the lock that was passed as a parameter
+*/
+lock->signal();
 
 #ifdef NEVER
 	#ifdef FourARM
@@ -712,6 +731,14 @@ return fixed_bits;
 */
 uint32_t ATOSE_nand_imx233::write_ecc_sector(uint8_t *buffer, uint32_t length, ATOSE_lock *lock)
 {
+/*
+	We get an interrupt from the BCH and the GPMI and we must wait for
+	both before we know the command has finished, but we only get passed
+	an object with a single trigger.  The solution is to have our own
+	countdown trigger and to signal the (passed as a parameter) lock once
+	our own lock is signalled.
+*/
+ATOSE_lock_countdown_trigger trigger(2);
 ATOSE_nand_imx233_dma request;
 uint32_t success;
 
@@ -746,9 +773,14 @@ request.pio[5] = 0;
 #endif
 
 /*
-	Now tell the DMA controller to do the request
+	Now tell the DMA controller to do the request, but use our lock
 */
-success = transmit(&request, lock);
+success = transmit(&request, trigger.clear());
+
+/*
+	When both GPMI and BCH have signalled we signal the lock that was passed as a parameter
+*/
+lock->signal();
 
 #ifdef NEVER
 	#ifdef FourARM
