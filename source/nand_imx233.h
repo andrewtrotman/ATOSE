@@ -26,6 +26,7 @@ private:
 	void enable_interface(ATOSE_nand_device *device);
 	void enable_bch(ATOSE_nand_device *device);
 	void enable_dma(void);
+	uint32_t compute_ecc_level(uint32_t bytes_per_sector, uint32_t metadata_bytes_per_sector);
 
 #ifdef FourARM
 	/*
@@ -38,17 +39,19 @@ private:
 #endif
 
 protected:
+	virtual void enable(ATOSE_nand_device *device);
 	uint32_t transmit(ATOSE_nand_imx233_dma *request, ATOSE_lock *lock, uint8_t *command = 0);
 	virtual uint32_t wait_for_ready(ATOSE_lock *lock);
 	virtual uint32_t send_command(uint8_t *command,  ATOSE_lock *lock);
 	virtual uint32_t read(uint8_t *buffer, uint32_t length, ATOSE_lock *lock);
+	virtual uint32_t write(uint8_t *buffer, uint32_t length, ATOSE_lock *lock);
 	virtual uint32_t read_ecc_sector(uint8_t *buffer, uint32_t length, ATOSE_lock *lock);
 	virtual uint32_t write_ecc_sector(uint8_t *buffer, uint32_t length, ATOSE_lock *lock);
 
 public:
 	ATOSE_nand_imx233() : ATOSE_nand() {}
 
-	virtual void enable(void);
+	using ATOSE_nand::enable;
 	virtual void disable(void);
 	virtual void acknowledge(void);
 } ;

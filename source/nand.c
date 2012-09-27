@@ -22,7 +22,7 @@
 	use static to both restrict linkage and to make the strings const.
 	We're forced here to polute the global namespace.
 */
-uint8_t ATPSE_nand_command_enter_read_mode[] = {0x01, 0x00};
+uint8_t ATOSE_nand_command_enter_read_mode[] = {0x01, 0x00};
 uint8_t ATOSE_nand_command_reset[] = {0x01, 0xFF};
 uint8_t ATOSE_nand_command_status[] = {0x01, 0x70};
 uint8_t ATOSE_nand_command_read_parameter_page[] = {0x02, 0xEC, 0x00};
@@ -32,6 +32,7 @@ uint8_t ATOSE_nand_command_write[] = {0x06, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00};
 uint8_t ATOSE_nand_command_write_end[] = {0x01, 0x10};
 uint8_t ATOSE_nand_command_erase_block[] = {0x04, 0x60, 0x00, 0x00, 0x00};
 uint8_t ATOSE_nand_command_erase_block_end[] = {0x01, 0xD0};
+uint8_t ATOSE_nand_command_set_mode[] = {0x02, 0xEF, 0x01};
 
 /*
 	We have a default NAND device which is set to async mode 0 (10 MHz)
@@ -43,7 +44,7 @@ uint8_t ATOSE_nand_command_erase_block_end[] = {0x01, 0xD0};
 ATOSE_nand_device ATOSE_nand::default_device =
 {
 /*
-	Timing characteristics (the default here is ONFI Mode 0)
+	Timing characteristics (these values come from Linux/drivers/mtd/nand/gpmi-nand/gpmi-nand.c)
 */
 10,		// MHz clock
 25,		// nanoseconds for address setup
@@ -53,11 +54,17 @@ ATOSE_nand_device ATOSE_nand::default_device =
 /*
 	layout characteristics (the default here is for the FourARM Flash NAND, Micron MT29F8G08ABABAWP)
 */
-4096,		// bytes per sector
-224,		// metadata bytes per sector
-128,		// sectors per block (sectors per erase block)
-16			// preferred ECC level
+2048, 	//4096,	// bytes per sector
+64, 	//224,		// metadata bytes per sector
+1 		//128		// sectors per block (sectors per erase block)
 };
+
+static ATOSE_nand_device mode_0 = {10, 50, 20, 40, 2048, 64, 1};
+static ATOSE_nand_device mode_1 = {20, 25, 10, 20, 2048, 64, 1};
+static ATOSE_nand_device mode_2 = {28, 15,  5, 15, 2048, 64, 1};
+static ATOSE_nand_device mode_3 = {33, 10,  5, 10, 2048, 64, 1};
+static ATOSE_nand_device mode_4 = {40, 10,  5, 10, 2048, 64, 1};
+static ATOSE_nand_device mode_5 = {50, 10,  5,  7, 2048, 64, 1};
 
 /*
 	ATOSE_NAND::NANOSECONDS_TO_TICKS()
@@ -70,6 +77,37 @@ uint32_t period;
 period = 1000 / frequency_in_mhz;
 
 return (nanoseconds + period - 1) / period;
+}
+
+/*
+	ATOSE_NAND::ENABLE()
+	--------------------
+*/
+void ATOSE_nand::enable(void)
+{
+ATOSE_nand_onfi_parameters geometry;
+/*
+	Turn on the Flash NAND subsystem using Mode 0 timing parameters
+*/
+enable(&default_device);
+
+/*
+	While in Mode 0 get the ONFI parameter block
+*/
+get_parameter_block(&geometry);
+
+/*
+	Construct the correct parameters (timing mode and geometry)
+*/
+current_device = default_device;		// start with the default values
+current_device.bytes_per_sector = geometry.bytes_per_page;
+current_device.metadata_bytes_per_sector = geometry.spare_bytes_per_page;
+current_device.sectors_per_block = geometry.pages_per_block;
+
+/*
+	Reset the Flash NAND using the new timing parameters and correctly set the geometry
+*/
+enable(&current_device);
 }
 
 /*
@@ -160,7 +198,7 @@ if (send_command(ATOSE_nand_command_read_parameter_page, lock.clear()) == 0)		//
 	/*
 		Now we put the NAND Flash into read mode before doing the read
 	*/
-	if (send_command(ATPSE_nand_command_enter_read_mode, lock.clear()) == 0)		// success
+	if (send_command(ATOSE_nand_command_enter_read_mode, lock.clear()) == 0)		// success
 		for (trial = 0; trial < 3; trial++)
 			if (read((uint8_t *)buffer, sizeof(ATOSE_nand_onfi_parameters), lock.clear()) == 0)
 				{
@@ -171,6 +209,30 @@ if (send_command(ATOSE_nand_command_read_parameter_page, lock.clear()) == 0)		//
 				if (ATOSE_nand_onfi_parameters::compute_crc((uint8_t *)buffer, 254) == buffer->crc)
 					return trial;
 				}
+	}
+
+return INTERFACE_CURRUPT;
+}
+
+/*
+	ATOSE_NAND::SET_TIMING_MODE()
+	-----------------------------
+	Returns:
+		0x00  (SUCCESS)           success (no errors, no bits corrected)
+		0x100 (INTERFACE_CURRUPT) cannot communicate with the NAND (hardware failure)
+	
+*/
+uint32_t ATOSE_nand::set_timing_mode(uint32_t mode)
+{
+ATOSE_lock_spin lock;
+uint8_t mode_number[4] = {0, 0, 0, 0};
+
+if (send_command(ATOSE_nand_command_set_mode, lock.clear()) == 0)
+	{
+	mode_number[0] = (uint8_t)mode;
+	if (write(mode_number, sizeof(mode_number), lock.clear()) == 0)
+		if (wait_for_ready(lock.clear()) == 0)
+			return SUCCEED;
 	}
 
 return INTERFACE_CURRUPT;

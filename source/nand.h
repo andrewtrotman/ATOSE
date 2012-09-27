@@ -32,21 +32,28 @@ protected:
 	uint32_t nanoseconds_to_ticks(uint32_t nanoseconds, uint32_t frequency_in_mhz);
 
 	/*
-		Lowest level commands (send / read / write)
+		Lowest level commands (enable / send / read / write / etc)
 	*/
+	virtual void enable(ATOSE_nand_device *device) = 0;
 	virtual uint32_t send_command(uint8_t *command, ATOSE_lock *lock = 0) = 0;
 	virtual uint32_t wait_for_ready(ATOSE_lock *lock) = 0;
 	virtual uint32_t read(uint8_t *buffer, uint32_t length, ATOSE_lock *lock = 0) = 0;
+	virtual uint32_t write(uint8_t *buffer, uint32_t length, ATOSE_lock *lock = 0) = 0;
 	virtual uint32_t read_ecc_sector(uint8_t *buffer, uint32_t length, ATOSE_lock *lock) = 0;
 	virtual uint32_t write_ecc_sector(uint8_t *buffer, uint32_t length, ATOSE_lock *lock) = 0;
 
+	/*
+		NAND method we don't need to expose
+	*/
+	uint32_t set_timing_mode(uint32_t mode);
+
 public:
-	ATOSE_nand() : ATOSE_device_driver() { current_device = default_device; }
+	ATOSE_nand() : ATOSE_device_driver() {}
 
 	/*
 		Interface to ATOSE device drivers
 	*/
-	virtual void enable(void) = 0;
+	virtual void enable(void);
 	virtual void disable(void) = 0;
 	virtual void acknowledge(void) = 0;
 

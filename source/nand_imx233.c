@@ -182,11 +182,24 @@ HW_GPMI_CTRL0_SET(BM_GPMI_CTRL0_TIMEOUT_IRQ_EN);
 }
 
 /*
+	ATOSE_NAND_IMX233::COMPUTE_ECC_LEVEL()
+	--------------------------------------
+	See page 15-6 of the i.MX233 reference manual.  Basically, its 13 bits per ECC level per sub-sector
+	so you take the number spare bits and divide by 13 * the numner of sub-sectors per sector to get the ECC
+	level.  The i.MX233 only allows even numbers so you round down to the nearest even number.
+*/
+uint32_t ATOSE_nand_imx233::compute_ecc_level(uint32_t bytes_per_sector, uint32_t metadata_bytes_per_sector)
+{
+return (((metadata_bytes_per_sector * 8) / ((bytes_per_sector / bytes_per_BCH_subsector) * 13)) >> 1) << 1;
+}
+
+/*
 	ATOSE_NAND_IMX233::ENABLE_BCH()
 	-------------------------------
 */
 void ATOSE_nand_imx233::enable_bch(ATOSE_nand_device *device)
 {
+uint32_t ecc_level;
 /*
 	Recall that on the i.MX233 there's a hardware bug in the BCH
 	See Errata #2847 "BCH soft reset may cause bus master lock up" (http://cache.freescale.com/files/dsp/doc/errata/IMX23CE.pdf)
@@ -227,8 +240,10 @@ while (HW_BCH_CTRL.B.CLKGATE);		// do nothing
 	and so set metadata size to 0. This makes the first block a "regular" block
 	therefore we have n-1 "subsequent" blocks after block 0.
 */
-HW_BCH_FLASH0LAYOUT0_WR(BF_BCH_FLASH0LAYOUT0_NBLOCKS(device->bytes_per_sector / bytes_per_BCH_subsector - 1) | BF_BCH_FLASH0LAYOUT0_META_SIZE(0) | BF_BCH_FLASH0LAYOUT0_ECC0(device->ecc_level >> 1) | BF_BCH_FLASH0LAYOUT0_DATA0_SIZE(bytes_per_BCH_subsector));
-HW_BCH_FLASH0LAYOUT1_WR(BF_BCH_FLASH0LAYOUT1_PAGE_SIZE(device->bytes_per_sector + device->metadata_bytes_per_sector) | BF_BCH_FLASH0LAYOUT1_ECCN(device->ecc_level >> 1) | BF_BCH_FLASH0LAYOUT1_DATAN_SIZE(bytes_per_BCH_subsector));
+ecc_level = compute_ecc_level(device->bytes_per_sector, device->metadata_bytes_per_sector);
+
+HW_BCH_FLASH0LAYOUT0_WR(BF_BCH_FLASH0LAYOUT0_NBLOCKS(device->bytes_per_sector / bytes_per_BCH_subsector - 1) | BF_BCH_FLASH0LAYOUT0_META_SIZE(0) | BF_BCH_FLASH0LAYOUT0_ECC0(ecc_level >> 1) | BF_BCH_FLASH0LAYOUT0_DATA0_SIZE(bytes_per_BCH_subsector));
+HW_BCH_FLASH0LAYOUT1_WR(BF_BCH_FLASH0LAYOUT1_PAGE_SIZE(device->bytes_per_sector + device->metadata_bytes_per_sector) | BF_BCH_FLASH0LAYOUT1_ECCN(ecc_level >> 1) | BF_BCH_FLASH0LAYOUT1_DATAN_SIZE(bytes_per_BCH_subsector));
 
 /*
 	Enable interrupts
@@ -277,12 +292,12 @@ HW_APBH_CTRL0_CLR(1 << (4 + BP_APBH_CTRL0_CLKGATE_CHANNEL));
 	ATOSE_NAND_IMX233::ENABLE()
 	---------------------------
 */
-void ATOSE_nand_imx233::enable(void)
+void ATOSE_nand_imx233::enable(ATOSE_nand_device *device)
 {
 enable_pins();
-enable_clock(&current_device);
-enable_interface(&current_device);
-enable_bch(&current_device);
+enable_clock(device);
+enable_interface(device);
+enable_bch(device);
 enable_dma();
 reset();
 }
@@ -592,6 +607,52 @@ success = transmit(&request, lock);
 
 return success;
 }
+
+/*
+	ATOSE_NAND_IMX233::WRITE()
+	--------------------------
+	return 0 on success, and other result is an error
+*/
+uint32_t ATOSE_nand_imx233::write(uint8_t *buffer, uint32_t length, ATOSE_lock *lock)
+{
+uint32_t success;
+ATOSE_nand_imx233_dma request;
+
+/*
+	Set up the DMA request
+*/
+request.next = 0;
+request.command = BV_APBH_CHn_CMD_COMMAND__DMA_READ;
+request.chain = 0;
+request.irqoncmplt = 1;
+request.nandlock = 0;
+request.nandwait4ready = 0;
+request.semaphore = 1;
+request.wait4endcmd = 1;
+request.haltonterminate = 1;
+request.terminateflush = 1;
+request.pio_words = 1;
+request.bytes = length;
+request.address = buffer;
+
+request.pio[0] = BM_GPMI_CTRL0_LOCK_CS | BF_GPMI_CTRL0_COMMAND_MODE(BV_GPMI_CTRL0_COMMAND_MODE__WRITE) | BM_GPMI_CTRL0_WORD_LENGTH | BF_GPMI_CTRL0_CS(0) | BF_GPMI_CTRL0_ADDRESS(BV_GPMI_CTRL0_ADDRESS__NAND_DATA) | BF_GPMI_CTRL0_XFER_COUNT(length);
+
+#ifdef FourARM
+	twiddle(buffer, length);
+#endif
+
+/*
+	Now tell the DMA controller to do the request
+*/
+success = transmit(&request, lock);
+
+#ifdef FourARM
+	twiddle(buffer, length);
+#endif
+
+return success;
+}
+
 
 /*
 	ATOSE_NAND_IMX233::READ_ECC_SECTOR()

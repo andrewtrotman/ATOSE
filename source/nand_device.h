@@ -15,7 +15,7 @@ class ATOSE_nand_device
 {
 public:
 	/*
-		Timing parameters
+		Timing parameters (Asynchronous Mode 0, the default on Reset)
 	*/
 	uint32_t frequency;			// the frequency (in MHz) the NAND chip runs at (default = 10Mhz)
 	uint32_t address_setup;		// in nanoseconds;
@@ -28,7 +28,6 @@ public:
 	uint32_t bytes_per_sector;				// in bytes; the number of bytes per block
 	uint32_t metadata_bytes_per_sector;		// in bytes; number of metadata bytes per block
 	uint32_t sectors_per_block;				// sectors per block
-	uint32_t ecc_level;						// preferred ECC level
 } ;
 
 
