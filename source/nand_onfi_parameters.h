@@ -13,6 +13,12 @@ class ATOSE_nand_onfi_parameters
 {
 public:
 	/*
+		andable flags for the timing modes
+	*/
+	enum {NAND_MODE_0 = 0x01, NAND_MODE_1 = 0x02, NAND_MODE_2 = 0x04, NAND_MODE_3 = 0x08, NAND_MODE_4 = 0x10, NAND_MODE_5 = 0x20};
+
+public:
+	/*
 		REVISION INFORMATION AND FEATURES BLOCK
 		---------------------------------------
 	*/

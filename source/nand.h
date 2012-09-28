@@ -21,9 +21,6 @@ public:
 	enum {FAIL = 1, FAILC = 2, R = 4, CSP = 8, VSP = 16, ARDY = 32, RDY = 64, WP_N = 128};
 	enum {SUCCEED = 0, SECTOR_CORRUPT = 0xFE, SECTOR_BLANK = 0xFF, INTERFACE_CURRUPT = 0x100};
 
-private:
-	static ATOSE_nand_device default_device;
-
 protected:
 	ATOSE_lock *lock;
 	ATOSE_nand_device current_device;

@@ -7,6 +7,7 @@
 #include "nand_onfi_parameters.h"
 #include "lock_spin.h"
 #include "timer_imx233.h"		// remove this
+#include "atose.h"				// DELETE THIS NOW
 
 /*
 	These are the various NAND commands according to ONFI
@@ -33,38 +34,21 @@ uint8_t ATOSE_nand_command_write_end[] = {0x01, 0x10};
 uint8_t ATOSE_nand_command_erase_block[] = {0x04, 0x60, 0x00, 0x00, 0x00};
 uint8_t ATOSE_nand_command_erase_block_end[] = {0x01, 0xD0};
 uint8_t ATOSE_nand_command_set_mode[] = {0x02, 0xEF, 0x01};
+uint8_t ATOSE_nand_command_get_mode[] = {0x02, 0xEE, 0x01};
 
 /*
-	We have a default NAND device which is set to async mode 0 (10 MHz)
+	The timings for Asynchronous Flash modes.  The default is Mode 0
 */
-/*
-	ATOSE_NAND::DEFAULT_DEVICE
-	--------------------------
-*/
-ATOSE_nand_device ATOSE_nand::default_device =
+static ATOSE_nand_device ATOSE_nand_mode_parameters[] = 
 {
-/*
-	Timing characteristics (these values come from Linux/drivers/mtd/nand/gpmi-nand/gpmi-nand.c)
-*/
-10,		// MHz clock
-25,		// nanoseconds for address setup
-60,		// nanoseconds for data hold
-80,		// nanoseconds for data setup
-
-/*
-	layout characteristics (the default here is for the FourARM Flash NAND, Micron MT29F8G08ABABAWP)
-*/
-2048, 	//4096,	// bytes per sector
-64, 	//224,		// metadata bytes per sector
-1 		//128		// sectors per block (sectors per erase block)
+{10, 50, 20, 40, 2048, 64, 1},	 // Mode 0
+{20, 25, 10, 20, 2048, 64, 1},	 // Mode 1
+{28, 15,  5, 15, 2048, 64, 1},	 // Mode 2
+{33, 10,  5, 10, 2048, 64, 1},	 // Mode 3
+{40, 10,  5, 10, 2048, 64, 1},	 // Mode 4
+{50, 10,  5,  7, 2048, 64, 1}	 // Mode 5
 };
 
-static ATOSE_nand_device mode_0 = {10, 50, 20, 40, 2048, 64, 1};
-static ATOSE_nand_device mode_1 = {20, 25, 10, 20, 2048, 64, 1};
-static ATOSE_nand_device mode_2 = {28, 15,  5, 15, 2048, 64, 1};
-static ATOSE_nand_device mode_3 = {33, 10,  5, 10, 2048, 64, 1};
-static ATOSE_nand_device mode_4 = {40, 10,  5, 10, 2048, 64, 1};
-static ATOSE_nand_device mode_5 = {50, 10,  5,  7, 2048, 64, 1};
 
 /*
 	ATOSE_NAND::NANOSECONDS_TO_TICKS()
@@ -86,10 +70,12 @@ return (nanoseconds + period - 1) / period;
 void ATOSE_nand::enable(void)
 {
 ATOSE_nand_onfi_parameters geometry;
+uint32_t best_mode;
+
 /*
 	Turn on the Flash NAND subsystem using Mode 0 timing parameters
 */
-enable(&default_device);
+enable(&ATOSE_nand_mode_parameters[0]);
 
 /*
 	While in Mode 0 get the ONFI parameter block
@@ -97,15 +83,36 @@ enable(&default_device);
 get_parameter_block(&geometry);
 
 /*
-	Construct the correct parameters (timing mode and geometry)
+	Find the best possible timing mode
 */
-current_device = default_device;		// start with the default values
+if ((geometry.sdr_timing_mode_support & ATOSE_nand_onfi_parameters::NAND_MODE_5) == 0)
+	best_mode = 5;
+else if ((geometry.sdr_timing_mode_support & ATOSE_nand_onfi_parameters::NAND_MODE_4) == 0)
+	best_mode = 4;
+else if ((geometry.sdr_timing_mode_support & ATOSE_nand_onfi_parameters::NAND_MODE_3) == 0)
+	best_mode = 3;
+else if ((geometry.sdr_timing_mode_support & ATOSE_nand_onfi_parameters::NAND_MODE_2) == 0)
+	best_mode = 2;
+else if ((geometry.sdr_timing_mode_support & ATOSE_nand_onfi_parameters::NAND_MODE_1) == 0)
+	best_mode = 1;
+else
+	best_mode = 0;
+
+/*
+	tell the Flash NAND to use the best possible mode
+*/
+current_device = ATOSE_nand_mode_parameters[best_mode];
+set_timing_mode(best_mode);
+
+/*
+	Set the geometry
+*/
 current_device.bytes_per_sector = geometry.bytes_per_page;
 current_device.metadata_bytes_per_sector = geometry.spare_bytes_per_page;
 current_device.sectors_per_block = geometry.pages_per_block;
 
 /*
-	Reset the Flash NAND using the new timing parameters and correctly set the geometry
+	Reset the GPMI using the new timing parameters and correctly set the geometry
 */
 enable(&current_device);
 }
