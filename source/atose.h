@@ -7,6 +7,7 @@
 
 #include "cpu.h"
 #include "stack.h"
+#include "kernel_memory_allocator.h"
 
 #include "io_serial.h"
 #include "io_angel.h"
@@ -33,6 +34,7 @@ class ATOSE
 public:
 	ATOSE_cpu cpu;
 	ATOSE_stack stack;
+	ATOSE_kernel_memory_allocator heap;
 
 #ifdef IMX233
 

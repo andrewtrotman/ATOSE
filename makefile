@@ -37,6 +37,7 @@ ATOSE_OBJECTS =									\
 			$(OBJ_DIR)\atose.o						\
 			$(OBJ_DIR)\device_driver.o				\
 			$(OBJ_DIR)\interrupts.o					\
+			$(OBJ_DIR)\kernel_memory_allocator.o	\
 			$(OBJ_DIR)\nand.o
 
 FourARM_OBJECTS =									\
