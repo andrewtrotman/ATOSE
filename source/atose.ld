@@ -31,5 +31,7 @@ __exidx_end = .;
 . = ALIGN(4);
 . = . + 0x1000; /* 4kB of stack memory */
 stack_top = .;
-ATOSE_top_of_memory = .;
+ATOSE_start_of_heap = .;
+. = . + 0x1000; /* 4kB of heap */
+ATOSE_end_of_heap = .;
 }

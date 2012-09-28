@@ -7,6 +7,9 @@
 
 #include <stdint.h>
 
+extern uint32_t ATOSE_start_of_heap, ATOSE_end_of_heap;
+
+
 /*
 	class ATOSE_KERNEL_MEMORY_ALLOCATOR
 	-----------------------------------
@@ -19,7 +22,11 @@ private:
 	uint8_t *top_of_memory;		// end of the kernel heap (highest possible memory location that can be used)
 
 public:
-	ATOSE_kernel_memory_allocator() {}
+	ATOSE_kernel_memory_allocator()
+	{
+	current_address = base_address = (uint8_t*) &ATOSE_start_of_heap;
+	top_of_memory = (uint8_t*) &ATOSE_end_of_heap;
+	}
 
 	void *malloc(uint32_t bytes);
 };
