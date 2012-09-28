@@ -8,9 +8,12 @@
 #include "../systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regspower.h"
 #include "../systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsdigctl.h"
 
-#define MAX_SECTIONS 4096
+/*
+	At the moment we'll only use 4K for the page table
+*/
+#define MAX_SECTIONS (0x1000 / sizeof(uint32_t))
 
-/* __attribute__ ((aligned(0x4000))) */ uint32_t section_table[MAX_SECTIONS];
+__attribute__ ((section ("pagetable")))  uint32_t section_table[MAX_SECTIONS];
 
 
 /*
@@ -104,32 +107,32 @@ for (section = 0; section < MAX_SECTIONS; section++)
 
 debug_print_string("Table initialised\r\n");
 
-delay_us(1000000);
-
-return;
 /*
 	Enable the MMU
 */
-asm("mrc	p15, 0, r0, c1, c0");			// read c1
-asm("orr	r0, r0, #0x1000");				// turn on the 'S' bit
-asm("mcr	p15, 0, r0, c1, c0, 0");		// write c1
+asm volatile
+	(
+	"mrc	p15, 0, r0, c1, c0;"			// read c1
+	"orr	r0, r0, #0x1000;"				// turn on the 'S' bit
+	"mcr	p15, 0, r0, c1, c0, 0;"			// write c1
 
-asm("ldr	r0, =section_table");			// address of page table
-asm("mcr	p15, 0, r0, c2, c0");			// write  c2
+	"ldr	r0, =section_table;"			// address of page table
+	"mcr	p15, 0, r0, c2, c0;"			// write  c2
 
-asm("mov	r0, #0xffffffff");				// domains (16 lots of %11) telling the MMU that we're the manager
-asm("mcr	p15, 0, r0, c3, c0, 0");		// write c3
+	"mov	r0, #0xffffffff;"				// domains (16 lots of %11) telling the MMU that we're the manager
+	"mcr	p15, 0, r0, c3, c0, 0;"			// write c3
 
-asm("mcr	p15, 0, r0, c7, c10, 4");		// write c7	 drain the cache write buffer
+	"mcr	p15, 0, r0, c7, c10, 4;"		// write c7	 drain the cache write buffer
 
-asm("mrc	p15, 0, r0, c1, c0, 0");		// read c1
-asm("orr	r0, r0, #5");					// enable MMU, enable data cache
-asm("mcr	p15, 0, r0, c1, c0, 0");		// write c1
+	"mrc	p15, 0, r0, c1, c0, 0;"			// read c1
+	"orr	r0, r0, #5;"					// enable MMU, enable data cache
+	"mcr	p15, 0, r0, c1, c0, 0;"			// write c1
 
-asm("nop");								// noop so that the pipeline fills correctly
-asm("nop");
-asm("nop");
-asm("nop" :::"r0");
+	"nop;"									// noop so that the pipeline fills correctly
+	"nop;"
+	"nop;"
+	"nop;" :::"r0"
+	);
 
 debug_print_string("Done\r\n");
 }
