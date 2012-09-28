@@ -65,7 +65,7 @@ OBJECTS = $(ATOSE_OBJECTS) $(QEMU_OBJECTS)
 !ENDIF
 
 
-all : $(BIN_DIR)\dump_cpu_state.elf $(BIN_DIR)\atose.elf $(BIN_DIR)\elf_reader.exe $(BIN_DIR)\imx233_timer.elf $(BIN_DIR)\imx233_nand.elf
+all : $(BIN_DIR)\dump_cpu_state.elf $(BIN_DIR)\atose.elf $(BIN_DIR)\elf_reader.exe $(BIN_DIR)\imx233_timer.elf $(BIN_DIR)\imx233_nand.elf $(BIN_DIR)\imx233_mmu.elf
 
 #
 # ATOSE
@@ -84,6 +84,9 @@ $(BIN_DIR)\imx233_timer.elf : $(TESTS_DIR)\imx233_timer.c startup.o $(SOURCE_DIR
 
 $(BIN_DIR)\imx233_nand.elf : $(TESTS_DIR)\imx233_nand.c startup.o $(SOURCE_DIR)\atose.ld
 	$(CCC) -Os -o $(BIN_DIR)\imx233_nand.elf startup.o $(TESTS_DIR)\imx233_nand.c -T $(SOURCE_DIR)\atose.ld
+
+$(BIN_DIR)\imx233_mmu.elf : $(TESTS_DIR)\imx233_mmu.c startup.o $(SOURCE_DIR)\atose.ld
+	$(CCC) -Os -o $(BIN_DIR)\imx233_mmu.elf startup.o $(TESTS_DIR)\imx233_mmu.c -T $(SOURCE_DIR)\atose.ld
 
 $(BIN_DIR)\dump_cpu_state.elf : $(TOOLS_DIR)\dump_cpu_state.c startup.o $(SOURCE_DIR)\atose.ld
 	$(CCC) -Os -o $(BIN_DIR)\dump_cpu_state.elf startup.o $(TOOLS_DIR)\dump_cpu_state.c -T $(SOURCE_DIR)\atose.ld
