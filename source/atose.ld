@@ -2,8 +2,8 @@ ENTRY(_Reset)
 
 MEMORY
 {
-on_chip_ram  (W) : ORIGIN = 0x0000, LENGTH = 0x8000
-off_chip_ram (W) : ORIGIN = 0x40000000, LENGTH = 0x1000
+on_chip_ram  : ORIGIN = 0x0000, LENGTH = 32K
+off_chip_ram : ORIGIN = 0x40000000, LENGTH = 128M
 }
 
 SECTIONS
@@ -13,7 +13,7 @@ SECTIONS
 .startup . : { startup.o(.text) } > on_chip_ram
 
  __exidx_start = .;
-.ARM.exidx   : { *(.ARM.exidx* .gnu.linkonce.armexidx.*) }
+.ARM.exidx   : { *(.ARM.exidx* .gnu.linkonce.armexidx.*) } > on_chip_ram
 __exidx_end = .;
 
 .text : { *(.text) } > on_chip_ram

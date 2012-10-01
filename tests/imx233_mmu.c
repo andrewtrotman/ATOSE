@@ -11,10 +11,9 @@
 /*
 	At the moment we'll only use 4K for the page table
 */
-#define MAX_SECTIONS (0x1000 / sizeof(uint32_t))
-
-__attribute__ ((section ("pagetable")))  uint32_t section_table[MAX_SECTIONS];
-
+#define MAX_SECTIONS 0x1000
+ 
+__attribute__ ((section (".kernel_pagetable"))) uint32_t section_table[MAX_SECTIONS];
 
 /*
 	DEBUG_PUTC()
@@ -94,16 +93,15 @@ void mmu_init(void)
 uint32_t section;
 
 debug_print_string("In MMU_init\r\n");
+debug_print_string("Section Table Address:");
+debug_print_hex((uint32_t)(section_table));
+debug_print_string("\r\n");
 
 /*
 	Set up a flat linear page table of 4096 pages of 1MB sections with "world" read/write permissions
 */
 for (section = 0; section < MAX_SECTIONS; section++)
-	{
 	section_table[section] = section << 20 | 0x0C12;
-	debug_print_hex(section);
-	debug_putc(' ');
-	}
 
 debug_print_string("Table initialised\r\n");
 
@@ -125,7 +123,7 @@ asm volatile
 	"mcr	p15, 0, r0, c7, c10, 4;"		// write c7	 drain the cache write buffer
 
 	"mrc	p15, 0, r0, c1, c0, 0;"			// read c1
-	"orr	r0, r0, #5;"					// enable MMU, enable data cache
+	"orr	r0, r0, #5;"					// enable data cache
 	"mcr	p15, 0, r0, c1, c0, 0;"			// write c1
 
 	"nop;"									// noop so that the pipeline fills correctly
