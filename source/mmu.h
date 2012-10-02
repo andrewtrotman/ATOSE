@@ -27,6 +27,10 @@ protected:
 	ATOSE_mmu_page_list free_list;
 	ATOSE_mmu_page_list in_use_list;
 
+private:
+	void create_kernel_page_table(uint8_t *first_page);
+
+
 protected:
 	void push(void *location, uint64_t size_in_bytes); 
 
