@@ -33,6 +33,8 @@ TESTS_DIR = tests
 
 ATOSE_OBJECTS =									\
 			$(OBJ_DIR)\cpu.o 						\
+			$(OBJ_DIR)\mmu.o 						\
+			$(OBJ_DIR)\mmu_page_list.o				\
 			$(OBJ_DIR)\stack.o 						\
 			$(OBJ_DIR)\atose.o						\
 			$(OBJ_DIR)\device_driver.o				\

@@ -41,5 +41,5 @@ ATOSE_start_of_heap = .;
 . = . + 0x1000; /* 4kB of heap */
 ATOSE_end_of_heap = .;
 
-.pagetable : { *(.kernel_pagetable) } > off_chip_ram
+.off_chip_ram : { *(.off_chip_ram) } > off_chip_ram
 }
