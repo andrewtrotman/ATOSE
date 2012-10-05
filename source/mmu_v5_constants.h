@@ -1,13 +1,13 @@
 /*
-	MMU_V5.H
-	--------
+	MMU_V5_CONSTANTS.H
+	------------------
 	Constants (etc) for the ARM architecture v5 MMU used by the ARM926EJ-S
 	For more information on the MMU see Chapter 5 of "ARM926EJ-S Technical Reference Manual (Revision: r0p5)"
 
 	For ATOSE we're only going to worry about Sections (1MB pages)
 */
-#ifndef MMU_V5_H_
-#define MMU_V5_H_
+#ifndef MMU_V5_CONSTANTS_H_
+#define MMU_V5_CONSTANTS_H_
 
 /*
 	The type of the page is stored in the bottom two bits
@@ -90,4 +90,6 @@
 */
 #define ARM_MMU_V5_PAGE (1 << 4)
 
-#endif /* MMU_V5_H_ */
+
+
+#endif /* MMU_V5_CONSTANTS_H_ */
