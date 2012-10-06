@@ -63,6 +63,8 @@
 #define ARM_MMU_V5_DOMAIN_RESERVED  0x02		// Reserved
 #define ARM_MMU_V5_DOMAIN_MANAGER   0x03		// no check - a fault cannot occur
 
+#define ARM_MMU_V5_DOMAIN_BITS_PER_DOMAIN 2
+
 /*
 	If the domain tells us to do a check (i.e. ARM_MMU_V5_DOMAIN_CLIENT) then the AP bits
 	get checked,  If they are 0x00 then its is assumed we're in a "special page" and
@@ -90,6 +92,18 @@
 */
 #define ARM_MMU_V5_PAGE (1 << 4)
 
-
+/*
+	Bits in CP15 register 1
+*/
+#define ARM_MMU_V5_CP15_R1_M  0x0001		// 1 = enable MMU
+#define ARM_MMU_V5_CP15_R1_A  0x0002		// 1 = enable data alignment faults
+#define ARM_MMU_V5_CP15_R1_C  0x0004		// 1 = enable data cache
+#define ARM_MMU_V5_CP15_R1_B  0x0008		// 1 = big-endian 0 = little-endian
+#define ARM_MMU_V5_CP15_R1_S  0x0100		// 1 = in system code (I think this has been depricated)
+#define ARM_MMU_V5_CP15_R1_R  0x0200		// 1 = in ROM code (I think this has been depricagted)
+#define ARM_MMU_V5_CP15_R1_I  0x1000		// 1 = enable instruction cache
+#define ARM_MMU_V5_CP15_R1_V  0x2000		// 1 = interrupt vectors at 0x0000FFFF.  0 = interrupt vectors at 0x00000000
+#define ARM_MMU_V5_CP15_R1_RR 0x4000		// 1 = Round robin cache replacement. 0 = random replacement
+#define ARM_MMU_V5_CP15_R1_L4 0x8000		// 1 = ignore T-bit. 0 = loads to PC set the T-bit
 
 #endif /* MMU_V5_CONSTANTS_H_ */

@@ -8,6 +8,7 @@
 #include "cpu.h"
 #include "stack.h"
 #include "kernel_memory_allocator.h"
+#include "mmu_v5.h"
 
 #include "io_serial.h"
 #include "io_angel.h"
@@ -34,7 +35,8 @@ class ATOSE
 public:
 	ATOSE_cpu cpu;
 	ATOSE_stack stack;
-	ATOSE_kernel_memory_allocator heap;
+//	ATOSE_kernel_memory_allocator heap;		// we no longer use this, we use the mmu object instead
+	ATOSE_mmu_v5 heap;
 
 #ifdef IMX233
 

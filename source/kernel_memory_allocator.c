@@ -5,6 +5,20 @@
 #include "kernel_memory_allocator.h"
 
 /*
+	ATOSE_KERNEL_MEMORY_ALLOCATOR::SET_ALLOCATION_PAGE()
+	----------------------------------------------------
+	Set the base address and length of the continious extent of memory that can be used
+	for memory allocation within the kernel
+
+	new_page_address must be word aligned
+*/
+void ATOSE_kernel_memory_allocator::set_allocation_page(uint8_t *new_base_address, uint32_t length)
+{
+current_address = base_address = new_base_address;
+top_of_memory = base_address + length;
+}
+
+/*
 	ATOSE_KERNEL_MEMORY_ALLOCATOR::MALLOC()
 	---------------------------------------
 */

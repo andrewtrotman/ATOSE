@@ -15,7 +15,7 @@ class ATOSE_mmu_page
 {
 public:
 	ATOSE_mmu_page *next;
-	void *physical_address;
+	uint8_t *physical_address;
 	uint32_t process_id;
 } ;
 

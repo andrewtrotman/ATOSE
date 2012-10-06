@@ -17,7 +17,7 @@ CPU = IMX233
 CPU = ARM926
 !ENDIF
 
-CC = arm-none-eabi-g++
+CC = @arm-none-eabi-g++
 CCC = arm-none-eabi-gcc
 CFLAGS = -mcpu=arm926ej-s -ffreestanding -fno-exceptions -fno-rtti -nostdlib -nodefaultlibs -nostartfiles -D$(CPU) -D$(TARGET) -Os -g3
 CLINKFLAGS = -l gcc
