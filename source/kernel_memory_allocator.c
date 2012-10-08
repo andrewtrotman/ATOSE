@@ -35,7 +35,7 @@ bytes += extra_bytes[(bytes & 0x03)];
 /*
 	Make sure we have room
 */
-if (current_address + bytes > top_of_memory)
+if (current_address + bytes < top_of_memory)
 	{
 	/*
 		Compute the new top of heap and return the old one
