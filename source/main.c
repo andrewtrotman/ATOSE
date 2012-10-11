@@ -14,7 +14,8 @@
 #endif
 
 
-extern "C" { int ATOSE_main(void); }
+int ATOSE_main(void);
+int main(void);
 
 extern "C"
 {
@@ -146,5 +147,11 @@ int ATOSE_main(void)
 {
 ATOSE_API_ATOSE api;
 
-api.process_manager.write(ATOSE_elf_hello, ATOSE_elf_hello_size);
+api.io << "In USER space" << ATOSE_IO::eoln;
+ 
+api.process_manager.write_block(ATOSE_elf_hello, ATOSE_elf_hello_size);
+
+for (;;);
+
+return 0;
 }

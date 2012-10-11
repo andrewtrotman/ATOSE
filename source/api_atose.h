@@ -91,7 +91,7 @@ public:
 		"swi %[ATOSE_swi];"
 		"mov %[answer], r0;"
 		: [answer]"=r" (answer)
-		: [object]"r"(id_object), [function]"r"(id_function_write_block), [buffer]"r"(buffer), [length]"r"(length), [ATOSE_swi]"i"(ATOSE_SWI)
+		: [object]"r"(id_object), [function]"r"(id_function_write_block), [buffer]"r"((uint32_t)buffer), [length]"r"(length), [ATOSE_swi]"i"(ATOSE_SWI)
 		: "r0", "r1", "r2", "r3"
 		);
 
