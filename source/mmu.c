@@ -5,6 +5,7 @@
 #include "mmu.h"
 #include "mmu_page_list.h"
 #include "mmu_page.h"
+#include "ascii_str.h"
 
 /*
 	ATOSE_MMU::PUSH()
@@ -30,13 +31,12 @@ for (page = (uint8_t *)location; page < end; page += page_size)
 	*/
 	current = (ATOSE_mmu_page *)malloc(sizeof(*current));
 	current->physical_address = page;
+	current->page_size = page_size;
 
 	/*
-		bung it on the right list (the first page is in-use storing its own address)
+		bung it on the free list (the first page is in-use storing its own address)
 	*/
-	if (page_count == 0)
-		in_use_list.push(current);
-	else
+	if (page_count != 0)
 		free_list.push(current);
 
 	/*
@@ -47,22 +47,34 @@ for (page = (uint8_t *)location; page < end; page += page_size)
 }
 
 /*
-	ATOSE_MMU::CREATE_KERNEL_PAGE_TABLE()
-	-------------------------------------
+	ATOSE_MMU::PUSH()
+	-----------------
 */
-void ATOSE_mmu::create_kernel_page_table(uint8_t *page)
+void ATOSE_mmu::push(ATOSE_mmu_page *page)
 {
-uint32_t *page_table;
-uint32_t current;
-
-/*
-	Create the identity page table
-*/
-for (current = 0; current < pages_in_address_space; current++)
-	page_table[current] = 0;
-
-/*
-	Mark page 0 as the location of the kernel
-*/
-page_table[0] = 0;
+free_list.push(page);
 }
+
+/*
+	ATOSE_MMU::PULL()
+	-----------------
+	return NULL if there are no blank pages
+*/
+ATOSE_mmu_page *ATOSE_mmu::pull(void)
+{
+ATOSE_mmu_page *page;
+
+/*
+	Get the next blank page (if there is one)
+*/
+if ((page = free_list.pull()) == 0)
+	return NULL;		// We're out of memory
+
+/*
+	Zero the page (someone is bound to complain about security if we don't do this)
+*/
+bzero(page->physical_address, page->page_size);
+
+return page;
+}
+

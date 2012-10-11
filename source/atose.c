@@ -62,84 +62,88 @@ ATOSE_addr = this;
 	pic.enable(&disk, VECTOR_IRQ_BCH);
 	disk.enable();
 
-	{
-	/*
-		Remove this block of code.  Move the reset() into the disk.enable().
-	*/
-	io.hex();
-	io << "DISK enabled\r\n";
-	io << "APBH Semaphore value:" << (uint32_t)(HW_APBH_CHn_SEMA(4).B.PHORE) << "\r\n";
-	io << "DISK status\r\n";
+	io << "FLASH enabled\r\n";
 
-	uint32_t status = disk.status();
+#ifdef NEVER
+				{
+				/*
+					Remove this block of code.  Move the reset() into the disk.enable().
+				*/
+				io.hex();
+				io << "DISK enabled\r\n";
+				io << "APBH Semaphore value:" << (uint32_t)(HW_APBH_CHn_SEMA(4).B.PHORE) << "\r\n";
+				io << "DISK status\r\n";
 
-	static __attribute__((aligned(0x04))) uint8_t buffer[4096 + 224];
-	for (int x = 0; x < sizeof(buffer); x++)
-		buffer[x] = 0;
+				uint32_t status = disk.status();
 
-	ATOSE_nand_onfi_parameters *params = (ATOSE_nand_onfi_parameters *)buffer;
-	
-	io << "\r\nNAND get parameter block \r\n";
+				static __attribute__((aligned(0x04))) uint8_t buffer[4096 + 224];
+				for (int x = 0; x < sizeof(buffer); x++)
+					buffer[x] = 0;
 
-	uint32_t trials = disk.get_parameter_block((ATOSE_nand_onfi_parameters *)buffer);
-	
-	io << "\r\nsuccess after " << trials << " failures\r\n";
-	
+				ATOSE_nand_onfi_parameters *params = (ATOSE_nand_onfi_parameters *)buffer;
+				
+				io << "\r\nNAND get parameter block \r\n";
 
-	int x = 0;
-	for (int row = 0; row < 0x0F; row++)
-		{
-		int old_x = x;
-		for (int column = 0; column < 0xF; column++)
-			io << (uint32_t)buffer[x++] << " ";
+				uint32_t trials = disk.get_parameter_block((ATOSE_nand_onfi_parameters *)buffer);
+				
+				io << "\r\nsuccess after " << trials << " failures\r\n";
+				
 
-		for (int column = 0; column < 0xF; column++)
-			{
-			io << (char)((buffer[old_x] >= ' ' && buffer[old_x] <= 'Z') ? buffer[old_x] : ' ');
-			old_x++;
-			}
-		io << "\r\n";
-		}
+				int x = 0;
+				for (int row = 0; row < 0x0F; row++)
+					{
+					int old_x = x;
+					for (int column = 0; column < 0xF; column++)
+						io << (uint32_t)buffer[x++] << " ";
 
-	io.decimal();
-	io << "Number of data bytes per page  :" << (uint32_t)(params->bytes_per_page) << "\r\n";
-	io << "Number of spare bytes per page :" << (uint32_t)(params->spare_bytes_per_page) << "\r\n";
-	io << "Number of pages per block      :" << (uint32_t)(params->pages_per_block) << "\r\n";
-	io << "Number of blocks per lun       :" << (uint32_t)(params->blocks_per_lun) << "\r\n";
-	io << "Number of luns                 :" << (uint32_t)(params->luns) << "\r\n";
-	io << "ECC bits                       :" << (uint32_t)(params->ecc_bits) <<  "\r\n";
-	io << "SDR Timing mode support        :" << (uint32_t)(params->sdr_timing_mode_support) <<  "\r\n";
+					for (int column = 0; column < 0xF; column++)
+						{
+						io << (char)((buffer[old_x] >= ' ' && buffer[old_x] <= 'Z') ? buffer[old_x] : ' ');
+						old_x++;
+						}
+					io << "\r\n";
+					}
 
-/*
-	for (int x = 0; x < sizeof(buffer); x++)
-		buffer[x] = 0;
+				io.decimal();
+				io << "Number of data bytes per page  :" << (uint32_t)(params->bytes_per_page) << "\r\n";
+				io << "Number of spare bytes per page :" << (uint32_t)(params->spare_bytes_per_page) << "\r\n";
+				io << "Number of pages per block      :" << (uint32_t)(params->pages_per_block) << "\r\n";
+				io << "Number of blocks per lun       :" << (uint32_t)(params->blocks_per_lun) << "\r\n";
+				io << "Number of luns                 :" << (uint32_t)(params->luns) << "\r\n";
+				io << "ECC bits                       :" << (uint32_t)(params->ecc_bits) <<  "\r\n";
+				io << "SDR Timing mode support        :" << (uint32_t)(params->sdr_timing_mode_support) <<  "\r\n";
 
-	io.hex();
-	io << "DISK read\r\n";
+			/*
+				for (int x = 0; x < sizeof(buffer); x++)
+					buffer[x] = 0;
 
-	uint32_t fixed_bits = disk.read_sector(buffer, 123);
-	for (int x = 0; x < 4096; x++)
-		io << (uint32_t)buffer[x] << " ";
+				io.hex();
+				io << "DISK read\r\n";
 
-	io.decimal();
-	io << "\r\nFIXED: " << fixed_bits << " bits\r\n";
-*/
-	io << "\r\nWRITE\r\n";
-	for (int x = 0; x < 4096; x++)
-		buffer[x] = (uint8_t)(x + 102);
-	uint32_t ok = disk.write_sector(buffer, 102);
+				uint32_t fixed_bits = disk.read_sector(buffer, 123);
+				for (int x = 0; x < 4096; x++)
+					io << (uint32_t)buffer[x] << " ";
 
-	io << "\r\nWRITE STAUTS:" << ok << "\r\n";
+				io.decimal();
+				io << "\r\nFIXED: " << fixed_bits << " bits\r\n";
+			*/
+				io << "\r\nWRITE\r\n";
+				for (int x = 0; x < 4096; x++)
+					buffer[x] = (uint8_t)(x + 102);
+				uint32_t ok = disk.write_sector(buffer, 102);
 
-	io << "\r\nREAD\r\n";
-	uint32_t fixed_bits = disk.read_sector(buffer, 102);
-	for (int x = 0; x < 4096; x++)
-		io << (uint32_t)buffer[x] << " ";
-	io.decimal();
-	io << "\r\nFIXED: " << fixed_bits << " bits\r\n";
+				io << "\r\nWRITE STAUTS:" << ok << "\r\n";
+
+				io << "\r\nREAD\r\n";
+				uint32_t fixed_bits = disk.read_sector(buffer, 102);
+				for (int x = 0; x < 4096; x++)
+					io << (uint32_t)buffer[x] << " ";
+				io.decimal();
+				io << "\r\nFIXED: " << fixed_bits << " bits\r\n";
 
 
-	}
+				}
+#endif
 
 #else
 	cpu.enable_IRQ();

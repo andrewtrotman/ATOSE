@@ -26,6 +26,8 @@
 #include "nand_verify.h"
 #include "nand_imx233.h"
 
+#include "process_manager.h"
+
 /*
 	class ATOSE
 	-----------
@@ -37,6 +39,7 @@ public:
 	ATOSE_stack stack;
 //	ATOSE_kernel_memory_allocator heap;		// we no longer use this, we use the mmu object instead
 	ATOSE_mmu_v5 heap;
+	ATOSE_process_manager process_manager;
 
 #ifdef IMX233
 

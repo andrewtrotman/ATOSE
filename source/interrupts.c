@@ -122,23 +122,21 @@ if (( (*(uint32_t *)(registers->r14_current - 4)) & 0x00FFFFFF) != ATOSE_SWI)
 */
 switch (registers->r0)
 	{
-#ifndef IMX233
-
+#ifdef QEMU
 	case ATOSE_API::id_object_keyboard:
-//		os->io << "[Keyboard]\n";
 		object = &os->keyboard;
 		break;
 	case ATOSE_API::id_object_mouse:
-//		os->io << "[Mouse]\n";
 		object = &os->mouse;
 		break;
 #endif
 	case ATOSE_API::id_object_serial:
-//		os->io << "[Serial]\n";
 		object = &os->io;
 		break;
+	case ATOSE_API::id_object_process_manager:
+		object = &os->process_manager;
+		break;
 	default:
-//		os->io << "["<< registers->r0 << "]\n";
 		return 0;
 	}
 
@@ -158,6 +156,14 @@ switch (registers->r1)
 	case ATOSE_API::id_function_write_byte:
 		{
 		registers->r0 = object->write_byte(registers->r2);
+		break;
+		}
+	case ATOSE_API::id_function_write_block:
+		{
+		/*
+			At present this only works on the process object - to be fixed later
+		*/
+		object->write((uint8_t *)registers->r2, registers->r3);
 		break;
 		}
 	default:

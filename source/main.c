@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include "atose.h"
 #include "api_atose.h"
+#include "../examples/hello.elf.c"
 
 #ifdef IMX233
 	#include "../systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regspower.h"
@@ -13,7 +14,7 @@
 #endif
 
 
-extern "C" { int main2(void); }
+extern "C" { int ATOSE_main(void); }
 
 extern "C"
 {
@@ -103,72 +104,47 @@ asm volatile
 	: "r0"
 	);
 
-//asm volatile ( "mov %0, sp;" : "=r"(tos2));
-
-
-return main2();
+return ATOSE_main();
 }
 
-int main2(void)
-{
-
-ATOSE_API_ATOSE api;
-api.io.hex();
-
-//api.io << "system:" << (long)tos1 << " user:" << (long)tos2 << ATOSE_IO::eoln;
-//api.io << "kbd_id1:" << api.keyboard.id_object << ATOSE_IO::eoln;
-//api.io << "Mouse_id1:" << api.mouse.id_object << ATOSE_IO::eoln;
-//uint32_t ans;
-
-//api.io << "Mouse_id2:" << api.mouse.id_object << ATOSE_IO::eoln;
-//api.io.hex();
-//api.io << "Mouse_id2a:" << api.mouse.id_object << ATOSE_IO::eoln;
-//api.io.decimal();
-//api.io << "Mouse_id2b:" << api.mouse.id_object << ATOSE_IO::eoln;
-//api.io.hex();
-//api.io << "Mouse_id2c:" << api.mouse.id_object << ATOSE_IO::eoln;
-
-
-extern uint32_t ATOSE_top_of_memory;
-
-//api.io << "Mouse_id3:" << api.mouse.id_object << ATOSE_IO::eoln;
-//api.keyboard.write_byte(0xFF);
-//api.io << "Mouse_id4:" << api.mouse.id_object << ATOSE_IO::eoln;
-//api.mouse.write_byte(0xFF);
-//api.mouse.write_byte(0xF4);
-//api.io << "Mouse_id5:" << api.mouse.id_object << ATOSE_IO::eoln;
-
-
-//HW_UARTDBGCR_SET(BM_UARTDBGCR_RXE);		// turn on rec
-
-for (;;)
+/*
+	ATOSE_MAIN()
+	------------
+	This is where ATOSE ends up after the OS has been initialised and we've dropped into user space
+*/
+#ifdef NEVER
+	int ATOSE_main(void)
 	{
-	uint8_t got;
+	ATOSE_API_ATOSE api;
 
-//	if (api.keyboard.read_byte(&got))
-//		api.io << "KBM: " << (long)got << ATOSE_IO::eoln;
-//	if (api.mouse.read_byte(&got))
-//		api.io << "MOU: " << (long)got << ATOSE_IO::eoln;
-	if (api.io.read_byte(&got))
+	api.io.hex();
+
+	for (;;)
 		{
-		api.io << "COM: " << (long)got << " '" << got << "'" << ATOSE_IO::eoln;
-//		ans = api.mouse.read_byte(&got);
-//		api.io << "API got: " << (long)got << " ans:" << (long)ans << ATOSE_IO::eoln;
+		uint8_t got;
+
+	#ifdef QEMU
+		if (api.keyboard.read_byte(&got))
+			api.io << "KBM: " << (long)got << ATOSE_IO::eoln;
+		if (api.mouse.read_byte(&got))
+			api.io << "MOU: " << (long)got << ATOSE_IO::eoln;
+	#endif
+		if (api.io.read_byte(&got))
+			api.io << "COM: " << (long)got << " '" << got << "'" << ATOSE_IO::eoln;
 		}
 
-/*
-	uint32_t uart_status = HW_UARTDBGRIS_RD();
-	uint32_t uart_rsr = HW_UARTDBGRSR_ECR_RD();
-	uint32_t uart_fr = HW_UARTDBGFR_RD();
-	uint32_t uart_lcr = HW_UARTDBGLCR_H_RD();
-	uint32_t uart_cr = HW_UARTDBGCR_RD();
-*/
-
-//	api.io << "DGB: status=" << (long)uart_status << "; rsr=" << uart_rsr << "; rf=" << uart_fr << "; lcr="<< uart_lcr << "; cr=" << uart_cr << ATOSE_IO::eoln;
-//	HW_UARTDBGICR_CLR(0x7FF);
+	return 0;
 	}
+#endif
 
-//api.io << "Mouse_id6:" << api.mouse.id_object << ATOSE_IO::eoln;
+/*
+	ATOSE_MAIN()
+	------------
+	This is where ATOSE ends up after the OS has been initialised and we've dropped into user space
+*/
+int ATOSE_main(void)
+{
+ATOSE_API_ATOSE api;
 
-return 0;
+api.process_manager.write(ATOSE_elf_hello, ATOSE_elf_hello_size);
 }

@@ -12,7 +12,7 @@
 	struct ATOSE_REGISTERS
 	----------------------
 */
-	typedef struct 
+typedef struct 
 	{
 	uint32_t r0;
 	uint32_t r1;

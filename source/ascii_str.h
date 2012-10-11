@@ -5,6 +5,9 @@
 #ifndef ASCII_STR_H_
 #define ASCII_STR_H_
 
+#include <stddef.h>
+#include <stdint.h>
+
 /*
 	ASCII_STRLEN()
 	--------------
@@ -74,6 +77,18 @@ for (from = destination; from < into; from++, into--)
 	}
 
 return destination;
+}
+
+/*
+	BZERO()
+	-------
+*/
+static inline void bzero(void *destination, size_t bytes)
+{
+uint8_t *start;
+
+for (start = (uint8_t *)destination; start < (uint8_t *)destination + bytes; start++)
+	*start = 0;
 }
 
 #endif /* ASCII_STR_H_ */

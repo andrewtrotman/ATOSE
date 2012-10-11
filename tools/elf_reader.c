@@ -1,3 +1,8 @@
+/*
+	ELF_READER.C
+	------------
+*/
+
 #define EINIDENT 16
 
 #include <stdint.h>

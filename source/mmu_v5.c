@@ -76,23 +76,38 @@ asm volatile
 	each page is 1MB in size (ARM V5 Sections)
 	non-existant pages are set to fault on access
 		0x00000000
+*/
+bad_page = 0;		// cause a fault
 
+/*
 	Operating System pages have the low bits set to no cache, no buffer
 	and user can read only.  We cannot cache or buffer because the DMA
 	controller writes into these pages
 		(ARM_MMU_V5_PAGE | ARM_MMU_V5_PAGE_SECTION_USER_READONLY | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION)
+*/
+os_page = (ARM_MMU_V5_PAGE | ARM_MMU_V5_PAGE_SECTION_USER_READONLY | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION);
+
+/*
 
 	Memory Mapped Register pages have the low bits set to no cache, no
 	buffer, user forbidden:
 		(ARM_MMU_V5_PAGE | ARM_MMU_V5_PAGE_SECTION_USER_FORBIDDEN | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_NONCACHED_NONBUFFERED | ARM_MMU_V5_PAGE_TYPE_SECTION)
+*/
 
+// if we use a model of turning off the MMU in kernel space then we never need to mark these pages
+
+/*
 	User DATA pages are set to cache, buffer, user read write:
 		 (ARM_MMU_V5_PAGE | ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION)
+*/
+user_data_page = (ARM_MMU_V5_PAGE | ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION);
 
+/*
 	User CODE (probram) pages are set to cache, buffer, and user can read
 	only:
 		(ARM_MMU_V5_PAGE | ARM_MMU_V5_PAGE_SECTION_USER_READONLY | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION)
 */
+user_code_page = (ARM_MMU_V5_PAGE | ARM_MMU_V5_PAGE_SECTION_USER_READONLY | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION);
 
 /*
 	NOTE: At this point we've not yet actually turned on the MMU, but we have turned on the caches

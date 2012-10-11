@@ -66,6 +66,7 @@ ATOSE_addr: .word 0
 
 /*
 	RTI_SWI
+	-------
 */
 .macro rti_swi
 	movs pc, r14
