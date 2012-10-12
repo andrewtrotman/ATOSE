@@ -5,7 +5,11 @@
 
 #define EINIDENT 16
 
-#include <stdint.h>
+#if _MSC_VER > 1500
+	#include <stdint.h>
+#else
+	#include "fundamental_types.h"
+#endif
 
 #include <new>
 #include <stdio.h>

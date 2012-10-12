@@ -42,12 +42,12 @@ ATOSE_OBJECTS =									\
 			$(OBJ_DIR)\mmu.o 						\
 			$(OBJ_DIR)\mmu_page_list.o				\
 			$(OBJ_DIR)\mmu_v5.o 					\
-			$(OBJ_DIR)\nand.o						\
 			$(OBJ_DIR)\process_manager.o			\
 			$(OBJ_DIR)\stack.o
 
 FourARM_OBJECTS =									\
 			$(OBJ_DIR)\io_debug_imx233.o 			\
+			$(OBJ_DIR)\nand.o						\
 			$(OBJ_DIR)\nand_imx233.o				\
 			$(OBJ_DIR)\pic_imx233.o					\
 			$(OBJ_DIR)\timer_imx233.o
