@@ -86,9 +86,11 @@ all : 								\
 # ATOSE
 #
 $(BIN_DIR)\atose.elf : startup.o $(OBJ_DIR)\main.o $(OBJECTS) $(SOURCE_DIR)\atose.ld
+	@echo $@
 	$(CC) $(CFLAGS) -o $(BIN_DIR)\atose.elf startup.o $(OBJ_DIR)\main.o $(OBJECTS) -T $(SOURCE_DIR)\atose.ld $(CLINKFLAGS)
 
 startup.o : $(SOURCE_DIR)\atose_startup.asm
+	@echo $@
 	$(AS) $(ASFLAGS) $(SOURCE_DIR)\atose_startup.asm -o startup.o
 
 #
@@ -107,15 +109,16 @@ $(BIN_DIR)\dump_cpu_state.elf : $(TOOLS_DIR)\dump_cpu_state.c startup.o $(SOURCE
 	$(CCC) -Os -o $(BIN_DIR)\dump_cpu_state.elf startup.o $(TOOLS_DIR)\dump_cpu_state.c -T $(SOURCE_DIR)\atose.ld
 
 $(BIN_DIR)\elf_reader.exe : $(TOOLS_DIR)\elf_reader.c
-	@cl /Tp $(TOOLS_DIR)\elf_reader.c -Fe$(BIN_DIR)\elf_reader.exe
+	@cl /nologo /Tp $(TOOLS_DIR)\elf_reader.c -Fe$(BIN_DIR)\elf_reader.exe
 
 $(BIN_DIR)\bin_to_c.exe : $(TOOLS_DIR)\bin_to_c.c
-	@cl /Tp $(TOOLS_DIR)\bin_to_c.c -Fe$(BIN_DIR)\bin_to_c.exe
+	@cl /nologo /Tp $(TOOLS_DIR)\bin_to_c.c -Fe$(BIN_DIR)\bin_to_c.exe
 
 #
 #	ATOSE programs (stuff that runs within ATOSE itself
 #
 $(OBJ_DIR)\atose_process_entry_point.o : $(EXAMPLES_DIR)\atose_process_entry_point.asm
+	@echo $@
 	$(AS) $(ASFLAGS) $(EXAMPLES_DIR)\atose_process_entry_point.asm -o $(OBJ_DIR)\atose_process_entry_point.o
 
 $(BIN_DIR)\hello.elf : $(EXAMPLES_DIR)\hello.c $(EXAMPLES_DIR)\atose_process.ld $(OBJ_DIR)\atose_process_entry_point.o  $(BIN_DIR)\bin_to_c.exe
@@ -141,5 +144,6 @@ clean:
 # Implicit rules
 #
 {$(SOURCE_DIR)\}.c{$(OBJ_DIR)\}.o:
+	@echo $@
 	$(CC) $(CFLAGS) -c $< -o $@
 

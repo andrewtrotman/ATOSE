@@ -25,6 +25,7 @@ protected:
 
 public:
 	ATOSE_kernel_memory_allocator() { set_allocation_page((uint8_t *)&ATOSE_start_of_heap, (uint8_t*)&ATOSE_end_of_heap - (uint8_t *)&ATOSE_start_of_heap); }	
+	virtual void init(void) {}
 
 	void *malloc(uint32_t bytes);
 };

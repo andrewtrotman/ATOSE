@@ -25,10 +25,11 @@ public:
 	static const size_t highest_address = 0xFFFFFFFF;			// highest possible memory location in virtual space
 
 private:
-	uint32_t page_count;		// the number of pages (is size page_size) we have 
+	uint32_t page_count;										// the number of pages (is size page_size) we have 
 
 protected:
 	ATOSE_mmu_page_list free_list;
+	uint32_t *identity_page_table;								// a copy of the identity page table (used by the kernel)
 
 public:
 	uint32_t bad_page;											// flags to cuae a fault if used
@@ -41,6 +42,7 @@ protected:
 
 public:
 	ATOSE_mmu() { page_count = 0; }
+	virtual void init(void) {}
 
 	void push(ATOSE_mmu_page *page);
 	ATOSE_mmu_page *pull(void);

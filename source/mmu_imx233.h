@@ -5,23 +5,25 @@
 #ifndef MMU_IMX233_H_
 #define MMU_IMX233_H_
 
+#include "mmu_v5.h"
+
 /*
 	class ATOSE_MMU_IMX233
 	----------------------
 */
-class ATOSE_mmu_imx233 : public ATOSE_mmu
+class ATOSE_mmu_imx233 : public ATOSE_mmu_v5
 {
 public:
-	ATOSE_mmu_imx233() : ATOSE_mmu()
+	ATOSE_mmu_imx233() : ATOSE_mmu_v5()
 	{
 	#ifdef FourARM
 		/*
 			Tell the MMU that the FourARM has 128MB off-chip RAM located at 0x40000000
 		*/
-		push((void *)0x40000000, 128*1024*1024);
+		push((void *)0x40000000, 128 * 1024 * 1024);
 	#endif
 	}
-};
+};	
 
 
 #endif /* MMU_IMX233_H_ */

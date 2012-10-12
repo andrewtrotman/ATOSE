@@ -20,7 +20,9 @@ private:
 	static const uint32_t domain = 0x02;
 	
 public:
-	ATOSE_mmu_v5();
+	ATOSE_mmu_v5() {};
+
+	virtual void init(void);
 	void flush_caches(void);
 } ;
 

@@ -24,7 +24,22 @@ for (page = (uint8_t *)location; page < end; page += page_size)
 		so we pass it to the kernel allocator and bung it on the in-use list
 	*/
 	if (page_count == 0)
-		set_allocation_page(page, page_size);
+		{
+		/*
+			First we need to slice the ATOSE "identity" page table out of this
+			The page table must be alligned on a 16KB boundary.  As we have 1MB
+			pages we can guarantee that the page table will be correctly alliged
+			if placed at the start of a page.
+
+			Note that we have not set up the page table yet
+		*/
+		identity_page_table = (uint32_t *)page;
+
+		/*
+			The remainder is available for use as kernel allocatable memory
+		*/
+		set_allocation_page(page + (pages_in_address_space * sizeof(uint32_t)), page_size - (pages_in_address_space * sizeof(uint32_t)));
+		}
 
 	/*
 		create a MMU page object

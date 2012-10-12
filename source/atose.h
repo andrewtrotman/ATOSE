@@ -8,7 +8,7 @@
 #include "cpu.h"
 #include "stack.h"
 #include "kernel_memory_allocator.h"
-#include "mmu_v5.h"
+#include "mmu_imx233.h"
 
 #include "io_serial.h"
 #include "io_angel.h"
@@ -37,8 +37,6 @@ class ATOSE
 public:
 	ATOSE_cpu cpu;
 	ATOSE_stack stack;
-//	ATOSE_kernel_memory_allocator heap;		// we no longer use this, we use the mmu object instead
-	ATOSE_mmu_v5 heap;
 	ATOSE_process_manager process_manager;
 
 #ifdef IMX233
@@ -47,15 +45,22 @@ public:
 	ATOSE_IO_debug_imx233 io;
 	ATOSE_timer_imx233 timer;
 	ATOSE_nand_verify<ATOSE_nand_imx233> disk;
+	ATOSE_mmu_imx233 heap;
 
-#else
+#elif defined(QEMU)
 
 	ATOSE_pic_pl190 pic;
 	ATOSE_IO_serial io;
 	ATOSE_timer_sp804 timer;
 
+	ATOSE_mmu_imx233 heap;					// but it only gets 128MB RAM
+
 	ATOSE_keyboard_mouse_interface keyboard;
 	ATOSE_keyboard_mouse_interface mouse;
+
+#else
+
+	ATOSE_kernel_memory_allocator heap;		// we no longer use this, we use the mmu object instead
 
 #endif
 

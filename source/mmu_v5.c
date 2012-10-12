@@ -6,11 +6,13 @@
 #include "mmu_v5_constants.h"
 
 /*
-	ATOSE_MMU_V5::ATOSE_MMU_V5()
-	----------------------------
+	ATOSE_MMU_V5::INIT()
+	--------------------
 */
-ATOSE_mmu_v5::ATOSE_mmu_v5()
+void ATOSE_mmu_v5::init(void)
 {
+uint32_t current;
+
 /*
 	Turn off the ROM and SYSTEM bits.  These bits appear to be
 	depricated in later versions of the ARM MMU
@@ -47,35 +49,12 @@ asm volatile
 	"mov	r0, %[domain_string];"				// value to shove in the domain register
 	"mcr	p15, 0, r0, c3, c0, 0;"			// write this to CP15 Control Register 3 (the Domain Access Control Register)
 	:
-	: [domain_string]"r"(ARM_MMU_V5_DOMAIN_CLIENT << (domain << ARM_MMU_V5_DOMAIN_BITS_PER_DOMAIN))
-	:"r0"
-	);
-
-/*
-	Enable the data cache and the instructon cache.
-
-	NOTE: the data cache and instruction cache are addressed on virtual address
-	and therefore need to be flushed on each context switch
-
-	As the cache starts inactive it should not be necessart to flush it
-	but we will anyway.
-*/
-flush_caches();
-asm volatile
-	(
-	"mrc	p15, 0, r0, c1, c0, 0;"			// read c1
-	"orr	r0, r0, %[cache_enable];"		// enable data cache and instruction cache
-	"mcr	p15, 0, r0, c1, c0, 0;"			// write c1
-	:
-	: [cache_enable]"r"(ARM_MMU_V5_CP15_R1_C | ARM_MMU_V5_CP15_R1_I)
+	: [domain_string]"r"(ARM_MMU_V5_DOMAIN_CLIENT << (domain * ARM_MMU_V5_DOMAIN_BITS_PER_DOMAIN))
 	: "r0"
 	);
 
 /*
-	A page table can now be set up with:
-	each page is 1MB in size (ARM V5 Sections)
-	non-existant pages are set to fault on access
-		0x00000000
+	Set up a few constants we're going to need later
 */
 bad_page = 0;		// cause a fault
 
@@ -110,8 +89,53 @@ user_data_page = (ARM_MMU_V5_PAGE | ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM
 user_code_page = (ARM_MMU_V5_PAGE | ARM_MMU_V5_PAGE_SECTION_USER_READONLY | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION);
 
 /*
-	NOTE: At this point we've not yet actually turned on the MMU, but we have turned on the caches
+	A page table can now be set up with:
+	each page is 1MB in size (ARM V5 Sections)
+	non-existant pages are set to fault on access
+		0x00000000
 */
+for (current = 0; current < pages_in_address_space; current++)
+	identity_page_table[current] = (current << 20) | (ARM_MMU_V5_PAGE | ARM_MMU_V5_PAGE_SECTION_USER_FORBIDDEN | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_NONCACHED_NONBUFFERED | ARM_MMU_V5_PAGE_TYPE_SECTION);
+
+/*
+	Set the page table to the identity page table
+*/
+asm volatile
+	(
+	"mov	r0, %[table];"					// place the address of page table into the
+	"mcr	p15, 0, r0, c2, c0;"			// Translation Table Base Register
+	:
+	: [table]"r"(identity_page_table)
+	: "r0"
+	);
+
+/*
+	Enable the data cache, the instructon cache, and the MMU.
+
+	NOTE: the data cache and instruction cache are addressed on virtual address
+	and therefore need to be flushed on each context switch
+
+	As the cache starts inactive it should not be necessart to flush it
+	but we will anyway.
+*/
+flush_caches();
+asm volatile
+	(
+	"mrc	p15, 0, r0, c1, c0, 0;"			// read c1
+	"orr	r0, r0, %[cache_enable];"		// enable data cache and instruction cache
+	"mcr	p15, 0, r0, c1, c0, 0;"			// write c1
+	"nop;"									// flush the pipeline (probably not necessary)
+	"nop;"
+	"nop;"
+	"nop;"									// flush the pipeline (probably not necessary)
+	"nop;"
+	"nop;"
+	"nop;"
+	"nop;"
+	:
+	: [cache_enable]"r"(ARM_MMU_V5_CP15_R1_C | ARM_MMU_V5_CP15_R1_I | ARM_MMU_V5_CP15_R1_M)
+	: "r0"
+	);
 }
 
 /*

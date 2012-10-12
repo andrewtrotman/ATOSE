@@ -24,19 +24,16 @@ ATOSE_addr = this;
 /*
 	Initialise each of the essential core objects
 */
+stack.init();
+cpu.init();
+pic.init();
+io.init();
+timer.init();
+heap.init();
+
 #ifdef IMX233
-	stack.init();
-	cpu.init();
-	pic.init();
-	io.init();
-	timer.init();
 	disk.init();
 #else
-	stack.init();
-	cpu.init();
-	pic.init();
-	io.init();
-	timer.init();
 	keyboard.init((unsigned char *)0x10006000);
 	mouse.init((unsigned char *)0x10007000);
 #endif

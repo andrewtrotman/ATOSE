@@ -145,7 +145,7 @@ switch (registers->r0)
 		object = &os->io;
 		break;
 	case ATOSE_API::id_object_process_manager:
-		object = &os->process_manager;
+//		object = &os->process_manager;
 		break;
 	default:
 		return 0;

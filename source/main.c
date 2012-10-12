@@ -149,7 +149,7 @@ ATOSE_API_ATOSE api;
 
 api.io << "In USER space" << ATOSE_IO::eoln;
  
-api.process_manager.write_block(ATOSE_elf_hello, ATOSE_elf_hello_size);
+//api.process_manager.write_block(ATOSE_elf_hello, ATOSE_elf_hello_size);
 
 for (;;);
 
