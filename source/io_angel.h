@@ -6,11 +6,13 @@
 #define IO_ANGEL_H_
 
 #include "io.h"
+#include "device_driver.h"
+
 /*
 	class ATOSE_IO_ANGEL
 	--------------------
 */
-class ATOSE_IO_angel : public ATOSE_IO
+class ATOSE_IO_angel : public ATOSE_IO, public ATOSE_device_driver
 {
 private:
 	/*

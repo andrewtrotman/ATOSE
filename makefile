@@ -6,9 +6,9 @@
 #	Choose a Target for ATOSE
 #
 #
-TARGET = FourARM
+#TARGET = FourARM
 #
-#TARGET = QEMU
+TARGET = QEMU
 #
 
 !IF "$(TARGET)" == "FourARM"
@@ -133,6 +133,7 @@ $(EXAMPLES_DIR)\hello.elf.c hello : $(BIN_DIR)\hello.elf
 #
 run:
 	"\Program Files (x86)\qemu\qemu-system-arm.exe" -semihosting -M versatileab -cpu arm926 -kernel $(BIN_DIR)\atose.elf -serial stdio
+
 
 qemu:
 	"\Program Files\qemu\qemu-system-arm.exe" -semihosting -M versatileab -kernel $(BIN_DIR)\atose.elf -serial stdio

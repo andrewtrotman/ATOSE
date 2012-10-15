@@ -95,7 +95,7 @@ user_code_page = (ARM_MMU_V5_PAGE | ARM_MMU_V5_PAGE_SECTION_USER_READONLY | ARM_
 		0x00000000
 */
 for (current = 0; current < pages_in_address_space; current++)
-	identity_page_table[current] = (current << 20) | (ARM_MMU_V5_PAGE | ARM_MMU_V5_PAGE_SECTION_USER_FORBIDDEN | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_NONCACHED_NONBUFFERED | ARM_MMU_V5_PAGE_TYPE_SECTION);
+	identity_page_table[current] = (current << 20) | (ARM_MMU_V5_PAGE | ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_NONCACHED_NONBUFFERED | ARM_MMU_V5_PAGE_TYPE_SECTION);
 
 /*
 	Set the page table to the identity page table
@@ -136,6 +136,8 @@ asm volatile
 	: [cache_enable]"r"(ARM_MMU_V5_CP15_R1_C | ARM_MMU_V5_CP15_R1_I | ARM_MMU_V5_CP15_R1_M)
 	: "r0"
 	);
+#ifdef NEVER
+#endif
 }
 
 /*

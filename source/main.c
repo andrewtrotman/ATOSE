@@ -14,6 +14,8 @@
 #endif
 
 
+ATOSE_API_ATOSE api;
+
 int ATOSE_main(void);
 int main(void);
 
@@ -91,6 +93,9 @@ int main(void)
 {
 ATOSE os;
 
+
+api.io << "About to enter USER space" << ATOSE_IO::eoln;
+
 /*
 	Switch to user mode 
 */
@@ -104,6 +109,8 @@ asm volatile
 	:
 	: "r0"
 	);
+
+api.io << "Call main()" << ATOSE_IO::eoln;
 
 return ATOSE_main();
 }
@@ -145,8 +152,6 @@ return ATOSE_main();
 */
 int ATOSE_main(void)
 {
-ATOSE_API_ATOSE api;
-
 api.io << "In USER space" << ATOSE_IO::eoln;
  
 //api.process_manager.write_block(ATOSE_elf_hello, ATOSE_elf_hello_size);

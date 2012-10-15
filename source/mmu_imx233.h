@@ -21,6 +21,8 @@ public:
 			Tell the MMU that the FourARM has 128MB off-chip RAM located at 0x40000000
 		*/
 		push((void *)0x40000000, 128 * 1024 * 1024);
+	#elif defined(QEMU)
+		push((void *)0x04000000, 128 * 1024 * 1024);
 	#endif
 	}
 };	
