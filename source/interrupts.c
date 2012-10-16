@@ -120,10 +120,12 @@ if (( (*(uint32_t *)(registers->r14_current - 4)) & 0x00FFFFFF) != ATOSE_SWI)
 	DEBUG
 */
 #ifdef NEVER
+/*
 	{
 	ATOSE *os = ATOSE::get_global_entry_point();
 	os->io << "[" << (char)registers->r0 << "->" << (char)registers->r1 << "]\r\n";
 	}
+*/
 #endif
 /*
 	END DEBUG
