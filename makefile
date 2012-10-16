@@ -6,9 +6,9 @@
 #	Choose a Target for ATOSE
 #
 #
-TARGET = FourARM
+#TARGET = FourARM
 #
-#TARGET = QEMU
+TARGET = QEMU
 #
 
 !IF "$(TARGET)" == "FourARM"
@@ -122,7 +122,7 @@ $(OBJ_DIR)\atose_process_entry_point.o : $(EXAMPLES_DIR)\atose_process_entry_poi
 	$(AS) $(ASFLAGS) $(EXAMPLES_DIR)\atose_process_entry_point.asm -o $(OBJ_DIR)\atose_process_entry_point.o
 
 $(BIN_DIR)\hello.elf : $(EXAMPLES_DIR)\hello.c $(EXAMPLES_DIR)\atose_process.ld $(OBJ_DIR)\atose_process_entry_point.o  $(BIN_DIR)\bin_to_c.exe
-	$(CC) $(CFLAGS) -ffunction-sections -fdata-sections -g0 -fno-exceptions -fno-rtti -ffreestanding -Xlinker -z -Xlinker max-page-size=0x01 -o $(BIN_DIR)\hello.elf -I source $(EXAMPLES_DIR)\hello.c -T $(EXAMPLES_DIR)\atose_process.ld $(CLINKFLAGS)
+	$(CC) $(CFLAGS) -ffunction-sections -fdata-sections -g0 -fno-exceptions -fno-rtti -ffreestanding -Xlinker -z -Xlinker max-page-size=0x0100 -o $(BIN_DIR)\hello.elf -I source $(EXAMPLES_DIR)\hello.c -T $(EXAMPLES_DIR)\atose_process.ld $(CLINKFLAGS)
 
 $(EXAMPLES_DIR)\hello.elf.c hello : $(BIN_DIR)\hello.elf
 	@arm-none-eabi-strip --strip-all --remove-section=.comment --remove-section=.note $(BIN_DIR)\hello.elf

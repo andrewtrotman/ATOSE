@@ -10,9 +10,6 @@ ram : ORIGIN = 0x100000, LENGTH = 16M
 
 SECTIONS
 {
-. = 0x100000;
-. = ALIGN(4);
-
  __exidx_start = .;
 .ARM.exidx   : { *(.ARM.exidx* .gnu.linkonce.armexidx.*) } > ram
 __exidx_end = .;

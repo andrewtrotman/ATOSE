@@ -4,7 +4,7 @@
 	Hello world as an ATOSE process
 */
 
-#include "api_atose.h"
+#include "../source/api_atose.h"
 
 ATOSE_API_ATOSE api;
 
