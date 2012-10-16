@@ -50,7 +50,7 @@ heap.init();
 	pic.enable(&io, VECTOR_IRQ_DEBUG_UART);
 	io.enable();
 
-	io << "\r\n\r\nATOSE\r\nIO enabled\r\n";
+//	io << "\r\n\r\nATOSE\r\nIO enabled\r\n";
 	/*
 		The NAND interface can cause three possible interrupts!
 	*/
@@ -59,7 +59,7 @@ heap.init();
 	pic.enable(&disk, VECTOR_IRQ_BCH);
 	disk.enable();
 
-	io << "FLASH enabled\r\n";
+//	io << "FLASH enabled\r\n";
 
 #ifdef NEVER
 				{

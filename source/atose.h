@@ -53,14 +53,14 @@ public:
 	ATOSE_IO_serial io;
 	ATOSE_timer_sp804 timer;
 
-	ATOSE_mmu_imx233 heap;					// but it only gets 128MB RAM
+	ATOSE_mmu_imx233 heap;
 
 	ATOSE_keyboard_mouse_interface keyboard;
 	ATOSE_keyboard_mouse_interface mouse;
 
 #else
 
-	ATOSE_kernel_memory_allocator heap;		// we no longer use this, we use the mmu object instead
+	ATOSE_kernel_memory_allocator heap;		// we can assume a MMU for ARM V5 and later, but we might wish to support having no off-chip RAM
 
 #endif
 

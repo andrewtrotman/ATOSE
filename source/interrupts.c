@@ -119,10 +119,12 @@ if (( (*(uint32_t *)(registers->r14_current - 4)) & 0x00FFFFFF) != ATOSE_SWI)
 /*
 	DEBUG
 */
-//	{
-//	ATOSE *os = ATOSE::get_global_entry_point();
-//	os->io << "[" << (char)registers->r0 << "->" << (char)registers->r1 << "]\r\n";
-//	}
+#ifdef NEVER
+	{
+	ATOSE *os = ATOSE::get_global_entry_point();
+	os->io << "[" << (char)registers->r0 << "->" << (char)registers->r1 << "]\r\n";
+	}
+#endif
 /*
 	END DEBUG
 */
@@ -145,7 +147,7 @@ switch (registers->r0)
 		object = &os->io;
 		break;
 	case ATOSE_API::id_object_process_manager:
-//		object = &os->process_manager;
+		object = &os->process_manager;
 		break;
 	default:
 		return 0;
@@ -173,6 +175,8 @@ switch (registers->r1)
 		{
 		/*
 			At present this only works on the process object - to be fixed later
+			When writing to the procss_manager object this loads an ELF file
+			sets up the address space and executes it.
 		*/
 		object->write((uint8_t *)registers->r2, registers->r3);
 		break;

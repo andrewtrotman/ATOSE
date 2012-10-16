@@ -10,7 +10,7 @@ ram : ORIGIN = 0x100000, LENGTH = 16M
 
 SECTIONS
 {
-. = 0x00000000;
+. = 0x100000;
 . = ALIGN(4);
 
  __exidx_start = .;
