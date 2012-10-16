@@ -8,4 +8,6 @@
 \.bak$
 \.o$
 \.elf$
-
+\.obj$
+\.exe$
+\examples/hello.elf.c$
