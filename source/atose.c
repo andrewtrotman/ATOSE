@@ -13,7 +13,7 @@ extern ATOSE *ATOSE_addr;
 	ATOSE::ATOSE()
 	--------------
 */
-ATOSE::ATOSE()
+ATOSE::ATOSE(): heap(), process_manager(&heap)
 {
 /*
 	First things first... put a pointer to me at the end of the interrupt space so that

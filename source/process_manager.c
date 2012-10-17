@@ -4,6 +4,7 @@
 */
 #include <stdint.h>
 #include "atose.h"
+#include "ascii_str.h"
 #include "process_manager.h"
 #include "elf.h"
 
@@ -15,15 +16,17 @@
 
 	Return 0 on success all other codes are error codes
 */
-uint32_t ATOSE_process_manager::elf_load(const uint8_t *file, uint32_t length)
+uint32_t ATOSE_process_manager::elf_load(ATOSE_process *process, const uint8_t *file, uint32_t length)
 {
 Elf32_Ehdr *header;			// the ELF file header
-long header_ok;				// used to check the ELf magic number is correct
+uint32_t header_ok;			// used to check the ELf magic number is correct
 uint32_t header_offset;		// location (in the file) of the first header
 uint32_t header_size;			// size of each header
 uint32_t header_num;			// number of headers
 Elf32_Phdr *current_header;	// the current header
-long which;					// which header we're currenty looking at
+uint32_t which;				// which header we're currenty looking at
+uint32_t permissions;			// permissions on pages in the address space (READ / WRITE / EXECUTE / etc.)
+uint8_t *into;					// pointer to a segment returned by the address space
 
 /*
 	An ELF file must be at least the length of the header.
@@ -133,6 +136,19 @@ for (which = 0; which < header_num; which++)
 	if (current_header->p_type != PT_ARM_UNWIND && current_header->p_type != PT_LOAD)
 		return ELF_BAD_PROGRAM_SEGMENT_TYPE;
 
+	/*
+		Make sure that in all cases the size in the ELF file is no larger than the amount
+		of memory needed to store it.
+	*/
+	if (current_header->p_filesz > current_header->p_memsz)
+		return ELF_BAD_PROGRAM_SEGMENT_SIZE;
+
+	/*
+		Make sure we don't read past end of file
+	*/
+	if (current_header->p_offset + current_header->p_filesz > length)
+		return ELF_BAD_PROGRAM_SEGMENT_LOCATION;
+
 	current_header++;
 	}
 
@@ -142,22 +158,28 @@ for (which = 0; which < header_num; which++)
 current_header = (Elf32_Phdr *)(file + header_offset);
 for (which = 0; which < header_num; which++)
 	{
-#ifdef NEVER
-	range[range_current].start = current_header->p_vaddr;
-	range[range_current].finish = current_header->p_vaddr + current_header->p_memsz;
-	range_current++;
-
-	printf("p_filesz           : %u\n", current_header->p_filesz);
-
-	printf("p_flags            : %u (", current_header->p_flags);
+	/*
+		Get the page permissions
+	*/
+	permissions = ATOSE_address_space::NONE;
 	if (current_header->p_flags & PF_R)
-		printf("R");
+		permissions += ATOSE_address_space::READ;
 	if (current_header->p_flags & PF_W)
-		printf("W");
+		permissions += ATOSE_address_space::WRITE;
 	if (current_header->p_flags & PF_X)
-		printf("X");
-	printf(")\n");
-#endif
+		permissions += ATOSE_address_space::EXECUTE;
+
+	/*
+		Make sure the address space of the process includes the page we're about to use.
+		As we're in the address space of the new process we the add() method returns
+		a pointer that is also in our address space so we can simply copy into it.
+	*/
+	into = process->address_space.add((void *)(current_header->p_vaddr), current_header->p_memsz, permissions);
+
+	/*
+		Copy into the new process's address space.
+	*/
+	memcpy(into, file + current_header->p_offset, current_header->p_filesz);
 
 	/*
 		Move on to the next segment
@@ -179,8 +201,9 @@ uint32_t answer;
 
 ATOSE *os = ATOSE::get_global_entry_point();
 os->io << "[CALL TO START A NEW PROCESS...";
-answer = elf_load(buffer, length);
+answer = elf_load(&active_process, buffer, length);
 os->io << "response:" << answer << "\r\n";
 
 return length;
 }
+

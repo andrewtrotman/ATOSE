@@ -91,4 +91,22 @@ for (start = (uint8_t *)destination; start < (uint8_t *)destination + bytes; sta
 	*start = 0;
 }
 
+/*
+	MEMCPY()
+	--------
+*/
+static inline void *memcpy(void *destination, const void *source, size_t bytes)
+{
+uint8_t *from, *to, *end;
+
+from = (uint8_t *)source;
+to = (uint8_t *)destination;
+end = (uint8_t *)from + bytes;
+while (from < end)
+	*from++ = *to++;
+
+return destination;
+}
+
+
 #endif /* ASCII_STR_H_ */

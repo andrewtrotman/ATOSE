@@ -75,10 +75,11 @@ for (page = page_list.pull(); page != NULL; page = page_list.pull())
 return 0;
 }
 
-
 /*
 	ATOSE_ADDRESS_SPACE::ADD_PAGE()
 	-------------------------------
+	virtual_address must be page-aligned
+	return 0 on success
 */
 uint32_t ATOSE_address_space::add_page(void *virtual_address, ATOSE_mmu_page *page, uint32_t type)
 {
@@ -98,4 +99,33 @@ page_table[page_table_entry] = (size_t)(page->physical_address) | type;
 	Add the page to our in-use list
 */
 page_list.push(page);
+
+/*
+	Success
+*/
+return 0;
+}
+
+/*
+	ATOSE_ADDRESS_SPACE::ADD()
+	--------------------------
+*/
+uint8_t *ATOSE_address_space::add(void *address, size_t size, uint32_t permissions)
+{
+#ifdef NEVER
+	size_t base_address, entries;
+	uint64_t end;
+
+	/*
+		Get the page number of the first page in the list and the number of pages needed
+	*/
+	base_page = (((size_t)address) / mmu->page_size);
+	if ((end = ((size_t)address + size)) > highest_address)
+		return NULL;		// we over-flow the address space
+	entries = (end / mmu->page_size) - base_address;
+
+	/*
+		Now get pages and add them to the page table
+	*/
+#endif
 }

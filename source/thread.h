@@ -5,6 +5,7 @@
 #ifndef THREAD_H_
 #define THREAD_H_
 
+class ATOSE_process;
 /*
 	class ATOSE_THREAD
 	------------------

@@ -13,6 +13,13 @@ class ATOSE_mmu;
 */
 class ATOSE_address_space
 {
+public:
+	/*
+		Permissions for a page in the page table.  Note that these are
+		the same as PF_x from the ELF specification
+	*/
+	enum {NONE = 0, EXECUTE = 1, WRITE = 2, READ = 4};
+
 private:
 	ATOSE_mmu *mmu;
 	ATOSE_mmu_page_list page_list;
@@ -23,9 +30,11 @@ protected:
 	uint32_t add_page(void *virtual_address, ATOSE_mmu_page *page, uint32_t type);
 
 public:
-	ATOSE_address_space(ATOSE_mmu *mmu, uint32_t process_id) { this->mmu = mmu; this->process_id = process_id; }
+	ATOSE_address_space(ATOSE_mmu *mmu) { this->mmu = mmu; }
 	ATOSE_address_space *create(void);
 	uint32_t destroy(void);
+
+	uint8_t *add(void *address, size_t size, uint32_t permissions);
 } ;
 
 
