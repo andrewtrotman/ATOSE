@@ -27,6 +27,7 @@ Elf32_Phdr *current_header;	// the current header
 uint32_t which;				// which header we're currenty looking at
 uint32_t permissions;			// permissions on pages in the address space (READ / WRITE / EXECUTE / etc.)
 uint8_t *into;					// pointer to a segment returned by the address space
+uint32_t return_code;			// final return code from this method (used late in the method)
 
 /*
 	An ELF file must be at least the length of the header.
@@ -153,13 +154,24 @@ for (which = 0; which < header_num; which++)
 	}
 
 /*
-	Now load each executable file segment
+	We passed all the initial tests so we create the address space
 */
+if (process->address_space.create() == 0)
+	return ELF_BAD_ADDRESS_SPACE_FAIL;
+
+/*
+	Add the necessary pages into it
+*/
+return_code = SUCCESS;
 current_header = (Elf32_Phdr *)(file + header_offset);
 for (which = 0; which < header_num; which++)
 	{
 	/*
-		Get the page permissions
+		Get the page permissions (this code is somewhat redundant because
+		we've set up the permission flags in address_space->add() to
+		match those of the ELF so that we can use current_header->p_flags
+		without the translation below.  In the mean time we leave this
+		code in here.
 	*/
 	permissions = ATOSE_address_space::NONE;
 	if (current_header->p_flags & PF_R)
@@ -177,9 +189,16 @@ for (which = 0; which < header_num; which++)
 	into = process->address_space.add((void *)(current_header->p_vaddr), current_header->p_memsz, permissions);
 
 	/*
-		Copy into the new process's address space.
+		We might fail at this point for seveal reasons; for example, we
+		might be out of pages or we might be trying to change the
+		permissions on an existing page
 	*/
-	memcpy(into, file + current_header->p_offset, current_header->p_filesz);
+	if (into == 0)
+		{
+		process->address_space.destroy();
+		return_code = ELF_BAD_OUT_OF_PAGES;
+		break;
+		}
 
 	/*
 		Move on to the next segment
@@ -187,9 +206,35 @@ for (which = 0; which < header_num; which++)
 	current_header++;
 	}
 
-return SUCCESS;
-}
+/*
+	The address space we just created has ATOSE in it so we can
+	assume that address space and continue running from there.
+*/
+if (return_code == SUCCESS)
+	{
+	mmu->assume(&process->address_space);
 
+	/*
+		Now load each executable file segment into the new address space
+	*/
+	current_header = (Elf32_Phdr *)(file + header_offset);
+	for (which = 0; which < header_num; which++)
+		{
+		/*
+			copy from the ELF file into the address space
+		*/
+		memcpy((void *)current_header->p_vaddr, file + current_header->p_offset, current_header->p_filesz);
+
+		/*
+			Move on to the next segment
+		*/	
+		current_header++;
+		}
+	}
+
+mmu->assume_identity();
+return return_code;
+}
 
 /*
 	ATOSE_PROCESS_MANAGER::EXECUTE()
@@ -200,9 +245,16 @@ uint32_t ATOSE_process_manager::execute(const uint8_t *buffer, uint32_t length)
 uint32_t answer;
 
 ATOSE *os = ATOSE::get_global_entry_point();
-os->io << "[CALL TO START A NEW PROCESS...";
+os->io << "[CALL TO START A NEW PROCESS:";
+
 answer = elf_load(&active_process, buffer, length);
+
 os->io << "response:" << answer << "\r\n";
+
+{
+for (uint32_t pp = 0; pp < 10; pp++)
+	os->io << pp << ":" << active_process.address_space.get_page_table()[pp] << "\r\n";
+}
 
 return length;
 }

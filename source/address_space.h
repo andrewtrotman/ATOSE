@@ -31,10 +31,12 @@ protected:
 
 public:
 	ATOSE_address_space(ATOSE_mmu *mmu) { this->mmu = mmu; }
+
 	ATOSE_address_space *create(void);
 	uint32_t destroy(void);
 
 	uint8_t *add(void *address, size_t size, uint32_t permissions);
+	uint32_t *get_page_table(void) { return page_table; }
 } ;
 
 

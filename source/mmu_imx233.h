@@ -5,16 +5,16 @@
 #ifndef MMU_IMX233_H_
 #define MMU_IMX233_H_
 
-#include "mmu_v5.h"
+#include "mmu.h"
 
 /*
 	class ATOSE_MMU_IMX233
 	----------------------
 */
-class ATOSE_mmu_imx233 : public ATOSE_mmu_v5
+class ATOSE_mmu_imx233 : public ATOSE_mmu
 {
 public:
-	ATOSE_mmu_imx233() : ATOSE_mmu_v5()
+	ATOSE_mmu_imx233() : ATOSE_mmu()
 	{
 	#ifdef FourARM
 		/*

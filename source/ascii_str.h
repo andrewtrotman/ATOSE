@@ -103,7 +103,7 @@ from = (uint8_t *)source;
 to = (uint8_t *)destination;
 end = (uint8_t *)from + bytes;
 while (from < end)
-	*from++ = *to++;
+	*to++ = *from++;
 
 return destination;
 }

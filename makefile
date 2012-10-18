@@ -41,7 +41,6 @@ ATOSE_OBJECTS =									\
 			$(OBJ_DIR)\kernel_memory_allocator.o	\
 			$(OBJ_DIR)\mmu.o 						\
 			$(OBJ_DIR)\mmu_page_list.o				\
-			$(OBJ_DIR)\mmu_v5.o 					\
 			$(OBJ_DIR)\process_manager.o			\
 			$(OBJ_DIR)\stack.o
 
@@ -132,7 +131,7 @@ $(EXAMPLES_DIR)\hello.elf.c hello : $(BIN_DIR)\hello.elf
 # Management
 #
 run:
-	"\Program Files (x86)\qemu\qemu-system-arm.exe" -semihosting -M versatileab -cpu arm926 -kernel $(BIN_DIR)\atose.elf -serial stdio
+	"\Program Files (x86)\qemu\qemu-system-arm.exe" -semihosting -M versatileab -cpu arm926 -kernel $(BIN_DIR)\atose.elf -serial stdio -m 256M 
 
 
 qemu:

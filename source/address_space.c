@@ -27,23 +27,24 @@ uint32_t current;
 	page table we put the OS at the bottom (because that's were the
 	interrupt vector table must be stored) and put the page table itself
 	at the top of that page (it must be correctly alliged).  Initialise 
-	all other pages to cause faults excapt the stack at top of memory,
+	all other pages to cause faults except the stack at top of memory,
 	which requires the allocation of a second page.
 */
 if ((page = mmu->pull()) == 0)
 	return 0;			// fail as we're of out of physical pages to allocate
 
-page_table = (uint32_t *)(page->physical_address) - mmu->pages_in_address_space;
+page_table = ((uint32_t *)page->physical_address) - mmu->pages_in_address_space;
+page_list.push(page);		// mark the page as part of the process's list of pages
 
 /*
 	Place ATOSE at bottom of memory
 */
-add_page(0, 0, mmu->os_page);
+page_table[0] = 0 | mmu->os_page;
 
 /*
 	Mark all other pages to cause faults (except for the last page)
 */
-for (current = 1;  current < mmu->pages_in_address_space - 1; current++)
+for (current = 1; current < mmu->pages_in_address_space - 1; current++)
 	page_table[current] =  mmu->bad_page;
 
 /*
@@ -112,20 +113,39 @@ return 0;
 */
 uint8_t *ATOSE_address_space::add(void *address, size_t size, uint32_t permissions)
 {
-#ifdef NEVER
-	size_t base_address, entries;
-	uint64_t end;
+ATOSE_mmu_page *page;
+size_t base_page, entries, which;
+uint64_t end;
 
-	/*
-		Get the page number of the first page in the list and the number of pages needed
-	*/
-	base_page = (((size_t)address) / mmu->page_size);
-	if ((end = ((size_t)address + size)) > highest_address)
-		return NULL;		// we over-flow the address space
-	entries = (end / mmu->page_size) - base_address;
+/*
+	Make sure we fit within the address space
+*/
+if ((end = ((size_t)address + size)) > mmu->highest_address)
+	return NULL;					// we over-flow the address space
 
+/*
+	Get the page number of the first page in the list and the number of pages needed
+*/
+base_page = (((size_t)address) / mmu->page_size);
+entries = (end / mmu->page_size) - base_page;
+
+/*
+	Now get pages and add them to the page table
+*/
+for (which = base_page; which < base_page + entries; which++)
+	{
 	/*
-		Now get pages and add them to the page table
+		Verify that the page isn't already in the address space and ignore that page if so.
 	*/
-#endif
+	if (page_table[which] == 0)
+		if ((page = mmu->pull()) == 0)
+			return NULL;		// We fail because there are no more pages to give
+		else
+			add_page((void *)(which * mmu->page_size), page, mmu->user_data_page);		// FIX the permissions here are wrong.
+	}
+
+/*
+	return a pointer to the beginning of the address space allocated
+*/
+return (uint8_t *)address;
 }
