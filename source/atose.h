@@ -27,6 +27,7 @@
 #include "nand_imx233.h"
 
 #include "process_manager.h"
+#include "schedule.h"
 
 /*
 	class ATOSE
@@ -38,6 +39,7 @@ public:
 	ATOSE_cpu cpu;
 	ATOSE_stack stack;
 	ATOSE_process_manager process_manager;
+	ATOSE_schedule scheduler;
 
 #ifdef IMX233
 
@@ -50,7 +52,7 @@ public:
 #elif defined(QEMU)
 
 	ATOSE_pic_pl190 pic;
-	ATOSE_IO_serial io;
+	ATOSE_IO_angel io;
 	ATOSE_timer_sp804 timer;
 
 	ATOSE_mmu_imx233 heap;
@@ -68,7 +70,7 @@ public:
 	ATOSE();
 	static ATOSE *get_global_entry_point();
 
-	void enable(void);
+	void enable(int (*start)(void));
 } ;
 
 #endif /* ATOSE_H_ */

@@ -5,13 +5,17 @@
 #ifndef THREAD_H_
 #define THREAD_H_
 
+#include "registers.h"
+
 class ATOSE_process;
+
 /*
 	class ATOSE_THREAD
 	------------------
 */
 class ATOSE_thread
 {
+friend class ATOSE;
 private:
 	ATOSE_process *process;
 	ATOSE_registers registers;

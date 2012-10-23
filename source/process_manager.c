@@ -27,7 +27,6 @@ Elf32_Phdr *current_header;	// the current header
 uint32_t which;				// which header we're currenty looking at
 uint32_t permissions;			// permissions on pages in the address space (READ / WRITE / EXECUTE / etc.)
 uint8_t *into;					// pointer to a segment returned by the address space
-uint32_t return_code;			// final return code from this method (used late in the method)
 
 /*
 	An ELF file must be at least the length of the header.
@@ -162,7 +161,6 @@ if (process->address_space.create() == 0)
 /*
 	Add the necessary pages into it
 */
-return_code = SUCCESS;
 current_header = (Elf32_Phdr *)(file + header_offset);
 for (which = 0; which < header_num; which++)
 	{
@@ -193,11 +191,10 @@ for (which = 0; which < header_num; which++)
 		might be out of pages or we might be trying to change the
 		permissions on an existing page
 	*/
-	if (into == 0)
+	if (into == NULL)
 		{
 		process->address_space.destroy();
-		return_code = ELF_BAD_OUT_OF_PAGES;
-		break;
+		return ELF_BAD_OUT_OF_PAGES;
 		}
 
 	/*
@@ -210,30 +207,37 @@ for (which = 0; which < header_num; which++)
 	The address space we just created has ATOSE in it so we can
 	assume that address space and continue running from there.
 */
-if (return_code == SUCCESS)
+mmu->assume(&process->address_space);
+
+/*
+	Now load each executable file segment into the new address space
+*/
+current_header = (Elf32_Phdr *)(file + header_offset);
+for (which = 0; which < header_num; which++)
 	{
-	mmu->assume(&process->address_space);
+	/*
+		copy from the ELF file into the address space
+	*/
+	memcpy((void *)current_header->p_vaddr, file + current_header->p_offset, current_header->p_filesz);
 
 	/*
-		Now load each executable file segment into the new address space
-	*/
-	current_header = (Elf32_Phdr *)(file + header_offset);
-	for (which = 0; which < header_num; which++)
-		{
-		/*
-			copy from the ELF file into the address space
-		*/
-		memcpy((void *)current_header->p_vaddr, file + current_header->p_offset, current_header->p_filesz);
-
-		/*
-			Move on to the next segment
-		*/	
-		current_header++;
-		}
+		Move on to the next segment
+	*/	
+	current_header++;
 	}
 
+/*
+	Get out of this process's address space
+*/
 mmu->assume_identity();
-return return_code;
+
+/*
+	Extract the process entry point (that is, the location we are to
+	branch to for the process to start
+*/
+process->entry_point = header->e_entry;
+
+return SUCCESS;
 }
 
 /*
@@ -255,6 +259,39 @@ os->io << "response:" << answer << "\r\n";
 for (uint32_t pp = 0; pp < 10; pp++)
 	os->io << pp << ":" << active_process.address_space.get_page_table()[pp] << "\r\n";
 }
+
+os->io << "Assume address space of new process\r\n";
+
+/*
+	Assume the process's address_space
+*/
+mmu->assume(&active_process.address_space);
+
+
+os->io << "Run\r\n";
+
+/*
+	Run it
+*/
+asm volatile
+	( 
+	"mov r0, %[entry];"
+	"blx r0;"
+	:
+	: [entry]"r"(active_process.entry_point)
+	: "r0", "r14"
+	);
+
+os->io << "Done\r\n";
+		   
+mmu->assume_identity();
+
+os->io << "Finished\r\n";
+
+/*
+	Loop forever
+*/
+for (;;) ;
 
 return length;
 }

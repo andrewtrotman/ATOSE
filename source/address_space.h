@@ -5,7 +5,12 @@
 #ifndef ADDRESS_SPACE_H_
 #define ADDRESS_SPACE_H_
 
+#include <stdint.h>
+#include <stddef.h>
+#include "mmu_page_list.h"
+
 class ATOSE_mmu;
+
 
 /*
 	class ATOSE_ADDRESS_SPACE
@@ -33,6 +38,7 @@ public:
 	ATOSE_address_space(ATOSE_mmu *mmu) { this->mmu = mmu; }
 
 	ATOSE_address_space *create(void);
+	ATOSE_address_space *create_identity(void);
 	uint32_t destroy(void);
 
 	uint8_t *add(void *address, size_t size, uint32_t permissions);

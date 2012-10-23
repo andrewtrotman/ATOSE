@@ -93,22 +93,8 @@ int main(void)
 {
 ATOSE os;
 
-
-/*
-	Switch to user mode 
-*/
-asm volatile
-	(
-	"mrs r0, CPSR;"
-	"bic r0, r0, #0x01F;"
-	"orr r0, r0, #0x10;"
-	"msr cpsr_cxsf, r0;"
-	:
-	:
-	: "r0"
-	);
-
-return ATOSE_main();
+os.enable(ATOSE_main);
+return 0;
 }
 
 /*

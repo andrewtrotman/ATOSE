@@ -32,7 +32,15 @@ int value;
 	This calls through to the Angel Monitor ROM to perform the action.
 	This code destroys r0, r1, and Angel will destroy lr in supervisor mode
 */
-asm volatile ("mov r0, %1; mov r1, %2; swi %a3; mov %0, r0" : "=r" (value) : "r" (function), "r" (parameter_block), "i" (angel_swi_number) : "r0", "r1", "lr");
+asm volatile
+	(
+	"mov r0, %1;"
+	"mov r1, %2;"
+	"swi %a3; "
+	"mov %0, r0"
+	: "=r" (value) 
+	: "r" (function), "r" (parameter_block), "i" (angel_swi_number) 
+	: "r0", "r1", "lr");
 
 return value;
 }

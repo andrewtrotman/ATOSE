@@ -17,8 +17,10 @@ class ATOSE_mmu;
 class ATOSE_process
 {
 public:
+	ATOSE_process *next;
 	ATOSE_address_space address_space;
 	ATOSE_thread execution_path;
+	size_t entry_point;
 
 public:
 	ATOSE_process(ATOSE_mmu *mmu) : address_space(mmu), execution_path(this) {}

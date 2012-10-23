@@ -59,6 +59,24 @@ return this;
 }
 
 /*
+	ATOSE_ADDRESS_SPACE::CREATE_IDENTITY()
+	--------------------------------------
+	Create an address space that is the identity address space
+*/
+ATOSE_address_space *ATOSE_address_space::create_identity(void)
+{
+/*
+	first create the address space
+*/
+create();
+
+/*
+	then set the page table to the identity page table
+*/
+page_table = mmu->get_identity_page_table();
+}
+
+/*
 	ATOSE_ADDRESS_SPACE::DESTROY()
 	------------------------------
 	returns 0 on success and anything else on failure
@@ -114,7 +132,7 @@ return 0;
 uint8_t *ATOSE_address_space::add(void *address, size_t size, uint32_t permissions)
 {
 ATOSE_mmu_page *page;
-size_t base_page, entries, which;
+size_t base_page, last_page, which;
 uint64_t end;
 
 /*
@@ -127,12 +145,12 @@ if ((end = ((size_t)address + size)) > mmu->highest_address)
 	Get the page number of the first page in the list and the number of pages needed
 */
 base_page = (((size_t)address) / mmu->page_size);
-entries = (end / mmu->page_size) - base_page;
+last_page = (end / mmu->page_size);
 
 /*
 	Now get pages and add them to the page table
 */
-for (which = base_page; which < base_page + entries; which++)
+for (which = base_page; which <= last_page; which++)
 	{
 	/*
 		Verify that the page isn't already in the address space and ignore that page if so.

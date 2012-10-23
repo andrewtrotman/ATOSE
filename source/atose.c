@@ -3,9 +3,7 @@
 	-------
 */
 #include "atose.h"
-#include "../systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/hw_irq.h"
-#include "../systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsapbh.h"		// DELETE
-#include "nand_onfi_parameters.h" // DELETE THIS LINE
+#include "process.h"
 
 extern ATOSE *ATOSE_addr;
 
@@ -41,16 +39,18 @@ heap.init();
 /*
 	Now join them together to form a working system
 */
-#ifdef IMX233
-	cpu.enable_IRQ();
+cpu.enable_IRQ();
 
+#ifdef IMX233
 //	pic.enable(&timer, VECTOR_IRQ_RTC_1MSEC);
 //	timer.enable();
 
+	/*
+		Serial (debug) port
+	*/
 	pic.enable(&io, VECTOR_IRQ_DEBUG_UART);
 	io.enable();
 
-//	io << "\r\n\r\nATOSE\r\nIO enabled\r\n";
 	/*
 		The NAND interface can cause three possible interrupts!
 	*/
@@ -58,92 +58,7 @@ heap.init();
 	pic.enable(&disk, VECTOR_IRQ_GPMI_DMA);
 	pic.enable(&disk, VECTOR_IRQ_BCH);
 	disk.enable();
-
-//	io << "FLASH enabled\r\n";
-
-#ifdef NEVER
-				{
-				/*
-					Remove this block of code.  Move the reset() into the disk.enable().
-				*/
-				io.hex();
-				io << "DISK enabled\r\n";
-				io << "APBH Semaphore value:" << (uint32_t)(HW_APBH_CHn_SEMA(4).B.PHORE) << "\r\n";
-				io << "DISK status\r\n";
-
-				uint32_t status = disk.status();
-
-				static __attribute__((aligned(0x04))) uint8_t buffer[4096 + 224];
-				for (int x = 0; x < sizeof(buffer); x++)
-					buffer[x] = 0;
-
-				ATOSE_nand_onfi_parameters *params = (ATOSE_nand_onfi_parameters *)buffer;
-				
-				io << "\r\nNAND get parameter block \r\n";
-
-				uint32_t trials = disk.get_parameter_block((ATOSE_nand_onfi_parameters *)buffer);
-				
-				io << "\r\nsuccess after " << trials << " failures\r\n";
-				
-
-				int x = 0;
-				for (int row = 0; row < 0x0F; row++)
-					{
-					int old_x = x;
-					for (int column = 0; column < 0xF; column++)
-						io << (uint32_t)buffer[x++] << " ";
-
-					for (int column = 0; column < 0xF; column++)
-						{
-						io << (char)((buffer[old_x] >= ' ' && buffer[old_x] <= 'Z') ? buffer[old_x] : ' ');
-						old_x++;
-						}
-					io << "\r\n";
-					}
-
-				io.decimal();
-				io << "Number of data bytes per page  :" << (uint32_t)(params->bytes_per_page) << "\r\n";
-				io << "Number of spare bytes per page :" << (uint32_t)(params->spare_bytes_per_page) << "\r\n";
-				io << "Number of pages per block      :" << (uint32_t)(params->pages_per_block) << "\r\n";
-				io << "Number of blocks per lun       :" << (uint32_t)(params->blocks_per_lun) << "\r\n";
-				io << "Number of luns                 :" << (uint32_t)(params->luns) << "\r\n";
-				io << "ECC bits                       :" << (uint32_t)(params->ecc_bits) <<  "\r\n";
-				io << "SDR Timing mode support        :" << (uint32_t)(params->sdr_timing_mode_support) <<  "\r\n";
-
-			/*
-				for (int x = 0; x < sizeof(buffer); x++)
-					buffer[x] = 0;
-
-				io.hex();
-				io << "DISK read\r\n";
-
-				uint32_t fixed_bits = disk.read_sector(buffer, 123);
-				for (int x = 0; x < 4096; x++)
-					io << (uint32_t)buffer[x] << " ";
-
-				io.decimal();
-				io << "\r\nFIXED: " << fixed_bits << " bits\r\n";
-			*/
-				io << "\r\nWRITE\r\n";
-				for (int x = 0; x < 4096; x++)
-					buffer[x] = (uint8_t)(x + 102);
-				uint32_t ok = disk.write_sector(buffer, 102);
-
-				io << "\r\nWRITE STAUTS:" << ok << "\r\n";
-
-				io << "\r\nREAD\r\n";
-				uint32_t fixed_bits = disk.read_sector(buffer, 102);
-				for (int x = 0; x < 4096; x++)
-					io << (uint32_t)buffer[x] << " ";
-				io.decimal();
-				io << "\r\nFIXED: " << fixed_bits << " bits\r\n";
-
-
-				}
-#endif
-
 #else
-	cpu.enable_IRQ();
 	pic.enable(&timer, 0x04);
 	timer.enable();
 	pic.enable(&io, 0x0C);
@@ -162,4 +77,41 @@ heap.init();
 ATOSE *ATOSE::get_global_entry_point(void)
 {
 return ATOSE_addr;
+}
+
+/*
+	ATOSE::ENABLE()
+	---------------
+*/
+void ATOSE::enable(int (*start)(void))
+{
+ATOSE_process initial(&heap);			// the process we're going to boot into
+
+/*
+	Create a process with the identity page table, this will include ATOSE at low
+	memory.  We can then enter user mode and return to it.  This will start the initial
+	process and we are ready to go.
+*/
+initial.address_space.create_identity();
+
+/*
+	Set the registers
+*/
+initial.execution_path.registers.r14_current = (uint32_t)start;
+scheduler.push(&initial);
+
+/*
+	Switch to user mode
+*/
+asm volatile
+	(
+	"mrs r0, CPSR;"
+	"bic r0, r0, #0x01F;"
+	"orr r0, r0, #0x10;"
+	"msr cpsr_cxsf, r0;"
+	:
+	:
+	: "r0"
+	);
+start();
 }

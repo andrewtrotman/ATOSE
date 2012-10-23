@@ -13,7 +13,9 @@
 */
 _Reset:
 ATOSE_exe_entry_point:
-	bl main
+	b main
+
+
 
 /*
 	There should be some "clean up" code here, we'll add it later
