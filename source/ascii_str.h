@@ -27,7 +27,7 @@ return ch - string;
 	ASCII_ITOA()
 	------------
 */
-static inline char *ASCII_itoa(int value, char *destination, int base)
+static inline char *ASCII_itoa(int64_t value, char *destination, int base)
 {
 char sign, tmp;
 char *into = destination;
@@ -78,6 +78,52 @@ for (from = destination; from < into; from++, into--)
 
 return destination;
 }
+
+/*
+	ASCII_ITOA()
+	------------
+*/
+static inline char *ASCII_itoa(uint64_t value, char *destination, int base)
+{
+char tmp;
+char *into = destination;
+char *from;
+
+/*
+	do the digits in reverse order
+*/
+do
+	{
+	*into++ = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"[value % base];
+	value /= base;
+	}
+while (value > 0);
+
+/*
+	null terminate
+*/
+*into = '\0';
+
+/*
+	now reverse inplace
+*/
+into--;
+for (from = destination; from < into; from++, into--)
+	{
+	tmp = *from;
+	*from = *into;
+	*into = tmp;
+	}
+
+return destination;
+}
+
+/*
+	ASCII_ITOA()
+	------------
+*/
+static inline char *ASCII_itoa(int32_t value, char *destination, int base) { return ASCII_itoa((int64_t)value, destination, base); }
+static inline char *ASCII_itoa(uint32_t value, char *destination, int base) { return ASCII_itoa((uint64_t)value, destination, base); }
 
 /*
 	BZERO()

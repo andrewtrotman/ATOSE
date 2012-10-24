@@ -94,17 +94,19 @@ public:
 	ATOSE_IO &operator << (const uint8_t character) 		{ write(&character, 1); return *this; }
 	ATOSE_IO &operator << (const int8_t character) 			{ *this << (uint8_t)character; return *this; }
 	ATOSE_IO &operator << (const char character) 			{ *this << (uint8_t)character; return *this; }
-//	ATOSE_IO &operator << (const unsigned char character) 	{ *this << (uint8_t)character; return *this; }
 
 	ATOSE_IO &operator << (const uint8_t *string) 			{ write(string, ASCII_strlen((char *)string)); return *this; }
 	ATOSE_IO &operator << (const int8_t *string) 			{ *this << (uint8_t *) string; return *this; }
 	ATOSE_IO &operator << (const char *string) 				{ *this << (uint8_t *) string; return *this; }
-//	ATOSE_IO &operator << (const unsigned char *string) 	{ *this << (uint8_t *) string; return *this; }
 
-	ATOSE_IO &operator << (long value) 						{ char buffer[sizeof(long) * 8 + 2]; ASCII_itoa(value, buffer, base); *this << buffer; return *this; }
-	ATOSE_IO &operator << (uint32_t value) 					{ *this << (long)value; return *this; }
-	ATOSE_IO &operator << (int value) 						{ *this << (long)value; return *this; }
-	ATOSE_IO &operator << (short value) 					{ *this << (long)value; return *this; }
+	ATOSE_IO &operator << (uint64_t value) 					{ char buffer[sizeof(long) * 8 + 2]; ASCII_itoa(value, buffer, base); *this << buffer; return *this; }
+	ATOSE_IO &operator << (int64_t value) 					{ char buffer[sizeof(long) * 8 + 2]; ASCII_itoa(value, buffer, base); *this << buffer; return *this; }
+
+	ATOSE_IO &operator << (uint32_t value) 					{ *this << (uint64_t)value; return *this; }
+	ATOSE_IO &operator << (int32_t value) 					{ *this << (int64_t)value; return *this; }
+
+	ATOSE_IO &operator << (uint16_t value) 					{ *this << (uint64_t)value; return *this; }
+	ATOSE_IO &operator << (int16_t value) 					{ *this << (int64_t)value; return *this; }
 
 	/*
 		HEX()

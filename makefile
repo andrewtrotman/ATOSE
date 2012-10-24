@@ -18,7 +18,6 @@ CPU = ARM926
 !ENDIF
 
 CC = @arm-none-eabi-g++
-CCC = @arm-none-eabi-gcc
 CFLAGS = -mcpu=arm926ej-s -ffreestanding -fno-exceptions -fno-rtti -nostdlib -nodefaultlibs -nostartfiles -D$(CPU) -D$(TARGET) -Os -g3
 CLINKFLAGS = -l gcc
 
@@ -97,16 +96,16 @@ startup.o : $(SOURCE_DIR)\atose_startup.asm
 # ATOSE Tools
 #
 $(BIN_DIR)\imx233_timer.elf : $(TESTS_DIR)\imx233_timer.c startup.o $(SOURCE_DIR)\atose.ld
-	$(CCC) -Os -o $(BIN_DIR)\imx233_timer.elf startup.o $(TESTS_DIR)\imx233_timer.c -T $(SOURCE_DIR)\atose.ld
+	$(CC) -Os -o $(BIN_DIR)\imx233_timer.elf startup.o $(TESTS_DIR)\imx233_timer.c -T $(SOURCE_DIR)\atose.ld
 
 $(BIN_DIR)\imx233_nand.elf : $(TESTS_DIR)\imx233_nand.c startup.o $(SOURCE_DIR)\atose.ld
-	$(CCC) -Os -o $(BIN_DIR)\imx233_nand.elf startup.o $(TESTS_DIR)\imx233_nand.c -T $(SOURCE_DIR)\atose.ld
+	$(CC) -Os -o $(BIN_DIR)\imx233_nand.elf startup.o $(TESTS_DIR)\imx233_nand.c -T $(SOURCE_DIR)\atose.ld
 
 $(BIN_DIR)\imx233_mmu.elf : $(TESTS_DIR)\imx233_mmu.c startup.o $(SOURCE_DIR)\atose.ld
-	$(CCC) -Os -o $(BIN_DIR)\imx233_mmu.elf startup.o $(TESTS_DIR)\imx233_mmu.c -T $(SOURCE_DIR)\atose.ld
+	$(CC) -Os -o $(BIN_DIR)\imx233_mmu.elf startup.o $(TESTS_DIR)\imx233_mmu.c -T $(SOURCE_DIR)\atose.ld
 
 $(BIN_DIR)\dump_cpu_state.elf : $(TOOLS_DIR)\dump_cpu_state.c startup.o $(SOURCE_DIR)\atose.ld
-	$(CCC) -Os -o $(BIN_DIR)\dump_cpu_state.elf startup.o $(TOOLS_DIR)\dump_cpu_state.c -T $(SOURCE_DIR)\atose.ld
+	$(CC) -Os -o $(BIN_DIR)\dump_cpu_state.elf startup.o $(TOOLS_DIR)\dump_cpu_state.c -T $(SOURCE_DIR)\atose.ld
 
 $(BIN_DIR)\elf_reader.exe : $(TOOLS_DIR)\elf_reader.c
 	@cl /nologo /Tp $(TOOLS_DIR)\elf_reader.c -Fe$(BIN_DIR)\elf_reader.exe
@@ -132,11 +131,11 @@ $(EXAMPLES_DIR)\hello.elf.c hello : $(BIN_DIR)\hello.elf
 # Management
 #
 run:
-	"\Program Files (x86)\qemu\qemu-system-arm.exe" -semihosting -M versatileab -cpu arm926 -kernel $(BIN_DIR)\atose.elf -serial stdio -m 256M 
+	"\Program Files (x86)\qemu\qemu-system-arm.exe" -semihosting -M versatileab -cpu arm926 -kernel $(BIN_DIR)\atose.elf -serial stdio -m 256M
 
 
 qemu:
-	"\Program Files\qemu\qemu-system-arm.exe" -semihosting -M versatileab -kernel $(BIN_DIR)\atose.elf -serial stdio
+	"\Program Files\qemu\qemu-system-arm.exe" -semihosting -M versatileab -kernel $(BIN_DIR)\atose.elf -serial stdio -m 256M
 
 clean:
 	del bin obj startup.o $(EXAMPLES_DIR)\hello.elf.c /q

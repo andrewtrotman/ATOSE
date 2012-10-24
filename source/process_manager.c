@@ -235,7 +235,7 @@ mmu->assume_identity();
 	Extract the process entry point (that is, the location we are to
 	branch to for the process to start
 */
-process->entry_point = header->e_entry;
+process->entry_point = (uint8_t *)header->e_entry;
 
 return SUCCESS;
 }
@@ -262,7 +262,23 @@ for (uint32_t pp = 0; pp < 10; pp++)
 
 os->io << "Run\r\n";
 
-active_process.execution_path.registers.r14 = active_process.entry_point;
+/*
+	Set up the stack-pointer (ARM register R13)
+*/
+active_process.stack_pointer = (uint8_t *)0xE0000000;
+active_process.address_space.add(active_process.stack_pointer, 1024*1024, ATOSE_address_space::READ | ATOSE_address_space::WRITE | ATOSE_address_space::EXECUTE);
+active_process.execution_path.registers.r13 = (uint32_t)(active_process.stack_pointer + 1024 * 512);	// just for testing, put it half-way through the 1MB block
+
+/*
+	The process will enter wherever the link-register (ARM register R14) points once the scheduler first schedules the process to be run
+*/
+active_process.execution_path.registers.r14 = (uint32_t)active_process.entry_point;
+
+/*
+	When we do run we need to return to user-mode which is done by setting the CPSR register's initial value
+*/
+active_process.execution_path.registers.cpsr = 0x80000150;						// flags including processor mode (e.g. USER / IRQ mode)
+
 os->scheduler.push(&active_process);
 
 return length;

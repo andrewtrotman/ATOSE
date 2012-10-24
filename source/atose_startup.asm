@@ -3,6 +3,18 @@
 .global ATOSE_vectors_end
 .global ATOSE_addr
 
+.weak __cs3_isr_undef
+.weak __cs3_isr_pabort
+.weak __cs3_isr_dabort
+.weak __cs3_isr_reserved
+.weak __cs3_isr_fiq
+.weak ATOSE_isr_irq
+.weak ATOSE_isr_swi
+
+.weakref main, c_entry
+.weak main
+.weak c_entry
+
 ATOSE_vectors_start:
 
 _Reset:

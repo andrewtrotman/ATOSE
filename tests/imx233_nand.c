@@ -208,7 +208,7 @@ void debug_print_hex(int data) {
  -----------------
  */
 void debug_print_hex_byte(uint8_t data) {
-	char *string = "0123456789ABCDEF";
+	char string[] = "0123456789ABCDEF";
 
 	debug_putc(string[(data >> 4) & 0x0F]);
 	debug_putc(string[data & 0x0F]);
@@ -245,21 +245,21 @@ void debug_print_bits(uint32_t i) {
  DEBUG_PRINT_THIS()
  ------------------
  */
-void debug_print_this(char *start, uint32_t hex, char *end) {
+void debug_print_this(const char *start, uint32_t hex, char *end) {
 	debug_print_string(start);
 	debug_print_hex(hex);
 	debug_print_string(end);
 	debug_print_string("\r\n");
 }
 
-void debug_print_this_bits(char *start, uint32_t hex, char *end) {
+void debug_print_this_bits(const char *start, uint32_t hex, const char *end) {
 	debug_print_string(start);
 	debug_print_bits(hex);
 	debug_print_string(end);
 	debug_print_string("\r\n");
 }
 
-void debug_print_buffer(char * buffer, int length, int abs_addr) {
+void debug_print_buffer(const char * buffer, int length, int abs_addr) {
 
 	int i, j;
 	int colsize = 32;
@@ -987,12 +987,12 @@ void nand_read_parameter_page(int chip, char *buffer) {
 
 uint8_t nand_status(int chip) {
 	uint8_t status;
-	uint8_t command;
+	char command;
 
 	command = 0x70; // STATUS
 	nand_send_command(chip, &command, 1);
 
-	nand_read(chip, &status, 1);
+	nand_read(chip, (char *)&status, 1);
 
 	return status;
 }
@@ -1001,7 +1001,7 @@ void nand_reset(int chip) {
 	uint8_t command, status;
 
 	command = 0xFF; // RESET
-	nand_send_command(chip, &command, 1);
+	nand_send_command(chip, (char *)&command, 1);
 
 	//Poll and wait for the NAND to become ready
 	do {

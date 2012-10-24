@@ -65,14 +65,14 @@ while (*fmt)
 			{
 			case 'x':
 			case 'X':
-				ASCII_itoa(va_arg(args, int), buffer, 16);
+				ASCII_itoa((uint32_t)va_arg(args, int), buffer, 16);
 				print_string(buffer);
 				break;
 			case 's':
 				print_string(va_arg(args, char *));
 				break;
 			case 'd':
-				ASCII_itoa(va_arg(args, int), buffer, 10);
+				ASCII_itoa((uint32_t)va_arg(args, int), buffer, 10);
 				print_string(buffer);
 				break;
 			case 'c':

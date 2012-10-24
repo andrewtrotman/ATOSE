@@ -16,5 +16,8 @@ int main(void)
 {
 api.io << "Hello World" << ATOSE_IO::eoln;
 
+for (;;)
+	api.io << "?";
+
 return 0;
 }

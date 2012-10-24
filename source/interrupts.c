@@ -31,15 +31,20 @@ uint32_t ATOSE_isr_irq(ATOSE_registers *registers)
 */
 ATOSE *os = ATOSE::get_global_entry_point();
 
+//os->io.hex();
 /*
 	If we're running a process then copy the registers into its register space
 	this way if we cause a context switch then we've not lost anything
 */
 if (os->scheduler.current_process != NULL)
 	{
-	os->io << "\r\nID:" << (uint32_t)os->scheduler.current_process << "\r\n";
+	os->io << "\r\n[" << (uint32_t)os->scheduler.current_process << "]";
+//	os->io << "[IRQ:CPSR:" << (uint32_t)registers->cpsr << "]\r\n";
 	memcpy(&os->scheduler.current_process->execution_path.registers, registers, sizeof(*registers));
+	os->heap.assume_identity();
 	}
+//else
+//	os->io << "[IRQ:CPSR:" << (uint32_t)registers->cpsr << "]\r\n";
 
 /*
 	Handle the interrupt by calling the device driver's ack method
@@ -67,11 +72,14 @@ if (os->scheduler.current_process != NULL)
 	if (device_driver != 0)
 		device_driver->acknowledge();
 
-	os->io << ".";
+//	os->io << ".";
 
 	*ATOSE_pic_pl190::PIC_vector_address_register = 0;
 
 #endif
+
+
+//os->io << "[IRQ-BYE]";
 
 /*
 	Context switch
@@ -79,7 +87,7 @@ if (os->scheduler.current_process != NULL)
 os->scheduler.push(os->scheduler.current_process = os->scheduler.pull());
 if (os->scheduler.current_process != NULL)
 	{
-	os->io << "\r\nSWITCH TO ID:" << (uint32_t)os->scheduler.current_process << "\r\n";
+//	os->io << "\r\nSWITCH TO ID:" << (uint32_t)os->scheduler.current_process << "\r\n";
 	/*
 		Set the registers so that we fall back to the next context
 	*/
@@ -156,9 +164,9 @@ if (( (*(uint32_t *)(registers->r14_current - 4)) & 0x00FFFFFF) != ATOSE_SWI)
 */
 os->heap.assume_identity();
 
-#ifdef NEVER
-	os->io << "[" << (char)registers->r0 << "->" << (char)registers->r1 << "]\r\n";
-#endif
+//#ifdef NEVER
+	os->io << "[" << (char)registers->r0 << "->" << (char)registers->r1 << (const uint8_t)registers->r2 << "]";
+//#endif
 
 /*
 	The SWI is for us.
@@ -216,13 +224,13 @@ switch (registers->r1)
 		return 0;
 	}
 
+#ifdef NEVER
+os->io << "[BYE]\r\n";
+#endif
+
 /*
 	Go back into the caller's address space
 */
-#ifdef NEVER
-	os->io << "[BYE]\r\n";
-#endif
-
 os->heap.assume(&os->scheduler.current_process->address_space);
 
 return 1;
