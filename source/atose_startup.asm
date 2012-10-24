@@ -37,9 +37,16 @@ ATOSE_addr: .word 0
 		push my link register (R14) on the stack then with all the user mode registers
 	*/
 	stmfd sp!, {r14}			/* push my R14 */
-	stmfd sp, {r0-r14}^			/* save the user mode registers (cannot do swtfd! because it confises the two r13s) */
+	stmfd sp, {r0-r14}^			/* save the user mode registers (cannot do swtfd! because it confuses the two r13s) */
 	nop							/* and no op */
 	sub sp, sp, #60				/* shift the stack pointer 15 * 4 bytes */
+
+	/*
+		Save the flags
+	*/
+	mrs r0, spsr
+	stmfd sp!, {r0}
+
 .endm
 
 /*
@@ -47,6 +54,12 @@ ATOSE_addr: .word 0
 	-------------------
 */
 .macro interrupt_postamble
+	/*
+		get the flags
+	*/
+	ldmfd sp!, {r0}
+	msr spsr, r0
+
 	/*
 		Restore the user mode registers and my r14
 	*/

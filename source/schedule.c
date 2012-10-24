@@ -12,14 +12,21 @@
 */
 void ATOSE_schedule::push(ATOSE_process *process)
 {
-if (active_head != 0)
+/*
+	Make sure we don't push NULL (so that we can go push(pull())
+	when pull() returns NULL,
+*/
+if (process == NULL)
+	return;
+
+if (active_head != NULL)
 	active_head->next = process;	// the queue wasn't empty
 
-process->next = 0;
+process->next = NULL;
 
 active_head = process;
 
-if (active_tail == 0)
+if (active_tail == NULL)
 	active_tail = process;
 }
 
@@ -32,13 +39,13 @@ ATOSE_process *ATOSE_schedule::pull(void)
 {
 ATOSE_process *answer;
 
-if (active_tail == 0)
+if (active_tail == NULL)
 	return 0;						// the queue is already empty
 
 answer = active_tail;
 
-if ((active_tail = active_tail->next) == 0)
-	active_head = 0;				// the queue is now empty
+if ((active_tail = active_tail->next) == NULL)
+	active_head = NULL;				// the queue is now empty
 
 return answer;
 }

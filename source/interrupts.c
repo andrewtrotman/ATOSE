@@ -3,6 +3,7 @@
 	------------
 */
 #include "interrupts.h"
+#include "process.h"
 #include "atose.h"
 #include "api_atose.h"
 
@@ -25,6 +26,24 @@ return 0;
 */
 uint32_t ATOSE_isr_irq(ATOSE_registers *registers)
 {
+/*
+	Get a handle to the ATOSE object
+*/
+ATOSE *os = ATOSE::get_global_entry_point();
+
+/*
+	If we're running a process then copy the registers into its register space
+	this way if we cause a context switch then we've not lost anything
+*/
+if (os->scheduler.current_process != NULL)
+	{
+	os->io << "\r\nID:" << (uint32_t)os->scheduler.current_process << "\r\n";
+	memcpy(&os->scheduler.current_process->execution_path.registers, registers, sizeof(*registers));
+	}
+
+/*
+	Handle the interrupt by calling the device driver's ack method
+*/
 #ifdef IMX233
 
 	ATOSE_device_driver *device_driver;
@@ -36,7 +55,6 @@ uint32_t ATOSE_isr_irq(ATOSE_registers *registers)
 	if (device_driver != 0)
 		device_driver->acknowledge();
 
-//	ATOSE *os = ATOSE::get_global_entry_point();
 //	os->io << "[" << got << "]";
 
 	HW_ICOLL_LEVELACK_WR(BV_ICOLL_LEVELACK_IRQLEVELACK__LEVEL0);			// finished processing the interrupt
@@ -49,12 +67,29 @@ uint32_t ATOSE_isr_irq(ATOSE_registers *registers)
 	if (device_driver != 0)
 		device_driver->acknowledge();
 
-	ATOSE *os = ATOSE::get_global_entry_point();
 	os->io << ".";
 
 	*ATOSE_pic_pl190::PIC_vector_address_register = 0;
 
 #endif
+
+/*
+	Context switch
+*/
+os->scheduler.push(os->scheduler.current_process = os->scheduler.pull());
+if (os->scheduler.current_process != NULL)
+	{
+	os->io << "\r\nSWITCH TO ID:" << (uint32_t)os->scheduler.current_process << "\r\n";
+	/*
+		Set the registers so that we fall back to the next context
+	*/
+	memcpy(registers, &os->scheduler.current_process->execution_path.registers, sizeof(*registers));
+
+	/*
+		Set the address space to fall back to the next context
+	*/
+	os->heap.assume(&os->scheduler.current_process->address_space);
+	}
 }
 
 /*
@@ -117,19 +152,13 @@ if (( (*(uint32_t *)(registers->r14_current - 4)) & 0x00FFFFFF) != ATOSE_SWI)
 	return 0;
 
 /*
-	DEBUG
+	switch to identity page table
 */
+os->heap.assume_identity();
+
 #ifdef NEVER
-/*
-	{
-	ATOSE *os = ATOSE::get_global_entry_point();
 	os->io << "[" << (char)registers->r0 << "->" << (char)registers->r1 << "]\r\n";
-	}
-*/
 #endif
-/*
-	END DEBUG
-*/
 
 /*
 	The SWI is for us.
@@ -186,6 +215,15 @@ switch (registers->r1)
 	default:
 		return 0;
 	}
+
+/*
+	Go back into the caller's address space
+*/
+#ifdef NEVER
+	os->io << "[BYE]\r\n";
+#endif
+
+os->heap.assume(&os->scheduler.current_process->address_space);
 
 return 1;
 }

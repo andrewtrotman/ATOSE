@@ -249,49 +249,21 @@ uint32_t ATOSE_process_manager::execute(const uint8_t *buffer, uint32_t length)
 uint32_t answer;
 
 ATOSE *os = ATOSE::get_global_entry_point();
-os->io << "[CALL TO START A NEW PROCESS:";
+os->io << "[CALL TO START A NEW PROCESS...";
 
 answer = elf_load(&active_process, buffer, length);
 
-os->io << "response:" << answer << "\r\n";
+os->io << "response:" << answer << "]\r\n";
 
 {
 for (uint32_t pp = 0; pp < 10; pp++)
 	os->io << pp << ":" << active_process.address_space.get_page_table()[pp] << "\r\n";
 }
 
-os->io << "Assume address space of new process\r\n";
-
-/*
-	Assume the process's address_space
-*/
-mmu->assume(&active_process.address_space);
-
-
 os->io << "Run\r\n";
 
-/*
-	Run it
-*/
-asm volatile
-	( 
-	"mov r0, %[entry];"
-	"blx r0;"
-	:
-	: [entry]"r"(active_process.entry_point)
-	: "r0", "r14"
-	);
-
-os->io << "Done\r\n";
-		   
-mmu->assume_identity();
-
-os->io << "Finished\r\n";
-
-/*
-	Loop forever
-*/
-for (;;) ;
+active_process.execution_path.registers.r14 = active_process.entry_point;
+os->scheduler.push(&active_process);
 
 return length;
 }

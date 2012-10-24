@@ -134,11 +134,17 @@ return 0;
 */
 int ATOSE_main(void)
 {
+uint64_t loop, MAX = 100;
+
 api.io << "ATOSE" << ATOSE_IO::eoln;
+
+for (loop = 0; loop < MAX; loop++)
+	api.io << ":";
  
 api.process_manager.write_block(ATOSE_elf_hello, ATOSE_elf_hello_size);
 
-for (;;);
+for (;;)
+	api.io << ":";
 
 return 0;
 }

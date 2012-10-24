@@ -13,6 +13,7 @@
 */
 typedef struct 
 {
+uint32_t cpsr;				// flags
 uint32_t r0;
 uint32_t r1;
 uint32_t r2;
@@ -29,8 +30,7 @@ uint32_t r12;				// GCC=ip                   (firq specific)
 uint32_t r13;				// stack pointer			(mode specific)
 uint32_t r14;				// link register			(mode specific)
 uint32_t r14_current;		// current mode's R14 register
-//	uint32_t r15;			// program counter
-//	uint32_t cpsr;			// flags
+//	uint32_t r15;			// program counter - we don't need to save this because its transferred into the link register
 } ATOSE_registers;
 
 #endif /* REGISTERS_H_ */

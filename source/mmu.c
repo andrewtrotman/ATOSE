@@ -271,4 +271,5 @@ void ATOSE_mmu::assume(ATOSE_address_space *address_space)
 {
 flush_caches();
 assume(address_space->get_page_table());
+flush_caches();
 }

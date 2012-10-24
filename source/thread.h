@@ -16,6 +16,8 @@ class ATOSE_process;
 class ATOSE_thread
 {
 friend class ATOSE;
+friend uint32_t ATOSE_isr_irq(ATOSE_registers *registers);
+friend class ATOSE_process_manager;
 private:
 	ATOSE_process *process;
 	ATOSE_registers registers;

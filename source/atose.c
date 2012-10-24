@@ -97,8 +97,9 @@ initial.address_space.create_identity();
 /*
 	Set the registers
 */
-initial.execution_path.registers.r14_current = (uint32_t)start;
+//initial.execution_path.registers.r14_current = (uint32_t)start;
 scheduler.push(&initial);
+scheduler.current_process = &initial;
 
 /*
 	Switch to user mode
@@ -113,5 +114,8 @@ asm volatile
 	:
 	: "r0"
 	);
+
 start();
+
+for (;;);
 }
