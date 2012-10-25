@@ -31,6 +31,9 @@ TOOLS_DIR = tools
 TESTS_DIR = tests
 EXAMPLES_DIR = examples
 
+#
+#	The core of ATOSE Kernel
+#
 ATOSE_OBJECTS =									\
 			$(OBJ_DIR)\address_space.o				\
 			$(OBJ_DIR)\atose.o						\
@@ -44,6 +47,9 @@ ATOSE_OBJECTS =									\
 			$(OBJ_DIR)\schedule.o					\
 			$(OBJ_DIR)\stack.o
 
+#
+#	FourARM specific parts of the ATOSE Kernel
+#
 FourARM_OBJECTS =									\
 			$(OBJ_DIR)\io_debug_imx233.o 			\
 			$(OBJ_DIR)\nand.o						\
@@ -51,6 +57,9 @@ FourARM_OBJECTS =									\
 			$(OBJ_DIR)\pic_imx233.o					\
 			$(OBJ_DIR)\timer_imx233.o
 
+#
+#	QEMU (Versatile) specific parts of the ATOSE Kernel
+#
 QEMU_OBJECTS =									\
 			$(OBJ_DIR)\io_angel.o					\
 			$(OBJ_DIR)\io_serial.o 					\
@@ -59,6 +68,20 @@ QEMU_OBJECTS =									\
 			$(OBJ_DIR)\timer_sp804.o
 
 
+
+#
+#	Useful stuff written to test various components of various devices
+#
+ATOSE_TOOLS =										\
+			$(BIN_DIR)\dump_cpu_state.elf			\
+			$(BIN_DIR)\imx233_nand.elf				\
+			$(BIN_DIR)\imx233_mmu.elf				\
+			$(BIN_DIR)\imx233_timer.elf
+
+
+#
+#	Collect the set of objects needed for the Kernel (based on the Target)
+#
 !IF "$(TARGET)" == "FourARM"
 
 OBJECTS = $(ATOSE_OBJECTS) $(FourARM_OBJECTS)
@@ -69,17 +92,17 @@ OBJECTS = $(ATOSE_OBJECTS) $(QEMU_OBJECTS)
 
 !ENDIF
 
+
 this : $(EXAMPLES_DIR)\hello.elf.c all
 
 all : 								\
 	$(BIN_DIR)\atose.elf 				\
 	$(BIN_DIR)\bin_to_c.exe				\
-	$(BIN_DIR)\dump_cpu_state.elf 		\
 	$(BIN_DIR)\elf_reader.exe 			\
 	$(BIN_DIR)\hello.elf				\
-	$(BIN_DIR)\imx233_timer.elf 		\
-	$(BIN_DIR)\imx233_nand.elf 			\
-	$(BIN_DIR)\imx233_mmu.elf
+	$(ATOSE_TOOLS)
+
+$(ATOSE_TOOLS) : startup.o $(SOURCE_DIR)\atose.ld
 
 #
 # ATOSE
@@ -91,27 +114,6 @@ $(BIN_DIR)\atose.elf : startup.o $(OBJ_DIR)\main.o $(OBJECTS) $(SOURCE_DIR)\atos
 startup.o : $(SOURCE_DIR)\atose_startup.asm
 	@echo $@
 	$(AS) $(ASFLAGS) $(SOURCE_DIR)\atose_startup.asm -o startup.o
-
-#
-# ATOSE Tools
-#
-$(BIN_DIR)\imx233_timer.elf : $(TESTS_DIR)\imx233_timer.c startup.o $(SOURCE_DIR)\atose.ld
-	$(CC) -Os -o $(BIN_DIR)\imx233_timer.elf startup.o $(TESTS_DIR)\imx233_timer.c -T $(SOURCE_DIR)\atose.ld
-
-$(BIN_DIR)\imx233_nand.elf : $(TESTS_DIR)\imx233_nand.c startup.o $(SOURCE_DIR)\atose.ld
-	$(CC) -Os -o $(BIN_DIR)\imx233_nand.elf startup.o $(TESTS_DIR)\imx233_nand.c -T $(SOURCE_DIR)\atose.ld
-
-$(BIN_DIR)\imx233_mmu.elf : $(TESTS_DIR)\imx233_mmu.c startup.o $(SOURCE_DIR)\atose.ld
-	$(CC) -Os -o $(BIN_DIR)\imx233_mmu.elf startup.o $(TESTS_DIR)\imx233_mmu.c -T $(SOURCE_DIR)\atose.ld
-
-$(BIN_DIR)\dump_cpu_state.elf : $(TOOLS_DIR)\dump_cpu_state.c startup.o $(SOURCE_DIR)\atose.ld
-	$(CC) -Os -o $(BIN_DIR)\dump_cpu_state.elf startup.o $(TOOLS_DIR)\dump_cpu_state.c -T $(SOURCE_DIR)\atose.ld
-
-$(BIN_DIR)\elf_reader.exe : $(TOOLS_DIR)\elf_reader.c
-	@cl /nologo /Tp $(TOOLS_DIR)\elf_reader.c -Fe$(BIN_DIR)\elf_reader.exe
-
-$(BIN_DIR)\bin_to_c.exe : $(TOOLS_DIR)\bin_to_c.c
-	@cl /nologo /Tp $(TOOLS_DIR)\bin_to_c.c -Fe$(BIN_DIR)\bin_to_c.exe
 
 #
 #	ATOSE programs (stuff that runs within ATOSE itself
@@ -133,7 +135,6 @@ $(EXAMPLES_DIR)\hello.elf.c hello : $(BIN_DIR)\hello.elf
 run:
 	"\Program Files (x86)\qemu\qemu-system-arm.exe" -semihosting -M versatileab -cpu arm926 -kernel $(BIN_DIR)\atose.elf -serial stdio -m 256M
 
-
 qemu:
 	"\Program Files\qemu\qemu-system-arm.exe" -semihosting -M versatileab -kernel $(BIN_DIR)\atose.elf -serial stdio -m 256M
 
@@ -147,3 +148,10 @@ clean:
 	@echo $@
 	$(CC) $(CFLAGS) -c $< -o $@
 
+{$(TOOLS_DIR)\}.c{$(BIN_DIR)\}.exe:
+	@echo $@
+	@cl /nologo /Tp $< -Fe$@
+	
+{$(TESTS_DIR)}.c{$(BIN_DIR)}.elf:
+	@echo $@
+	$(CC) -o $@ $< startup.o -T $(SOURCE_DIR)\atose.ld
