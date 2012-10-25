@@ -273,6 +273,7 @@ active_process.execution_path.registers.r13 = (uint32_t)(active_process.stack_po
 	The process will enter wherever the link-register (ARM register R14) points once the scheduler first schedules the process to be run
 */
 active_process.execution_path.registers.r14 = (uint32_t)active_process.entry_point;
+active_process.execution_path.registers.r14_current = (uint32_t)active_process.entry_point;
 
 /*
 	When we do run we need to return to user-mode which is done by setting the CPSR register's initial value

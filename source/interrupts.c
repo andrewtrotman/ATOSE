@@ -78,21 +78,24 @@ if (os->scheduler.current_process != NULL)
 
 #endif
 
-
 //os->io << "[IRQ-BYE]";
 
 /*
 	Context switch
 */
-os->scheduler.push(os->scheduler.current_process = os->scheduler.pull());
+#ifdef NEVER
+	os->scheduler.push(os->scheduler.current_process = os->scheduler.pull());
+#endif
+
 if (os->scheduler.current_process != NULL)
 	{
 //	os->io << "\r\nSWITCH TO ID:" << (uint32_t)os->scheduler.current_process << "\r\n";
+#ifdef NEVER
 	/*
 		Set the registers so that we fall back to the next context
 	*/
 	memcpy(registers, &os->scheduler.current_process->execution_path.registers, sizeof(*registers));
-
+#endif
 	/*
 		Set the address space to fall back to the next context
 	*/
@@ -218,6 +221,21 @@ switch (registers->r1)
 			sets up the address space and executes it.
 		*/
 		object->write((uint8_t *)registers->r2, registers->r3);
+
+		/*
+			Context switch to the new process : this means
+			removing the current process (which is at the head)
+			and replacing it with the one at the tail
+		*/
+		os->scheduler.push(os->scheduler.current_process = os->scheduler.pull());
+		os->scheduler.push(os->scheduler.current_process = os->scheduler.pull());
+		if (os->scheduler.current_process != NULL)
+			{
+			memcpy(registers, &os->scheduler.current_process->execution_path.registers, sizeof(*registers));
+			os->heap.assume(&os->scheduler.current_process->address_space);
+			os->io << "Start From:" << registers->r14 << "\r\n";
+			os->io << "X";
+			}
 		break;
 		}
 	default:
