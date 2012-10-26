@@ -17,8 +17,10 @@ CPU = IMX233
 CPU = ARM926
 !ENDIF
 
+CCC = arm-none-eabi-gcc
+CCCFLAGS = -mcpu=arm926ej-s  -D$(CPU) -D$(TARGET) -Os -g3
 CC = @arm-none-eabi-g++
-CFLAGS = -mcpu=arm926ej-s -ffreestanding -fno-exceptions -fno-rtti -nostdlib -nodefaultlibs -nostartfiles -D$(CPU) -D$(TARGET) -Os -g3
+CFLAGS = -fno-exceptions -fno-rtti $(CCCFLAGS) -ffreestanding -nostdlib -nodefaultlibs -nostartfiles
 CLINKFLAGS = -l gcc
 
 AS = @arm-none-eabi-as
@@ -34,49 +36,50 @@ EXAMPLES_DIR = examples
 #
 #	The core of ATOSE Kernel
 #
-ATOSE_OBJECTS =									\
-			$(OBJ_DIR)\address_space.o				\
-			$(OBJ_DIR)\atose.o						\
-			$(OBJ_DIR)\cpu.o 						\
-			$(OBJ_DIR)\device_driver.o				\
-			$(OBJ_DIR)\interrupts.o					\
-			$(OBJ_DIR)\kernel_memory_allocator.o	\
-			$(OBJ_DIR)\mmu.o 						\
-			$(OBJ_DIR)\mmu_page_list.o				\
-			$(OBJ_DIR)\process_manager.o			\
-			$(OBJ_DIR)\schedule.o					\
-			$(OBJ_DIR)\stack.o
+ATOSE_OBJECTS =							\
+	$(OBJ_DIR)\address_space.o				\
+	$(OBJ_DIR)\atose.o						\
+	$(OBJ_DIR)\cpu.o 						\
+	$(OBJ_DIR)\device_driver.o				\
+	$(OBJ_DIR)\interrupts.o					\
+	$(OBJ_DIR)\kernel_memory_allocator.o	\
+	$(OBJ_DIR)\mmu.o 						\
+	$(OBJ_DIR)\mmu_page_list.o				\
+	$(OBJ_DIR)\process_manager.o			\
+	$(OBJ_DIR)\schedule.o					\
+	$(OBJ_DIR)\stack.o
 
 #
 #	FourARM specific parts of the ATOSE Kernel
 #
-FourARM_OBJECTS =									\
-			$(OBJ_DIR)\io_debug_imx233.o 			\
-			$(OBJ_DIR)\nand.o						\
-			$(OBJ_DIR)\nand_imx233.o				\
-			$(OBJ_DIR)\pic_imx233.o					\
-			$(OBJ_DIR)\timer_imx233.o
+FourARM_OBJECTS =							\
+	$(OBJ_DIR)\io_debug_imx233.o 			\
+	$(OBJ_DIR)\nand.o						\
+	$(OBJ_DIR)\nand_imx233.o				\
+	$(OBJ_DIR)\pic_imx233.o					\
+	$(OBJ_DIR)\timer_imx233.o
 
 #
 #	QEMU (Versatile) specific parts of the ATOSE Kernel
 #
-QEMU_OBJECTS =									\
-			$(OBJ_DIR)\io_angel.o					\
-			$(OBJ_DIR)\io_serial.o 					\
-			$(OBJ_DIR)\keyboard_mouse_interface.o 	\
-			$(OBJ_DIR)\pic_pl190.o					\
-			$(OBJ_DIR)\timer_sp804.o
+QEMU_OBJECTS =							\
+	$(OBJ_DIR)\io_angel.o					\
+	$(OBJ_DIR)\io_serial.o 					\
+	$(OBJ_DIR)\keyboard_mouse_interface.o 	\
+	$(OBJ_DIR)\pic_pl190.o					\
+	$(OBJ_DIR)\timer_sp804.o
 
 
 
 #
 #	Useful stuff written to test various components of various devices
 #
-ATOSE_TOOLS =										\
-			$(BIN_DIR)\dump_cpu_state.elf			\
-			$(BIN_DIR)\imx233_nand.elf				\
-			$(BIN_DIR)\imx233_mmu.elf				\
-			$(BIN_DIR)\imx233_timer.elf
+ATOSE_TOOLS =								\
+	$(BIN_DIR)\dump_cpu_state.elf			\
+	$(BIN_DIR)\imx233_nand.elf				\
+	$(BIN_DIR)\imx233_mmu.elf				\
+	$(BIN_DIR)\imx233_timer.elf				\
+	$(BIN_DIR)\test_ram.elf
 
 
 #
@@ -135,6 +138,10 @@ $(EXAMPLES_DIR)\hello.elf.c hello : $(BIN_DIR)\hello.elf
 run:
 	"\Program Files (x86)\qemu\qemu-system-arm.exe" -semihosting -M versatileab -cpu arm926 -kernel $(BIN_DIR)\atose.elf -serial stdio -m 256M
 
+debug:
+	"\Program Files (x86)\qemu\qemu-system-arm.exe" -semihosting -M versatileab -cpu arm926 -kernel $(BIN_DIR)\atose.elf -serial stdio -m 256M -s -gdb tcp::1234,ipv4
+
+
 qemu:
 	"\Program Files\qemu\qemu-system-arm.exe" -semihosting -M versatileab -kernel $(BIN_DIR)\atose.elf -serial stdio -m 256M
 
@@ -154,4 +161,4 @@ clean:
 	
 {$(TESTS_DIR)}.c{$(BIN_DIR)}.elf:
 	@echo $@
-	$(CC) -o $@ $< startup.o -T $(SOURCE_DIR)\atose.ld
+	$(CCC) $(CCCFLAGS) $< $(CLINKFLAGS) -o $@ startup.o -T $(SOURCE_DIR)\atose.ld

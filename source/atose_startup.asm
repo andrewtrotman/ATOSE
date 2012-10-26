@@ -12,8 +12,16 @@
 .weak ATOSE_isr_swi
 
 .weakref main, c_entry
-.weak main
-.weak c_entry
+.weak c_entry;
+
+.weak abort
+.weak _sbrk_r
+.weak _kill_r
+.weak _getpid_r
+abort:
+_sbrk_r:
+_kill_r:
+_getpid_r:
 
 ATOSE_vectors_start:
 

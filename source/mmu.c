@@ -2,6 +2,7 @@
 	MMU.C
 	-----
 */
+#include "atose.h"					// DELETE ME
 #include "mmu.h"
 #include "mmu_v5_constants.h"
 #include "mmu_page_list.h"
@@ -233,12 +234,13 @@ ATOSE_mmu_page *page;
 /*
 	Get the next blank page (if there is one)
 */
-if ((page = free_list.pull()) == 0)
+if ((page = free_list.pull()) == NULL)
 	return NULL;		// We're out of memory
 
 /*
 	Zero the page (someone is bound to complain about security if we don't do this)
 */
+ATOSE::get_global_entry_point()->io << "\nGIVE OUT:" << (uint32_t)page->physical_address << " (" << page->page_size << " bytes)\r\n";
 bzero(page->physical_address, page->page_size);
 
 return page;
@@ -271,5 +273,16 @@ void ATOSE_mmu::assume(ATOSE_address_space *address_space)
 {
 flush_caches();
 assume(address_space->get_page_table());
+flush_caches();
+}
+
+/*
+	ATOSE_MMU::ASSUME_IDENTITY()
+	----------------------------
+*/
+void ATOSE_mmu::assume_identity(void)
+{
+flush_caches();
+assume(identity_page_table);
 flush_caches();
 }

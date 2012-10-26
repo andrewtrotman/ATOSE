@@ -63,26 +63,6 @@ extern "C"
 	extern int main(void);
 	main();
 	}
-
-	/*
-		Stubs necessary to get the compiler to work
-	*/
-	/*
-		ABORT()
-		-------
-	*/
-	void abort(void)
-	{
-	}
-
-	/*
-		_SBRK_R ()
-		----------
-	*/
-	void *_sbrk_r(int inc)
-	{
-	return 0;
-	}
 }
 
 /*

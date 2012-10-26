@@ -131,9 +131,11 @@ static inline char *ASCII_itoa(uint32_t value, char *destination, int base) { re
 */
 static inline void bzero(void *destination, size_t bytes)
 {
-uint8_t *start;
+uint8_t *start, *end;
 
-for (start = (uint8_t *)destination; start < (uint8_t *)destination + bytes; start++)
+end = (uint8_t *)destination + bytes;
+
+for (start = (uint8_t *)destination; start < end; start++)
 	*start = 0;
 }
 

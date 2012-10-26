@@ -24,9 +24,13 @@ top_of_stack = page;
 */
 ATOSE_mmu_page *ATOSE_mmu_page_list::pull(void)
 {
+ATOSE_mmu_page *answer;
+
 /*
 	We have a simple stack of pages
 */
-if (top_of_stack == 0)
-	return 0;
+if ((answer = top_of_stack) != 0)
+	top_of_stack = top_of_stack->next;
+
+return answer;
 }

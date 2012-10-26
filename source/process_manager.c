@@ -249,15 +249,17 @@ uint32_t ATOSE_process_manager::execute(const uint8_t *buffer, uint32_t length)
 uint32_t answer;
 
 ATOSE *os = ATOSE::get_global_entry_point();
-os->io << "[CALL TO START A NEW PROCESS...";
+os->io.hex();
+os->io << "CALL TO START A NEW PROCESS:\n";
 
 answer = elf_load(&active_process, buffer, length);
 
-os->io << "response:" << answer << "]\r\n";
+os->io << "EFL_load responds:" << answer << "\r\n";
 
 {
-for (uint32_t pp = 0; pp < 10; pp++)
-	os->io << pp << ":" << active_process.address_space.get_page_table()[pp] << "\r\n";
+for (uint32_t pp = 0; pp < 4096; pp++)
+	if (active_process.address_space.get_page_table()[pp] != 0)
+		os->io << pp << ":" << active_process.address_space.get_page_table()[pp] << "\r\n";
 }
 
 os->io << "Run\r\n";
@@ -265,21 +267,20 @@ os->io << "Run\r\n";
 /*
 	Set up the stack-pointer (ARM register R13)
 */
-active_process.stack_pointer = (uint8_t *)0xE0000000;
-active_process.address_space.add(active_process.stack_pointer, 1024*1024, ATOSE_address_space::READ | ATOSE_address_space::WRITE | ATOSE_address_space::EXECUTE);
-active_process.execution_path.registers.r13 = (uint32_t)(active_process.stack_pointer + 1024 * 512);	// just for testing, put it half-way through the 1MB block
+active_process.stack_pointer = (uint8_t *)mmu->highest_address;
+active_process.execution_path.registers.r13 = (uint32_t)(active_process.stack_pointer - 512);		// for testing we'll bring it down a bit
 
 /*
-	The process will enter wherever the link-register (ARM register R14) points once the scheduler first schedules the process to be run
+	The process will enter whereever the link-register (ARM register R14_current) points once the scheduler schedules the process to be run
 */
-active_process.execution_path.registers.r14 = (uint32_t)active_process.entry_point;
+active_process.execution_path.registers.r14 = (uint32_t)active_process.entry_point;		// DELETE ME
 active_process.execution_path.registers.r14_current = (uint32_t)active_process.entry_point;
 
 /*
 	When we do run we need to return to user-mode which is done by setting the CPSR register's initial value
 */
 active_process.execution_path.registers.cpsr = 0x80000150;						// flags including processor mode (e.g. USER / IRQ mode)
-
+os->io << "ACTIVE_PROCESS:" << (uint32_t)&active_process << "\r\n";
 os->scheduler.push(&active_process);
 
 return length;

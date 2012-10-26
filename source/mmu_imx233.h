@@ -23,9 +23,9 @@ public:
 		push((void *)0x40000000, 128 * 1024 * 1024);
 	#elif defined(QEMU)
 		/*
-			By default QEMU has 128MB RAM at 0x04000000
+			By default QEMU has 256MB RAM at 0x00000000, but we'll only use the top 255 of that as the bottom 1BM is "reserved" for ATOSE
 		*/
-		push((void *)0x04000000, 128 * 1024 * 1024);
+		push((void *)(0x00000000 + 1024 * 1024), 255 * 1024 * 1024);
 	#endif
 	}
 };	

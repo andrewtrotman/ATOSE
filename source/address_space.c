@@ -25,21 +25,22 @@ uint32_t current;
 /*
 	Get a page from the MMU and use that page as the page table. In that
 	page table we put the OS at the bottom (because that's were the
-	interrupt vector table must be stored) and put the page table itself
-	at the top of that page (it must be correctly alliged).  Initialise 
-	all other pages to cause faults except the stack at top of memory,
-	which requires the allocation of a second page.
+	interrupt vector table must be stored) the page table itself is not
+	in the address space.  Initialise  all other pages to cause faults
+	except the stack at top of memory, which requires the allocation of a
+	second page.
 */
 if ((page = mmu->pull()) == 0)
 	return 0;			// fail as we're of out of physical pages to allocate
 
-page_table = ((uint32_t *)page->physical_address) - mmu->pages_in_address_space;
+page_table = ((uint32_t *)page->physical_address);
 page_list.push(page);		// mark the page as part of the process's list of pages
 
 /*
 	Place ATOSE at bottom of memory
 */
 page_table[0] = 0 | mmu->os_page;
+
 
 /*
 	Mark all other pages to cause faults (except for the last page)

@@ -104,47 +104,6 @@ if (os->scheduler.current_process != NULL)
 }
 
 /*
-	__CS3_ISR_PABORT()
-	------------------
-*/
-void __attribute__ ((interrupt("ABORT"))) __cs3_isr_pabort(void)
-{
-}
-
-/*
-	__CS3_ISR_DABORT()
-	------------------
-*/
-void __attribute__ ((interrupt("ABORT"))) __cs3_isr_dabort(void)
-{
-}
-
-/*
-	__CS3_ISR_UNDEF()
-	-----------------
-*/
-void __attribute__ ((interrupt("UNDEF"))) __cs3_isr_undef(void)
-{
-}
-
-/*
-	__CS3_ISR_RESERVED()
-	--------------------
-	This can't happen as this interrupt is reserved
-*/
-void __attribute__ ((interrupt)) __cs3_isr_reserved(void)
-{
-}
-
-/*
-	__CS3_ISR_FIQ()
-	---------------
-*/
-void __attribute__ ((interrupt("FIQ"))) __cs3_isr_fiq(void)
-{
-}
-
-/*
 	ATOSE_ISR_SWI()
 	---------------
 */
@@ -167,9 +126,9 @@ if (( (*(uint32_t *)(registers->r14_current - 4)) & 0x00FFFFFF) != ATOSE_SWI)
 */
 os->heap.assume_identity();
 
-//#ifdef NEVER
+#ifdef NEVER
 	os->io << "[" << (char)registers->r0 << "->" << (char)registers->r1 << (const uint8_t)registers->r2 << "]";
-//#endif
+#endif
 
 /*
 	The SWI is for us.
@@ -227,15 +186,17 @@ switch (registers->r1)
 			removing the current process (which is at the head)
 			and replacing it with the one at the tail
 		*/
+
 		os->scheduler.push(os->scheduler.current_process = os->scheduler.pull());
 		os->scheduler.push(os->scheduler.current_process = os->scheduler.pull());
+
 		if (os->scheduler.current_process != NULL)
 			{
 			memcpy(registers, &os->scheduler.current_process->execution_path.registers, sizeof(*registers));
-			os->heap.assume(&os->scheduler.current_process->address_space);
 			os->io << "Start From:" << registers->r14 << "\r\n";
-			os->io << "X";
+			os->io << "X\r\n";
 			}
+
 		break;
 		}
 	default:

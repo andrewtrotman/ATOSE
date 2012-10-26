@@ -57,7 +57,7 @@ public:
 
 	void flush_caches(void);
 	void assume(ATOSE_address_space *address_space);				// switch to the given address space
-	void assume_identity(void) { assume(identity_page_table); }		// switch to the kernel's identity address space
+	void assume_identity(void);										// switch to the kernel's identity address space
 	uint32_t *get_identity_page_table(void) { return identity_page_table; } 	// return a pointer to the identity page table
 };
 
