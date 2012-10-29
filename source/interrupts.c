@@ -36,11 +36,10 @@ os->io.hex();
 	If we're running a process then copy the registers into its register space
 	this way if we cause a context switch then we've not lost anything
 */
-if (os->scheduler.current_process != NULL)
+if (os->scheduler.get_current_process() != NULL)
 	{
-	memcpy(&os->scheduler.current_process->execution_path.registers, registers, sizeof(*registers));
+	memcpy(&os->scheduler.get_current_process()->execution_path.registers, registers, sizeof(*registers));
 	os->heap.assume_identity();
-	os->io << "\r\n[" << (uint32_t)os->scheduler.current_process << "]";
 	}
 
 /*
@@ -80,20 +79,20 @@ if (os->scheduler.current_process != NULL)
 /*
 	Context switch
 */
-os->scheduler.push(os->scheduler.current_process = os->scheduler.pull());
+os->scheduler.push(os->scheduler.set_current_process(os->scheduler.pull()));
 
-if (os->scheduler.current_process != NULL)
+if (os->scheduler.get_current_process() != NULL)
 	{
-	os->io << "->SWITCH TO ID:" << (uint32_t)os->scheduler.current_process << "\r\n";
+	os->io << "->SWITCH TO ID:" << (uint32_t)os->scheduler.get_current_process() << "\r\n";
 	/*
 		Set the registers so that we fall back to the next context
 	*/
-	memcpy(registers, &os->scheduler.current_process->execution_path.registers, sizeof(*registers));
+	memcpy(registers, &os->scheduler.get_current_process()->execution_path.registers, sizeof(*registers));
 
 	/*
 		Set the address space to fall back to the next context
 	*/
-	os->heap.assume(&os->scheduler.current_process->address_space);
+	os->heap.assume(&os->scheduler.get_current_process()->address_space);
 	}
 }
 
@@ -142,7 +141,7 @@ switch (registers->r0)
 		object = &os->io;
 		break;
 	case ATOSE_API::id_object_process_manager:
-		object = &os->process_manager;
+		object = &os->scheduler;
 		break;
 	default:
 		return 0;
@@ -183,7 +182,7 @@ switch (registers->r1)
 /*
 	Go back into the caller's address space
 */
-os->heap.assume(&os->scheduler.current_process->address_space);
+os->heap.assume(&os->scheduler.get_current_process()->address_space);
 
 return 1;
 }

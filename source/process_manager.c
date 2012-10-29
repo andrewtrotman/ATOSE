@@ -8,6 +8,19 @@
 #include "process_manager.h"
 #include "elf.h"
 
+
+/*
+	ATOSE_PROCESS_MANAGER::ATOSE_PROCESS_MANAGER()
+	----------------------------------------------
+*/
+ATOSE_process_manager::ATOSE_process_manager(ATOSE_mmu *mmu) : ATOSE_IO(), active_process(mmu)
+{
+this->mmu = mmu; 
+active_head = active_tail = 0; 
+current_process = 0;
+}
+
+
 /*
 	ATOSE_PROCESS_MANAGER::ELF_LOAD()
 	---------------------------------
@@ -285,4 +298,53 @@ os->scheduler.push(&active_process);
 
 return length;
 }
+
+/*
+	ATOSE_SCHEDULE::PUSH()
+	----------------------
+	The process list is a queue
+*/
+void ATOSE_process_manager::push(ATOSE_process *process)
+{
+/*
+	Make sure we don't push NULL (so that we can go push(pull())
+	when pull() returns NULL,
+*/
+if (process == NULL)
+	return;
+
+if (active_head != NULL)
+	active_head->next = process;	// the queue wasn't empty
+
+process->next = NULL;
+
+active_head = process;
+
+if (active_tail == NULL)
+	active_tail = process;
+
+if (current_process == NULL)
+	current_process = process;
+}
+
+/*
+	ATOSE_SCHEDULE::PULL()
+	----------------------
+	the process list is a queue
+*/
+ATOSE_process *ATOSE_process_manager::pull(void)
+{
+ATOSE_process *answer;
+
+if (active_tail == NULL)
+	return 0;						// the queue is already empty
+
+answer = active_tail;
+
+if ((active_tail = active_tail->next) == NULL)
+	active_head = NULL;				// the queue is now empty
+
+return answer;
+}
+
 

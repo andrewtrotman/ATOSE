@@ -27,7 +27,6 @@
 #include "nand_imx233.h"
 
 #include "process_manager.h"
-#include "schedule.h"
 
 /*
 	class ATOSE
@@ -38,8 +37,7 @@ class ATOSE
 public:
 	ATOSE_cpu cpu;
 	ATOSE_stack stack;
-	ATOSE_process_manager process_manager;
-	ATOSE_schedule scheduler;
+	ATOSE_process_manager scheduler;
 
 #ifdef IMX233
 

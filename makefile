@@ -46,7 +46,6 @@ ATOSE_OBJECTS =							\
 	$(OBJ_DIR)\mmu.o 						\
 	$(OBJ_DIR)\mmu_page_list.o				\
 	$(OBJ_DIR)\process_manager.o			\
-	$(OBJ_DIR)\schedule.o					\
 	$(OBJ_DIR)\stack.o
 
 #

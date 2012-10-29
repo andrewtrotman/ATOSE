@@ -21,13 +21,16 @@ public:
 private:
 	ATOSE_process active_process;		// DELETE THIS WHEN WE ADD A SCHEDULER
 	ATOSE_mmu *mmu;
+	ATOSE_process *active_head;			// head of the active process list
+	ATOSE_process *active_tail;			// tail of the active process list
+	ATOSE_process *current_process;		// the process that is currently executing
 
 protected:
 	uint32_t elf_load(ATOSE_process *process, const uint8_t *file, uint32_t length);
 	uint32_t execute(const uint8_t *elf_file, uint32_t length);
 
 public:
-	ATOSE_process_manager(ATOSE_mmu *mmu) : ATOSE_IO(), active_process(mmu) { this->mmu = mmu; }
+	ATOSE_process_manager(ATOSE_mmu *mmu);
 
 	virtual uint32_t write(const uint8_t *buffer, uint32_t bytes) { return execute(buffer, bytes); }
 
@@ -37,8 +40,14 @@ public:
 	virtual uint32_t read_byte(uint8_t *buffer) { return 0; }
 	virtual uint32_t write_byte(const uint8_t buffer) { return 0; }
 	virtual uint32_t read(uint8_t *buffer, uint32_t bytes) { return 0; }
+
+	/*
+		Process management methods
+	*/
+	ATOSE_process *get_current_process(void) { return current_process; }
+	ATOSE_process *set_current_process(ATOSE_process *new_process) { return current_process = new_process; }
+ 	void push(ATOSE_process *process);
+	ATOSE_process *pull(void);
 } ;
-
-
 
 #endif /* PROCESS_MANAGER_H_ */

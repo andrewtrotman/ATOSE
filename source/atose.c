@@ -11,7 +11,7 @@ extern ATOSE *ATOSE_addr;
 	ATOSE::ATOSE()
 	--------------
 */
-ATOSE::ATOSE(): heap(), process_manager(&heap)
+ATOSE::ATOSE(): heap(), scheduler(&heap)
 {
 /*
 	First things first... put a pointer to me at the end of the interrupt space so that
@@ -99,7 +99,6 @@ initial.address_space.create_identity();
 */
 //initial.execution_path.registers.r14_current = (uint32_t)start;
 scheduler.push(&initial);
-scheduler.current_process = &initial;
 
 /*
 	Switch to user mode
