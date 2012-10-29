@@ -31,20 +31,17 @@ uint32_t ATOSE_isr_irq(ATOSE_registers *registers)
 */
 ATOSE *os = ATOSE::get_global_entry_point();
 
-//os->io.hex();
+os->io.hex();
 /*
 	If we're running a process then copy the registers into its register space
 	this way if we cause a context switch then we've not lost anything
 */
 if (os->scheduler.current_process != NULL)
 	{
-	os->io << "\r\n[" << (uint32_t)os->scheduler.current_process << "]";
-//	os->io << "[IRQ:CPSR:" << (uint32_t)registers->cpsr << "]\r\n";
 	memcpy(&os->scheduler.current_process->execution_path.registers, registers, sizeof(*registers));
 	os->heap.assume_identity();
+	os->io << "\r\n[" << (uint32_t)os->scheduler.current_process << "]";
 	}
-//else
-//	os->io << "[IRQ:CPSR:" << (uint32_t)registers->cpsr << "]\r\n";
 
 /*
 	Handle the interrupt by calling the device driver's ack method
@@ -83,19 +80,16 @@ if (os->scheduler.current_process != NULL)
 /*
 	Context switch
 */
-#ifdef NEVER
-	os->scheduler.push(os->scheduler.current_process = os->scheduler.pull());
-#endif
+os->scheduler.push(os->scheduler.current_process = os->scheduler.pull());
 
 if (os->scheduler.current_process != NULL)
 	{
-//	os->io << "\r\nSWITCH TO ID:" << (uint32_t)os->scheduler.current_process << "\r\n";
-#ifdef NEVER
+	os->io << "->SWITCH TO ID:" << (uint32_t)os->scheduler.current_process << "\r\n";
 	/*
 		Set the registers so that we fall back to the next context
 	*/
 	memcpy(registers, &os->scheduler.current_process->execution_path.registers, sizeof(*registers));
-#endif
+
 	/*
 		Set the address space to fall back to the next context
 	*/
@@ -180,32 +174,11 @@ switch (registers->r1)
 			sets up the address space and executes it.
 		*/
 		object->write((uint8_t *)registers->r2, registers->r3);
-
-		/*
-			Context switch to the new process : this means
-			removing the current process (which is at the head)
-			and replacing it with the one at the tail
-		*/
-
-		os->scheduler.push(os->scheduler.current_process = os->scheduler.pull());
-		os->scheduler.push(os->scheduler.current_process = os->scheduler.pull());
-
-		if (os->scheduler.current_process != NULL)
-			{
-			memcpy(registers, &os->scheduler.current_process->execution_path.registers, sizeof(*registers));
-			os->io << "Start From:" << registers->r14 << "\r\n";
-			os->io << "X\r\n";
-			}
-
 		break;
 		}
 	default:
 		return 0;
 	}
-
-#ifdef NEVER
-os->io << "[BYE]\r\n";
-#endif
 
 /*
 	Go back into the caller's address space

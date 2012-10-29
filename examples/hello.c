@@ -6,7 +6,6 @@
 
 #include "../source/api_atose.h"
 
-ATOSE_API_ATOSE api;
 
 /*
 	MAIN()
@@ -14,6 +13,8 @@ ATOSE_API_ATOSE api;
 */
 int main(void)
 {
+ATOSE_API_ATOSE api;
+
 api.io << "Hello World" << ATOSE_IO::eoln;
 
 for (;;)

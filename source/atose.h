@@ -52,8 +52,8 @@ public:
 #elif defined(QEMU)
 
 	ATOSE_pic_pl190 pic;
-//	ATOSE_IO_serial io;
-	ATOSE_IO_angel io;
+	ATOSE_IO_serial io;
+//	ATOSE_IO_angel io;
 	ATOSE_timer_sp804 timer;
 
 	ATOSE_mmu_imx233 heap;
