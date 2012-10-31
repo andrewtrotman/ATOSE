@@ -6,9 +6,9 @@
 #	Choose a Target for ATOSE
 #
 #
-#TARGET = FourARM
+TARGET = FourARM
 #
-TARGET = QEMU
+#TARGET = QEMU
 #
 
 !IF "$(TARGET)" == "FourARM"

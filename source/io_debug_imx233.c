@@ -71,8 +71,7 @@ uint32_t loop, current;
 
 for (current = 0; current < bytes; current++)
 	{
-	int loop = 0;
-
+	loop = 0;
 	while (HW_UARTDBGFR_RD() & BM_UARTDBGFR_TXFF)
 		if (++loop > 10000)
 			break;

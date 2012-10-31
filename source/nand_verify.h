@@ -41,7 +41,7 @@ uint32_t result;
 	Do the read then if we think it worked then check the status register to make sure it worked.
 */
 if ((result = BASE::read_sector(destination, sector)) == 0)
-	if (BASE::status() & (ATOSE_nand::FAIL | ATOSE_nand::FAILC) != 0)
+	if ((BASE::status() & (ATOSE_nand::FAIL | ATOSE_nand::FAILC)) != 0)
 		return 0x01;
 
 return result;
@@ -60,7 +60,7 @@ uint32_t result;
 	Do the write then if we think it worked then check the status register to make sure it worked.
 */
 if ((result = BASE::write_sector(data, sector)) == 0)
-	if (BASE::status() & (ATOSE_nand::FAIL | ATOSE_nand::FAILC) != 0)
+	if ((BASE::status() & (ATOSE_nand::FAIL | ATOSE_nand::FAILC)) != 0)
 		return 0x01;
 
 return result;
@@ -76,7 +76,7 @@ uint32_t ATOSE_nand_verify<BASE>::erase_block(uint64_t sector)
 uint32_t result;
 
 if ((result = BASE::erase_block(sector)) == 0)
-	if (BASE::status() & (ATOSE_nand::FAIL | ATOSE_nand::FAILC) != 0)
+	if ((BASE::status() & (ATOSE_nand::FAIL | ATOSE_nand::FAILC)) != 0)
 		return 0x01;
 
 return result;

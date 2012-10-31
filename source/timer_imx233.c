@@ -32,9 +32,7 @@ HW_RTC_CTRL_CLR(BM_RTC_CTRL_ONEMSEC_IRQ_EN);
 */
 void ATOSE_timer_imx233::acknowledge(void)
 {
-volatile uint32_t got;
-
-got = HW_RTC_CTRL_RD();
+HW_RTC_CTRL_RD();
 HW_RTC_CTRL_CLR(BM_RTC_CTRL_ONEMSEC_IRQ);
 }
 

@@ -5,6 +5,10 @@
 #include "atose.h"
 #include "process.h"
 
+#ifdef IMX233
+	#include "../systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/hw_irq.h"
+#endif
+
 extern ATOSE *ATOSE_addr;
 
 /*
@@ -42,8 +46,8 @@ heap.init();
 cpu.enable_IRQ();
 
 #ifdef IMX233
-//	pic.enable(&timer, VECTOR_IRQ_RTC_1MSEC);
-//	timer.enable();
+	pic.enable(&timer, VECTOR_IRQ_RTC_1MSEC);
+	timer.enable();
 
 	/*
 		Serial (debug) port

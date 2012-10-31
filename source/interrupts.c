@@ -87,14 +87,14 @@ os->heap.assume_identity();
 
 	ATOSE_device_driver *device_driver;
 
-//	uint32_t got = HW_ICOLL_STAT_RD();										// get the interrupt number (in case we need it)
+	uint32_t got = HW_ICOLL_STAT_RD();										// get the interrupt number (in case we need it)
 
 	device_driver = *((ATOSE_device_driver **)HW_ICOLL_VECTOR_RD());		// tell the CPU that we've entered the interrupt service routine and get the ISR address
 	
 	if (device_driver != 0)
 		device_driver->acknowledge();
 
-//	os->io << "[" << got << "]";
+	os->io << "[" << got << "]";
 
 	HW_ICOLL_LEVELACK_WR(BV_ICOLL_LEVELACK_IRQLEVELACK__LEVEL0);			// finished processing the interrupt
 
@@ -113,9 +113,11 @@ os->heap.assume_identity();
 /*
 	Context switch
 */
-
 if (os->scheduler.get_next_process() != NULL)
 	{
+	os->io.hex();
+	os->io << "->" << os->scheduler.get_current_process()->execution_path.registers.r14_current;
+
 	/*
 		Set the registers so that we fall back to the next context
 	*/

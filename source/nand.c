@@ -126,7 +126,6 @@ uint32_t ATOSE_nand::reset(void)
 {
 ATOSE_lock_spin lock;
 uint32_t current_status;
-uint8_t command;
 
 /*
 	Send the reset command
@@ -199,7 +198,7 @@ if (send_command(ATOSE_nand_command_read_parameter_page, lock.clear()) == 0)		//
 		command has completed so that we can then do the read. This
 		second approach is the one we'll take here.
 	*/
-	while  (status() & (RDY | ARDY) != (RDY | ARDY))
+	while  ((status() & (RDY | ARDY)) != (RDY | ARDY))
 		/* do nothing */;
 
 	/*
