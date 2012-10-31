@@ -62,7 +62,7 @@ public:
 	*/
 	virtual uint32_t write(const uint8_t *buffer, uint32_t bytes)
 		{
-		int gone;
+		uint32_t gone;
 
 		for (gone = 0; gone < bytes; gone++)
 			if (write_byte(*buffer++) == 0)

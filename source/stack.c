@@ -72,8 +72,6 @@ asm volatile
 */
 void ATOSE_stack::set_stack(void *address, uint32_t mode)
 {
-uint32_t status_register;
-
 /*
 	get the current mode
 */

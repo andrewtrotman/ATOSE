@@ -396,7 +396,7 @@ void delay_us(unsigned long int us) {
  ATOSE_ISR_IRQ()
  ---------------
  */
-uint32_t ATOSE_isr_irq(ATOSE_registers *registers) {
+void ATOSE_isr_irq(ATOSE_registers *registers) {
 	volatile uint32_t got = 0;
 
 	/*
@@ -492,8 +492,6 @@ uint32_t ns_to_gpmi_clocks(uint32_t ns, uint32_t freq_in_mhz) {
 }
 
 void enable_dma_channel(int channel) {
-	uint32_t channel_id;
-
 	if (channel == 4) {
 		HW_APBH_CTRL1.B.CH4_CMDCMPLT_IRQ_EN = 1;
 	} else if (channel == 5) {
@@ -527,11 +525,12 @@ void reset_dma_channel(int channel) {
 		channel_id = BV_APBH_CTRL0_RESET_CHANNEL__NAND1;
 	} else {
 		debug_print_string("This doesn't work.");
+		return;
 	}
 
 	HW_APBH_CTRL0_SET(BF_APBH_CTRL0_RESET_CHANNEL(channel_id));
 
-	while (HW_APBH_CTRL0_RD() & BF_APBH_CTRL0_RESET_CHANNEL(channel_id) != 0)
+	while ((HW_APBH_CTRL0_RD() & BF_APBH_CTRL0_RESET_CHANNEL(channel_id)) != 0)
 		debug_putc('.');
 
 	HW_APBH_CTRL0_CLR(0xFF); //Clear freeze bits
@@ -540,8 +539,6 @@ void reset_dma_channel(int channel) {
 
 /* Provide a buffer of length 4096 bytes to read a complete ECC page */
 void nand_write_ecc(int chip, char *buffer, size_t length) {
-	int error = 0;
-	int i;
 
 	struct mxs_dma_cmd * request = &dma_queue[0];
 	struct mxs_dma_cmd * request2 = &dma_queue[1];
@@ -638,8 +635,6 @@ void nand_write_ecc(int chip, char *buffer, size_t length) {
  * Provide a buffer of length 4096+224 bytes to read a complete ECC page
  */
 void nand_read_ecc_page(int chip, char *buffer, size_t length, char *aux) {
-	int error = 0;
-	int i;
 
 	struct mxs_dma_cmd * request = &dma_queue[0];
 	struct mxs_dma_cmd * request2 = &dma_queue[1];
@@ -730,7 +725,6 @@ void nand_read_ecc_page(int chip, char *buffer, size_t length, char *aux) {
  * Read data that is waiting on the NAND bus.
  */
 void nand_read(int chip, char *buffer, size_t length) {
-	int error = 0;
 	uint32_t command_mode;
 	uint32_t address;
 	int i;
@@ -973,9 +967,6 @@ bool nand_identify_unique(int chip, char *buffer) {
 //Caller provides 256 bytes buffer
 void nand_read_parameter_page(int chip, char *buffer) {
 	char command[2];
-	char id[32];
-	int i, retry;
-	bool broken;
 
 	command[0] = 0xEC; // READ PARAMETER PAGE
 	command[1] = 0x00;
@@ -1047,7 +1038,6 @@ void setup_bch() {
 void nand_read_page(struct nand_address address, char *pagebuf) {
 	__attribute__((aligned(0x4))) char metabuf[NAND_NBLOCKS + 1];
 	char command[6];
-	int i;
 
 	command[0] = 0; //READ PAGE
 
@@ -1128,7 +1118,6 @@ void nand_erase_block(struct nand_address address) {
  ---------
  */
 void c_entry(void) {
-	uint32_t index;
 	uint32_t irq_stack[256];
 	uint32_t *irq_sp = irq_stack + sizeof(irq_stack);
 
@@ -1156,7 +1145,6 @@ void c_entry(void) {
 	/*
 	 Move the interrupt vector table to 0x00000000
 	 */
-	uint32_t p15;
 	asm volatile
 	(
 			"MRC p15, 0, R0, c1, c0, 0;"			// read control register

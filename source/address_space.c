@@ -18,7 +18,6 @@
 */
 ATOSE_address_space *ATOSE_address_space::create(void)
 {
-ATOSE_address_space *address_space;
 ATOSE_mmu_page *page, *stack_page;
 uint32_t current;
 
@@ -40,7 +39,6 @@ page_list.push(page);		// mark the page as part of the process's list of pages
 	Place ATOSE at bottom of memory
 */
 page_table[0] = 0 | mmu->os_page;
-
 
 /*
 	Mark all other pages to cause faults (except for the last page)
@@ -75,6 +73,8 @@ create();
 	then set the page table to the identity page table
 */
 page_table = mmu->get_identity_page_table();
+
+return this; 
 }
 
 /*
@@ -157,10 +157,12 @@ for (which = base_page; which <= last_page; which++)
 		Verify that the page isn't already in the address space and ignore that page if so.
 	*/
 	if (page_table[which] == 0)
+		{
 		if ((page = mmu->pull()) == 0)
 			return NULL;		// We fail because there are no more pages to give
 		else
 			add_page((void *)(which * mmu->page_size), page, mmu->user_data_page);		// FIX the permissions here are wrong.
+		}
 	}
 
 /*

@@ -21,6 +21,43 @@ return 0;
 }
 
 /*
+void __cs3_isr_undef(void)
+{ 
+ATOSE *os = ATOSE::get_global_entry_point();
+os->heap.assume_identity();
+os->io << "\r\nUNDEFINED INTERRUPT\r\n";
+}
+
+void __cs3_isr_pabort(void)
+{ 
+ATOSE *os = ATOSE::get_global_entry_point();
+os->heap.assume_identity();
+os->io << "\r\nP-ABORT INTERRUPT\r\n";
+}
+
+void __cs3_isr_dabort(void)
+{ 
+ATOSE *os = ATOSE::get_global_entry_point();
+os->heap.assume_identity();
+os->io << "\r\nD-ABORT INTERRUPT\r\n";
+}
+
+void __cs3_isr_reserved(void)
+{ 
+ATOSE *os = ATOSE::get_global_entry_point();
+os->heap.assume_identity();
+os->io << "\r\nRESERVED INTERRUPT\r\n";
+}
+
+void __cs3_isr_fiq(void)
+{ 
+ATOSE *os = ATOSE::get_global_entry_point();
+os->heap.assume_identity();
+os->io << "\r\nFIQ INTERRUPT\r\n";
+}
+*/
+
+/*
 	ATOSE_ISR_IRQ()
 	---------------
 */
@@ -31,16 +68,17 @@ uint32_t ATOSE_isr_irq(ATOSE_registers *registers)
 */
 ATOSE *os = ATOSE::get_global_entry_point();
 
-os->io.hex();
 /*
 	If we're running a process then copy the registers into its register space
 	this way if we cause a context switch then we've not lost anything
 */
 if (os->scheduler.get_current_process() != NULL)
-	{
 	memcpy(&os->scheduler.get_current_process()->execution_path.registers, registers, sizeof(*registers));
-	os->heap.assume_identity();
-	}
+
+/*
+	get into the ATOSE address space
+*/
+os->heap.assume_identity();
 
 /*
 	Handle the interrupt by calling the device driver's ack method
@@ -68,22 +106,16 @@ if (os->scheduler.get_current_process() != NULL)
 	if (device_driver != 0)
 		device_driver->acknowledge();
 
-//	os->io << ".";
-
 	*ATOSE_pic_pl190::PIC_vector_address_register = 0;
 
 #endif
 
-//os->io << "[IRQ-BYE]";
-
 /*
 	Context switch
 */
-os->scheduler.push(os->scheduler.set_current_process(os->scheduler.pull()));
 
-if (os->scheduler.get_current_process() != NULL)
+if (os->scheduler.get_next_process() != NULL)
 	{
-	os->io << "->SWITCH TO ID:" << (uint32_t)os->scheduler.get_current_process() << "\r\n";
 	/*
 		Set the registers so that we fall back to the next context
 	*/
@@ -94,6 +126,8 @@ if (os->scheduler.get_current_process() != NULL)
 	*/
 	os->heap.assume(&os->scheduler.get_current_process()->address_space);
 	}
+
+return 0;
 }
 
 /*
@@ -102,7 +136,6 @@ if (os->scheduler.get_current_process() != NULL)
 */
 uint32_t ATOSE_isr_swi(ATOSE_registers *registers)
 {
-static uint32_t val = 0;
 ATOSE_IO *object;
 ATOSE *os = ATOSE::get_global_entry_point();
 

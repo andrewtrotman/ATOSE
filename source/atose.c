@@ -11,7 +11,7 @@ extern ATOSE *ATOSE_addr;
 	ATOSE::ATOSE()
 	--------------
 */
-ATOSE::ATOSE(): heap(), scheduler(&heap)
+ATOSE::ATOSE() : heap(), scheduler(&heap)
 {
 /*
 	First things first... put a pointer to me at the end of the interrupt space so that
@@ -85,36 +85,22 @@ return ATOSE_addr;
 */
 void ATOSE::enable(int (*start)(void))
 {
-ATOSE_process initial(&heap);			// the process we're going to boot into
+scheduler.create_idle_process(start);
 
 /*
-	Create a process with the identity page table, this will include ATOSE at low
-	memory.  We can then enter user mode and return to it.  This will start the initial
-	process and we are ready to go.
-*/
-initial.address_space.create_identity();
-
-/*
-	Set the registers
-*/
-//initial.execution_path.registers.r14_current = (uint32_t)start;
-scheduler.push(&initial);
-
-/*
-	Switch to user mode
+	drop into user space (so that the scheduler will take over) and then
+	we can halt here (because we will never be scheduled
 */
 asm volatile
-	(
-	"mrs r0, CPSR;"
-	"bic r0, r0, #0x01F;"
-	"orr r0, r0, #0x10;"
-	"msr cpsr_cxsf, r0;"
-	:
-	:
-	: "r0"
-	);
-
-start();
+        (
+        "mrs r0, CPSR;"
+        "bic r0, r0, #0x01F;"
+        "orr r0, r0, #0x10;"
+        "msr cpsr_cxsf, r0;"
+        :
+        :
+        : "r0"
+        );
 
 for (;;);
 }

@@ -22,7 +22,6 @@ public:
 	ATOSE_address_space address_space;
 	ATOSE_thread execution_path;
 	uint8_t *entry_point;					// initial process entry point
-	uint8_t *stack_pointer;				// initial stack pointer
 
 public:
 	ATOSE_process(ATOSE_mmu *mmu) : address_space(mmu), execution_path(this) {}

@@ -30,7 +30,7 @@ volatile uint32_t *ATOSE_timer_sp804::timer_0_bgload = (uint32_t *)(timer_base_a
 void ATOSE_timer_sp804::enable(void)
 {
 *timer_0_load = (unsigned long)0x2000;
-*timer_0_control = *timer_0_control & 0xFFFFFF10 | 0xE0;
+*timer_0_control = (*timer_0_control & 0xFFFFFF10) | 0xE0;
 }
 
 /*

@@ -117,7 +117,7 @@ static void_routine_void interrupt_table[HW_ICOLL_INTERRUPTn_COUNT];
 	ATOSE_ISR_IRQ()
 	---------------
 */
-uint32_t ATOSE_isr_irq(ATOSE_registers *registers)
+void ATOSE_isr_irq(ATOSE_registers *registers)
 {
 volatile uint32_t got = 0;
 
@@ -165,7 +165,6 @@ HW_ICOLL_LEVELACK_WR(BV_ICOLL_LEVELACK_IRQLEVELACK__LEVEL0);
 void c_entry(void)
 {
 uint32_t index;
-uint32_t cpsr, irq_cpsr;
 uint8_t irq_stack[1024] __attribute__ ((aligned (4)));
 uint8_t *irq_sp = irq_stack + sizeof(irq_stack);
 
@@ -195,7 +194,6 @@ asm volatile
 /*
 	Move the interrupt vector table to 0x00000000
 */
-uint32_t p15;
 asm volatile
 	(
 	"MRC p15, 0, R0, c1, c0, 0;"			// read control register

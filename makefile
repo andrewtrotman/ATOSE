@@ -18,7 +18,7 @@ CPU = ARM926
 !ENDIF
 
 CCC = arm-none-eabi-gcc
-CCCFLAGS = -mcpu=arm926ej-s  -D$(CPU) -D$(TARGET) -Os -g3
+CCCFLAGS = -mcpu=arm926ej-s  -D$(CPU) -D$(TARGET) -Os -g3 -Wall
 CC = @arm-none-eabi-g++
 CFLAGS = -fno-exceptions -fno-rtti $(CCCFLAGS) -ffreestanding -nostdlib -nodefaultlibs -nostartfiles
 CLINKFLAGS = -l gcc

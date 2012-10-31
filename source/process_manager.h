@@ -21,18 +21,32 @@ public:
 private:
 	ATOSE_process active_process;		// DELETE THIS WHEN WE ADD A SCHEDULER
 	ATOSE_mmu *mmu;
+	ATOSE_process idle;					// the idle process always exists
 	ATOSE_process *active_head;			// head of the active process list
 	ATOSE_process *active_tail;			// tail of the active process list
 	ATOSE_process *current_process;		// the process that is currently executing
 
 protected:
+	/*
+		Method to create a process from and ELF file
+	*/
 	uint32_t elf_load(ATOSE_process *process, const uint8_t *file, uint32_t length);
-	uint32_t execute(const uint8_t *elf_file, uint32_t length);
+
+	/*
+		Set up a process ready to run
+	*/
+	uint32_t initialise_process(ATOSE_process *process, size_t entry_point);
+
+	/*
+		Methods to add and remove from the scheduler's process queue
+	*/
+ 	void push(ATOSE_process *process);
+	ATOSE_process *pull(void);
 
 public:
 	ATOSE_process_manager(ATOSE_mmu *mmu);
 
-	virtual uint32_t write(const uint8_t *buffer, uint32_t bytes) { return execute(buffer, bytes); }
+	virtual uint32_t write(const uint8_t *buffer, uint32_t bytes) { return create_process(buffer, bytes); }
 
 	/*
 		Include these in case the user tries to call them
@@ -42,12 +56,13 @@ public:
 	virtual uint32_t read(uint8_t *buffer, uint32_t bytes) { return 0; }
 
 	/*
-		Process management methods
+		Process Management Methods
 	*/
+	uint32_t create_process(const uint8_t *elf_file, uint32_t length);
+	uint32_t create_idle_process(int (*start)(void));
+
 	ATOSE_process *get_current_process(void) { return current_process; }
-	ATOSE_process *set_current_process(ATOSE_process *new_process) { return current_process = new_process; }
- 	void push(ATOSE_process *process);
-	ATOSE_process *pull(void);
+	ATOSE_process *get_next_process(void);
 } ;
 
 #endif /* PROCESS_MANAGER_H_ */

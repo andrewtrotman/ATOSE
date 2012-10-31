@@ -240,7 +240,6 @@ if ((page = free_list.pull()) == NULL)
 /*
 	Zero the page (someone is bound to complain about security if we don't do this)
 */
-ATOSE::get_global_entry_point()->io << "\nGIVE OUT:" << (uint32_t)page->physical_address << " (" << page->page_size << " bytes)\r\n";
 bzero(page->physical_address, page->page_size);
 
 return page;

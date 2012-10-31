@@ -72,7 +72,6 @@ set_cpsr(get_cpsr() | 0x80);
 */
 void ATOSE_cpu::move_interrupt_vector_table_to_zero(void)
 {
-uint32_t p15;
 asm volatile
 	(
 	"mrc p15, 0, r0, c1, c0, 0;"			// read control register
