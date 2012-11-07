@@ -128,7 +128,7 @@ struct usb_device_descriptor our_device_descriptor = {
 	.bLength = sizeof(our_device_descriptor),
 	.bDescriptorType = USB_DESCRIPTOR_TYPE_DEVICE,
 	.bcdUSB = 0x0200, //USB 2.0
-	.bDeviceClass = 0x20, //CDC
+	.bDeviceClass = 0x20, // Communications Device Class (Pretend to be a Serial Port)
 	.bDeviceSubClass = 0x00,
 	.bDeviceProtocol = 0x00,
 	.bMaxPacketSize0 = 64, //Accept 64 bytes packet size on control endpoint (the maximum)
@@ -294,6 +294,10 @@ void debug_print_buffer(char * buffer, int length, int abs_addr) {
 	}
 }
 
+/*
+	MAIN_MEMORY_ALLOC()
+	-------------------
+*/
 void* main_memory_alloc(size_t size, unsigned int alignment) {
 	//Align the beginning to the requested alignment
 	uint32_t realignment = alignment - ((uint32_t) external_memory_head % alignment);
@@ -309,6 +313,10 @@ void* main_memory_alloc(size_t size, unsigned int alignment) {
 	return result;
 }
 
+/*
+	INTERNAL_MEMORY_ALLOC()
+	-----------------------
+*/
 void* internal_memory_alloc(size_t size, int alignment) {
 	//Align the beginning to the requested alignment
 	uint32_t realignment = alignment - ((uint32_t) internal_memory_head % alignment);
@@ -330,6 +338,11 @@ void* internal_memory_alloc(size_t size, int alignment) {
 		}
 	}
 
+
+debug_print_string("[ALLOC:");
+debug_print_hex((uint32_t)result);
+debug_print_string("]");
+
 	return result;
 }
 
@@ -346,154 +359,186 @@ void delay_us(unsigned long int us) {
 		;
 }
 
-/*
- * Queue up a transfer descriptor for the given endpoint
- */
-void usb_prime_endpoint(int endpoint, int direction) {
-	//Now get controller to activate these new TDs by priming the endpoints
-	uint32_t endpoint_prime_mask;
 
-	switch (direction) {
-		case USB_DIRECTION_IN:
-			endpoint_prime_mask = BF_USBCTRL_ENDPTPRIME_PETB(1 << endpoint);
-			break;
-		case USB_DIRECTION_OUT:
-			endpoint_prime_mask = BF_USBCTRL_ENDPTPRIME_PERB(1 << endpoint);
-			break;
-		default:
-			debug_print_string("Bad direction");
+/*
+	USB_PRIME_ENDPOINT()
+	--------------------
+	Queue up a transfer descriptor for the given endpoint
+*/
+void usb_prime_endpoint(int endpoint, int direction)
+{
+//Now get controller to activate these new TDs by priming the endpoints
+uint32_t endpoint_prime_mask = 0;
+
+switch (direction)
+	{
+	case USB_DIRECTION_IN:
+		endpoint_prime_mask = BF_USBCTRL_ENDPTPRIME_PETB(1 << endpoint);
+		break;
+	case USB_DIRECTION_OUT:
+		endpoint_prime_mask = BF_USBCTRL_ENDPTPRIME_PERB(1 << endpoint);
+		break;
+	default:
+		debug_print_string("Bad direction");
 	}
 
-	HW_USBCTRL_ENDPTPRIME_SET(
-		endpoint_prime_mask
-	);
+HW_USBCTRL_ENDPTPRIME_SET(endpoint_prime_mask);
 
-	while ((HW_USBCTRL_ENDPTPRIME_RD() & endpoint_prime_mask) != 0)
-		;
+while ((HW_USBCTRL_ENDPTPRIME_RD() & endpoint_prime_mask) != 0)
+	/* do nothing */;
 }
 
 /*
+	USB_QUEUE_TD_IN()
+	-----------------
  * Queue up a transfer descriptor on the given endpoint which sends data inwards to the host.
  *
  * endpoint - Endpoint index
  * direction - One of USB_DIRECTION_OUT, USB_DIRECTION_IN
  * ioc - Interrupt on completion
  */
-void usb_queue_td_in(int endpoint, const char * buffer, unsigned int length, int ioc) {
-	struct endpoint_queue_head * dQH = &endpoint_queueheads[endpoint * DIRECTIONS_PER_ENDPOINT + USB_DIRECTION_IN];
+void usb_queue_td_in(int endpoint, const char * buffer, unsigned int length, int ioc)
+{
+struct endpoint_queue_head *dQH = &endpoint_queueheads[endpoint * DIRECTIONS_PER_ENDPOINT + USB_DIRECTION_IN];
 
-	// We'll use the first TD structure in the queue for this endpoint
-	struct endpoint_td * dTD = (struct endpoint_td*) ((uintptr_t) dQH->td_overlay_area.next_td_ptr & ~0x01);
+// We'll use the first TD structure in the queue for this endpoint
+struct endpoint_td *dTD = (struct endpoint_td*) ((uintptr_t) dQH->td_overlay_area.next_td_ptr & ~0x01);
 
-	memcpy(dTD->buff_ptr0, buffer, length);
+memcpy(dTD->buff_ptr0, buffer, length);
 
-	dTD->next_td_ptr = (struct endpoint_td *) 0x01; //No TD follow this one
-	dTD->size_ioc_sts =
-			length << 16
-			| (ioc ? 1 : 0) << 15
-			| 0x80; //Status = active
+dTD->next_td_ptr = (struct endpoint_td *) 0x01; //No TD follow this one
+dTD->size_ioc_sts =
+	length << 16
+	| (ioc ? 1 : 0) << 15
+	| 0x80; //Status = active
 
-	dQH->td_overlay_area.next_td_ptr = dTD; //Activate this TD by clearing the 'T' bit in the queue head next ptr
+dQH->td_overlay_area.next_td_ptr = dTD; //Activate this TD by clearing the 'T' bit in the queue head next ptr
 
-	usb_prime_endpoint(endpoint, USB_DIRECTION_IN); //Signal the controller to start processing this queuehead
+usb_prime_endpoint(endpoint, USB_DIRECTION_IN); //Signal the controller to start processing this queuehead
 }
 
 /*
+	USB_QUEUE_TD_OUT()
+	------------------
  * Queue up a transfer descriptor on the given endpoint which receives data sent out from the host.
  *
  * endpoint - Endpoint index
  * direction - One of USB_DIRECTION_OUT, USB_DIRECTION_IN
  * ioc - Interrupt on completion
- */
-void usb_queue_td_out(int endpoint, unsigned int length, int ioc) {
-	struct endpoint_queue_head * dQH = &endpoint_queueheads[endpoint * DIRECTIONS_PER_ENDPOINT + USB_DIRECTION_OUT];
+*/
+void usb_queue_td_out(int endpoint, unsigned int length, int ioc)
+{
+struct endpoint_queue_head *dQH = &endpoint_queueheads[endpoint * DIRECTIONS_PER_ENDPOINT + USB_DIRECTION_OUT];
 
-	// We'll use the first TD structure in the queue for this endpoint
-	struct endpoint_td * dTD = (struct endpoint_td*) ((uintptr_t) dQH->td_overlay_area.next_td_ptr & ~0x01);
+// We'll use the first TD structure in the queue for this endpoint
+struct endpoint_td *dTD = (struct endpoint_td*) ((uintptr_t) dQH->td_overlay_area.next_td_ptr & ~0x01);
 
-	dTD->next_td_ptr = (struct endpoint_td *) 0x01; //No TD follow this one
-	dTD->size_ioc_sts =
-			length << 16
-			| (ioc ? 1 : 0) << 15
-			| 0x80; //Status = active
+dTD->next_td_ptr = (struct endpoint_td *) 0x01; //No TD follow this one
+dTD->size_ioc_sts =
+	length << 16
+	| (ioc ? 1 : 0) << 15
+	| 0x80; //Status = active
 
-	dQH->td_overlay_area.next_td_ptr = dTD; //Activate this TD by clearing the 'T' bit in the queue head next ptr
+dQH->td_overlay_area.next_td_ptr = dTD; //Activate this TD by clearing the 'T' bit in the queue head next ptr
 
-	usb_prime_endpoint(endpoint, USB_DIRECTION_OUT); //Signal the controller to start processing this queuehead
+usb_prime_endpoint(endpoint, USB_DIRECTION_OUT); //Signal the controller to start processing this queuehead
 }
 
-void handle_usb_get_descriptor(struct usb_setup_packet req) {
-	int descriptor_type = req.wValue >> 8;
-	int descriptor_index = req.wValue & 0xFF;
-	int descriptor_length = req.wLength;
-	char buffer[64];
-	int i;
+/*
+	HANDLE_USB_GET_DESCRIPTOR()
+	---------------------------
+*/
+void handle_usb_get_descriptor(struct usb_setup_packet req)
+{
+int descriptor_type = req.wValue >> 8;
+int descriptor_index = req.wValue & 0xFF;
+int descriptor_length = req.wLength;
 
-	switch (descriptor_type) {
-		case USB_DESCRIPTOR_TYPE_DEVICE:
-			usb_queue_td_in(DEVICE_ENDPOINT_CONTROL, (char*)&our_device_descriptor, sizeof(our_device_descriptor), 0);
+switch (descriptor_type)
+	{
+	case USB_DESCRIPTOR_TYPE_DEVICE:
+		debug_print_string("USB_DESCRIPTOR_TYPE_DEVICE\r\n");
+		usb_queue_td_in(DEVICE_ENDPOINT_CONTROL, (char*)&our_device_descriptor, sizeof(our_device_descriptor), 0);
 
-			//We expect to receive a zero-byte confirmation from the host, and we'll ask for an interrupt when that occurs
-			usb_queue_td_out(DEVICE_ENDPOINT_CONTROL, 0, 1);
+		//We expect to receive a zero-byte confirmation from the host, and we'll ask for an interrupt when that occurs
+		usb_queue_td_out(DEVICE_ENDPOINT_CONTROL, 0, 1);
 
-			debug_print_string("Replied to host's request for our device descriptor.\r\n");
+		debug_print_string("Replied to host's request for our device descriptor.\r\n");
 		break;
-/*		case USB_DESCRIPTOR_TYPE_CONFIGURATION:
-			//Transmit some nonsense configuration to the host
-			for (i = 0; i < 64; i++) {
-				buffer[i] = i;
-			}
-			usb_queue_td_in(DEVICE_ENDPOINT_CONTROL, buffer, 64, 0);
+/*
+	case USB_DESCRIPTOR_TYPE_CONFIGURATION:
+		{
+		debug_print_string("USB_DESCRIPTOR_TYPE_CONFIGURATION\r\n");
+		char buffer[64];
+		int i;
 
-			//We expect to receive a zero-byte confirmation from the host, and we'll ask for an interrupt when that occurs
-			usb_queue_td_out(DEVICE_ENDPOINT_CONTROL, 0, 1);
-		break;*/
-		default:
-			debug_print_string("Unknown USB descriptor request received:\r\n");
-			debug_print_this("Type:" , descriptor_type, "");
-			debug_print_this("Index:" , descriptor_index, "");
-			debug_print_this("Length:" , descriptor_length, "");
+		//Transmit some nonsense configuration to the host
+		for (i = 0; i < 64; i++)
+			buffer[i] = i;
+		usb_queue_td_in(DEVICE_ENDPOINT_CONTROL, buffer, 64, 0);
+
+		//We expect to receive a zero-byte confirmation from the host, and we'll ask for an interrupt when that occurs
+		usb_queue_td_out(DEVICE_ENDPOINT_CONTROL, 0, 1);
+		break;
+		}
+*/
+	default:
+		debug_print_string("Unknown USB descriptor request received:\r\n");
+		debug_print_this("Type:" , descriptor_type, "");
+		debug_print_this("Index:" , descriptor_index, "");
+		debug_print_this("Length:" , descriptor_length, "");
 	}
 }
 
-void handle_usb_interrupt() {
-	int handled = 0;
-	uint16_t new_address;
+/*
+	HANDLE_USB_INTERRUPT()
+	----------------------
+*/
+void handle_usb_interrupt(void)
+{
+int handled = 0;
+uint16_t new_address;
 
-	//Do we have a pending endpoint setup event to handle?
-	if (HW_USBCTRL_ENDPTSETUPSTAT_RD() & 0x1F) {
-		int endpoint;
+//Do we have a pending endpoint setup event to handle?
+if (HW_USBCTRL_ENDPTSETUPSTAT_RD() & 0x1F)
+	{
+	int endpoint;
 
-		for (endpoint = 0; endpoint < 5; endpoint++) {
-			if (HW_USBCTRL_ENDPTSETUPSTAT_RD() & (1 << endpoint)) {
-				int i;
-				struct usb_setup_packet setup_packet;
+	for (endpoint = 0; endpoint < 5; endpoint++)
+		{
+		if (HW_USBCTRL_ENDPTSETUPSTAT_RD() & (1 << endpoint))
+			{
+			debug_print_string("USB SETUP request.\r\n");
+		
+			struct usb_setup_packet setup_packet;
 
-				/* We'll be slowly copying the setup packet from the endpoint descriptor.
-				 *
-				 * While we are doing that, another setup packet might arrive, and we'd
-				 * end up with a corrupt setup packet.
-				 *
-				 * So we set the tripwire and the hardware will clear it for us if another
-				 * packet arrives while we're busy:
-				 */
-				do {
-					HW_USBCTRL_USBCMD.B.SUTW = 1;
+			/* We'll be slowly copying the setup packet from the endpoint descriptor.
+			*
+			* While we are doing that, another setup packet might arrive, and we'd
+			* end up with a corrupt setup packet.
+			*
+			* So we set the tripwire and the hardware will clear it for us if another
+			* packet arrives while we're busy:
+			*/
+			do
+				{
+				HW_USBCTRL_USBCMD.B.SUTW = 1;
+				setup_packet = endpoint_queueheads[endpoint].setup_buffer;
+				}
+			while (HW_USBCTRL_USBCMD.B.SUTW == 0); //Keep looping until we succeed
 
-					setup_packet = endpoint_queueheads[endpoint].setup_buffer;
+			HW_USBCTRL_USBCMD.B.SUTW = 0;
 
-				} while (HW_USBCTRL_USBCMD.B.SUTW == 0); //Keep looping until we succeed
+			//Clear the bit in the setup status register by writing a 1 there:
+			do
+				HW_USBCTRL_ENDPTSETUPSTAT_WR(1 << endpoint);
+			while (HW_USBCTRL_ENDPTSETUPSTAT_RD() & (1 << endpoint));
 
-				HW_USBCTRL_USBCMD.B.SUTW = 0;
-
-				//Clear the bit in the setup status register by writing a 1 there:
-				do {
-					HW_USBCTRL_ENDPTSETUPSTAT_WR(1 << endpoint);
-				} while (HW_USBCTRL_ENDPTSETUPSTAT_RD() & (1 << endpoint));
-
-				if (setup_packet.bmRequestType & 0x80) {
-					//Packets with a device-to-host data phase direction
-					switch (setup_packet.bRequest) {
+			if (setup_packet.bmRequestType & 0x80)
+				{
+				//Packets with a device-to-host data phase direction
+				switch (setup_packet.bRequest)
+					{
 					case USB_REQ_GET_DESCRIPTOR:
 						handle_usb_get_descriptor(setup_packet);
 						handled = 1;
@@ -501,98 +546,123 @@ void handle_usb_interrupt() {
 					default:
 						debug_print_this("Unhandled device-to-host data direction setup request ", setup_packet.bRequest, " was received.");
 					}
-				} else {
-					switch (setup_packet.bRequest) {
-						case USB_REQ_SET_ADDRESS:
-							new_address = setup_packet.wValue;
+				}
+			else
+				{
+				switch (setup_packet.bRequest)
+					{
+					case USB_REQ_SET_ADDRESS:
+						new_address = setup_packet.wValue;
 
-							HW_USBCTRL_DEVICEADDR_WR(
-								BF_USBCTRL_DEVICEADDR_USBADR(new_address)
-								| BM_USBCTRL_DEVICEADDR_USBADRA
-							);
+						HW_USBCTRL_DEVICEADDR_WR(
+							BF_USBCTRL_DEVICEADDR_USBADR(new_address)
+							| BM_USBCTRL_DEVICEADDR_USBADRA
+						);
 
-							usb_state = USB_DEVICE_STATE_ADDRESSED;
+						usb_state = USB_DEVICE_STATE_ADDRESSED;
 
-							handled = 1;
+						handled = 1;
 
-							debug_print_this("Host has set our address to ", new_address, ".");
-							break;
-						default:
-							//Packets with a host-to-device data phase direction
-							debug_print_this("Unhandled host-to-device data direction setup request ", setup_packet.bRequest, " was received.");
+						debug_print_this("Host has set our address to ", new_address, ".");
+						break;
+					default:
+						//Packets with a host-to-device data phase direction
+						debug_print_this("Unhandled host-to-device data direction setup request ", setup_packet.bRequest, " was received.");
 					}
 				}
-
-				handled = 1;
+		
+			handled = 1;
 			}
 		}
 	}
+else
+	debug_print_string("Request for something other than a setup\r\n");
 
-	if (!handled) {
-	//	debug_print_string("We got a USB interrupt, but we didn't do anything in response.\r\n");
-	}
+if (!handled)
+	debug_print_string("We got a USB interrupt, but we didn't do anything in response.\r\n");
 
-	HW_USBCTRL_USBSTS_SET(BM_USBCTRL_USBSTS_UI);
+HW_USBCTRL_USBSTS_SET(BM_USBCTRL_USBSTS_UI);
 }
 
 /*
- ATOSE_ISR_IRQ()
- ---------------
- */
-uint32_t ATOSE_isr_irq(ATOSE_registers *registers) {
-	volatile uint32_t got = 0;
+	ATOSE_ISR_IRQ()
+	---------------
+*/
+uint32_t ATOSE_isr_irq(ATOSE_registers *registers)
+{
+volatile uint32_t got = 0;
 
-	/*
-	 Tell the ICOLL we've entered the ISR.  This is either a side-effect of the read or a write is required
-	 */
-	got = HW_ICOLL_VECTOR_RD();
-	got = HW_ICOLL_STAT_RD();			// this will return VECTOR_IRQ_RTC_1MSEC
+/*
+	Tell the ICOLL we've entered the ISR.  This is either a side-effect of the read or a write is required
+*/
+got = HW_ICOLL_VECTOR_RD();
+got = HW_ICOLL_STAT_RD();
 
-	/*
-	 Print the ID of the interrupt we just got
-	 */
 
-	if (got == VECTOR_IRQ_USB_CTRL) {
-		hw_usbctrl_usbsts_t usb_status = HW_USBCTRL_USBSTS;
+if (got == VECTOR_IRQ_USB_CTRL)
+	{
+	debug_print_string(" [USB] ");
+	hw_usbctrl_usbsts_t usb_status = HW_USBCTRL_USBSTS;
 
-		if (usb_status.B.TI0) {
-			debug_print_string(" [I: USB TI0] ");
+	if (usb_status.B.TI0)
+		{
+		debug_print_string(" [I: USB TI0] \r\n");
 
-			HW_USBCTRL_USBSTS_SET(BM_USBCTRL_USBSTS_TI0);
-		} else if (usb_status.B.TI1) {
-			debug_print_string(" [I: USB TI1] ");
-
-			HW_USBCTRL_USBSTS_SET(BM_USBCTRL_USBSTS_TI1);
-		} else if (usb_status.B.URI) {
-			debug_print_string(" [I: USB reset] ");
-
-			usb_state = USB_DEVICE_STATE_DEFAULT;
-
-			//We clear our device address when we're reset:
-			HW_USBCTRL_DEVICEADDR_WR(0);
-
-			HW_USBCTRL_USBSTS_SET(BM_USBCTRL_USBSTS_URI);
-		} else if (usb_status.B.UEI) {
-			debug_print_string(" [I: USB error interrupt ] ");
-
-			HW_USBCTRL_USBSTS_SET(BM_USBCTRL_USBSTS_UEI);
-		} else if (usb_status.B.UI) {
-			handle_usb_interrupt();
-		} else {
-			debug_print_string(" [I: Unknown USB interrupt ] ");
+		HW_USBCTRL_USBSTS_SET(BM_USBCTRL_USBSTS_TI0);
 		}
-	} else {
-		 debug_print_string("[->");
-		 debug_print_hex(got);
-		 debug_print_string("<-]");
+	else if (usb_status.B.TI1)
+		{
+		debug_print_string(" [I: USB TI1] \r\n");
+
+		HW_USBCTRL_USBSTS_SET(BM_USBCTRL_USBSTS_TI1);
+		}
+	else if (usb_status.B.URI)
+		{
+		debug_print_string(" [I: USB reset] \r\n");
+
+		usb_state = USB_DEVICE_STATE_DEFAULT;
+
+		//We clear our device address when we're reset:
+		HW_USBCTRL_DEVICEADDR_WR(0);
+
+		HW_USBCTRL_USBSTS_SET(BM_USBCTRL_USBSTS_URI);
+		}
+	else if (usb_status.B.UEI)
+		{
+		debug_print_string(" [I: USB error interrupt ] \r\n");
+
+		HW_USBCTRL_USBSTS_SET(BM_USBCTRL_USBSTS_UEI);
+		}
+	else if (usb_status.B.UI)
+		{
+		debug_print_string(" [I: USB UI Interrupt ] \r\n");
+		handle_usb_interrupt();
+		} 
+	else if (usb_status.B.PCI)
+		{
+		debug_print_string(" [I: USB Port Change Interrupt ] \r\n");
+		HW_USBCTRL_USBSTS_SET(BM_USBCTRL_USBSTS_PCI);
+		} 
+	else 
+		{
+		debug_print_string(" [I: Unknown USB interrupt ] \r\n");
+		}
+	} 
+else 
+	{
+	debug_print_string("[->");
+	debug_print_hex(got);
+	debug_print_string("<-]\r\n");
 	}
 
-	//TODO signal the APBX that we've handled an interrupt
+//TODO signal the APBX that we've handled an interrupt
 
-	/*
-	 Tell the interrupt controller that we've finished processing the Interrupt
-	 */
-	HW_ICOLL_LEVELACK_WR(BV_ICOLL_LEVELACK_IRQLEVELACK__LEVEL0);
+/*
+	Tell the interrupt controller that we've finished processing the Interrupt
+*/
+HW_ICOLL_LEVELACK_WR(BV_ICOLL_LEVELACK_IRQLEVELACK__LEVEL0);
+
+return 0;
 }
 
 /*
@@ -654,6 +724,10 @@ uint32_t ns_to_gpmi_clocks(uint32_t ns, uint32_t freq_in_mhz) {
 	return ns_to_cycles(ns, clock_period_in_ns, 1);
 }
 
+/*
+	APBX_RESET()
+	------------
+*/
 void apbx_reset() {
 	//Clear SFTRST
 	HW_APBX_CTRL0_CLR(BM_APBX_CTRL0_SFTRST);
@@ -691,206 +765,231 @@ void apbx_reset() {
 	} while (HW_APBX_CTRL0.B.CLKGATE);
 }
 
-void usb_phy_startup() {
-	/*	HW_CLKCTRL_XBUS.B.DIV = 20; // "make sure XBUS is lower than HBUS"
+/*
+	USB_PHY_STARTUP()
+	-----------------
+*/
+void usb_phy_startup()
+{
+//	HW_CLKCTRL_XBUS.B.DIV = 20; // "make sure XBUS is lower than HBUS"
+
+HW_CLKCTRL_XBUS.B.DIV = 1;
+
+HW_CLKCTRL_PLLCTRL0_SET(BM_CLKCTRL_PLLCTRL0_EN_USB_CLKS);
+
+//First do a soft-reset of the PHY
+
+//Clear SFTRST
+HW_USBPHY_CTRL_CLR(BM_USBPHY_CTRL_SFTRST);
+
+//Wait for SFTRST to fall
+do
+	{
+	delay_us(1);
+	}
+while (HW_USBPHY_CTRL.B.SFTRST);
+
+//Clear CLKGATE to wait for SFTRST to assert it
+HW_USBPHY_CTRL_CLR(BM_USBPHY_CTRL_CLKGATE);
+
+//Soft reset
+HW_USBPHY_CTRL_SET(BM_USBPHY_CTRL_SFTRST);
+
+//Wait for CLKGATE to be brought high by the reset process
+while (!HW_USBPHY_CTRL.B.CLKGATE)
+	{
+	//Nothing
+	}
+
+//Bring out of reset
+HW_USBPHY_CTRL_CLR(BM_USBPHY_CTRL_SFTRST);
+
+//Wait for that to complete
+do
+	{
+	delay_us(1);
+	}
+while (HW_USBPHY_CTRL.B.SFTRST);
+
+//Enable clock again
+HW_USBPHY_CTRL_CLR(BM_USBPHY_CTRL_CLKGATE);
+
+//Wait for that to complete
+do
+	{
+	delay_us(1);
+	}
+while (HW_USBPHY_CTRL.B.CLKGATE);
+
+HW_USBPHY_PWD_WR(0); //Bring USB PHY components out of powerdown state
+
+//Clear HW_POWER_CTRL_CLKGATE (we will assume this already happened in powerprep)
+
+//For some unexplained reason we should:
+HW_POWER_DEBUG_SET(
+BM_POWER_DEBUG_VBUSVALIDPIOLOCK |
+BM_POWER_DEBUG_AVALIDPIOLOCK |
+BM_POWER_DEBUG_BVALIDPIOLOCK
+);
+
+HW_POWER_STS_SET(
+BM_POWER_STS_VBUSVALID |
+BM_POWER_STS_AVALID |
+BM_POWER_STS_BVALID
+);
+}
+
+/*
+	USB_SETUP_ENDPOINTS()
+	---------------------
+*/
+void usb_setup_endpoints()
+{
+int i;
+/*
+	Endpoint0 is configured by default as a control endpoint so we don't need to touch that one.
+*/
+//Configure endpoint1
+hw_usbctrl_endptctrln_t endpointcfg;
+
+endpointcfg.U = 0;
+
+endpointcfg.B.TXE = 1; //TX endpoint enable
+endpointcfg.B.TXR = 0; //TX data toggle reset
+endpointcfg.B.TXI = 0; //TX data toggle inhibit
+endpointcfg.B.TXT = BV_USBCTRL_ENDPTCTRLn_TXT__INT; //TX endpoint transmit type
+endpointcfg.B.TXD = 0; //TX data source = DMA engine
+endpointcfg.B.TXS = 0; //TX endpoint stall
+
+endpointcfg.B.RXE = 1; //RX endpoint enable
+endpointcfg.B.RXR = 0; //RX data toggle reset
+endpointcfg.B.RXI = 0; //RX data toggle inhibit
+endpointcfg.B.RXT = BV_USBCTRL_ENDPTCTRLn_RXT__INT; //RX endpoint receive type
+endpointcfg.B.RXD = 0; //RX data sink = DMA engine
+endpointcfg.B.RXS = 0; //RX endpoint stall
+
+HW_USBCTRL_ENDPTCTRLn_WR(1, endpointcfg.U);
+
+/*
+	Queue heads must lie in internal memory for controller speed requirements.
+	Lower 11 bits of address cannot be set so we must have a 2K alignment.
+*/
+//We allocate one queue head for each endpoint and each direction of that endpoint (2 directions)
+endpoint_queueheads = internal_memory_alloc((sizeof *endpoint_queueheads) * NUM_ENDPOINTS * DIRECTIONS_PER_ENDPOINT, 2048);
+memset(endpoint_queueheads, 0, (sizeof *endpoint_queueheads) * NUM_ENDPOINTS  * DIRECTIONS_PER_ENDPOINT);
+
+endpoint_queueheads[0].max_pkt_length = (64 << 16) | (1 << 15); //Control OUT endpoint, 64 byte max packet size, interrupt on setup
+endpoint_queueheads[1].max_pkt_length = (64 << 16) | (1 << 15); //Control IN endpoint, 64 byte max packet size, interrupt on setup
+
+char *td_buffers[NUM_ENDPOINTS * DIRECTIONS_PER_ENDPOINT];
+
+/*
+	These buffers must not span a 4K page boundary.
+	We're allocating these before the next loop so we're not mixing memory allocation sizes.
+	i.e. we're alrady aligned to 2K so we must be aligned to a K boundary and we therefore cannot cross a 4K boundary by allocating 1K
+*/
+for (i = 0; i < NUM_ENDPOINTS * DIRECTIONS_PER_ENDPOINT; i++)
+	td_buffers[i] = main_memory_alloc(1024, 1024);
+
+for (i = 0; i < NUM_ENDPOINTS  * DIRECTIONS_PER_ENDPOINT; i++)
+	{
+	struct endpoint_td *td = main_memory_alloc(sizeof *td, 32);
+
+	memset(td, 0, sizeof(*td));
+
+	td->next_td_ptr = (struct endpoint_td *) 1; //Lowbit set means the next pointer is invalid (no next struct)
+	td->size_ioc_sts = 1 << 15; //Interrupt on completion
+
+	/*
+		We'll only provide enough buffers for a single page transfer, so only set one of the
+		buffer pointers.
 	*/
+	td->buff_ptr0 = td_buffers[i];
 
-	HW_CLKCTRL_XBUS.B.DIV = 1;
-
-	HW_CLKCTRL_PLLCTRL0_SET(BM_CLKCTRL_PLLCTRL0_EN_USB_CLKS);
-
-	//First do a soft-reset of the PHY
-
-	//Clear SFTRST
-	HW_USBPHY_CTRL_CLR(BM_USBPHY_CTRL_SFTRST);
-
-	//Wait for SFTRST to fall
-	do {
-		delay_us(1);
-	} while (HW_USBPHY_CTRL.B.SFTRST);
-
-	//Clear CLKGATE to wait for SFTRST to assert it
-	HW_USBPHY_CTRL_CLR(BM_USBPHY_CTRL_CLKGATE);
-
-	//Soft reset
-	HW_USBPHY_CTRL_SET(BM_USBPHY_CTRL_SFTRST);
-
-	//Wait for CLKGATE to be brought high by the reset process
-	while (!HW_USBPHY_CTRL.B.CLKGATE) {
-		//Nothing
+	//Right now we will have no active TDs, set the low bit of next ptr to show it is invalid
+	endpoint_queueheads[i].td_overlay_area.next_td_ptr = (struct endpoint_td *) ((uintptr_t) td | 1);
 	}
 
-	//Bring out of reset
-	HW_USBPHY_CTRL_CLR(BM_USBPHY_CTRL_SFTRST);
-
-	//Wait for that to complete
-	do {
-		delay_us(1);
-	} while (HW_USBPHY_CTRL.B.SFTRST);
-
-	//Enable clock again
-	HW_USBPHY_CTRL_CLR(BM_USBPHY_CTRL_CLKGATE);
-
-	//Wait for that to complete
-	do {
-		delay_us(1);
-	} while (HW_USBPHY_CTRL.B.CLKGATE);
-
-	HW_USBPHY_PWD_WR(0); //Bring USB PHY components out of powerdown state
-
-	//Clear HW_POWER_CTRL_CLKGATE (we will assume this already happened in powerprep)
-
-	//For some unexplained reason we should:
-	HW_POWER_DEBUG_SET(
-		BM_POWER_DEBUG_VBUSVALIDPIOLOCK |
-		BM_POWER_DEBUG_AVALIDPIOLOCK |
-		BM_POWER_DEBUG_BVALIDPIOLOCK
-	);
-
-	HW_POWER_STS_SET(
-		BM_POWER_STS_VBUSVALID |
-		BM_POWER_STS_AVALID |
-		BM_POWER_STS_BVALID
-	);
+HW_USBCTRL_ENDPOINTLISTADDR_SET((uint32_t)endpoint_queueheads);
 }
 
-void usb_setup_endpoints() {
-	int i;
+/*
+	USB_CONTROLLER_STARTUP()
+	------------------------
+*/
+void usb_controller_startup()
+{
+//Turn on clocks to the USB block
+HW_DIGCTL_CTRL_CLR(BM_DIGCTL_CTRL_USB_CLKGATE);
 
-	/*
-	 * Endpoint0 is configured by default as a control endpoint
-	 * so we don't need to touch that one.
-	 */
+//USB shouldn't be running but let's just verify
+if (HW_USBCTRL_USBCMD.B.RS)
+	{
+	//Stop USB
+	HW_USBCTRL_USBCMD_CLR(BM_USBCTRL_USBCMD_RS);
 
-	//Configure endpoint1
-	hw_usbctrl_endptctrln_t endpointcfg;
-
-	endpointcfg.U = 0;
-
-	endpointcfg.B.TXE = 1; //TX endpoint enable
-	endpointcfg.B.TXR = 0; //TX data toggle reset
-	endpointcfg.B.TXI = 0; //TX data toggle inhibit
-	endpointcfg.B.TXT = BV_USBCTRL_ENDPTCTRLn_TXT__INT; //TX endpoint transmit type
-	endpointcfg.B.TXD = 0; //TX data source = DMA engine
-	endpointcfg.B.TXS = 0; //TX endpoint stall
-
-	endpointcfg.B.RXE = 1; //RX endpoint enable
-	endpointcfg.B.RXR = 0; //RX data toggle reset
-	endpointcfg.B.RXI = 0; //RX data toggle inhibit
-	endpointcfg.B.RXT = BV_USBCTRL_ENDPTCTRLn_RXT__INT; //RX endpoint receive type
-	endpointcfg.B.RXD = 0; //RX data sink = DMA engine
-	endpointcfg.B.RXS = 0; //RX endpoint stall
-
-	HW_USBCTRL_ENDPTCTRLn_WR(1, endpointcfg.U);
-
-	/*
-	 * Queue heads must lie in internal memory for controller speed requirements.
-	 *
-	 * Lower 11 bits of address cannot be set so we must have a 2K alignment.
-	 */
-
-	//We allocate one queue head for each endpoint and each direction of that endpoint (2 directions)
-	endpoint_queueheads = internal_memory_alloc((sizeof *endpoint_queueheads) * NUM_ENDPOINTS  * DIRECTIONS_PER_ENDPOINT, 2048);
-	memset(endpoint_queueheads, 0, (sizeof *endpoint_queueheads) * NUM_ENDPOINTS  * DIRECTIONS_PER_ENDPOINT);
-
-	endpoint_queueheads[0].max_pkt_length = (64 << 16) | (1 << 15); //Control OUT endpoint, 64 byte max packet size, interrupt on setup
-	endpoint_queueheads[1].max_pkt_length = (64 << 16) | (1 << 15); //Control IN endpoint, 64 byte max packet size, interrupt on setup
-
-	char * td_buffers[NUM_ENDPOINTS  * DIRECTIONS_PER_ENDPOINT];
-	for (i = 0; i < NUM_ENDPOINTS  * DIRECTIONS_PER_ENDPOINT; i++) {
-		/* These buffers must not span a 4K page boundary.
-		 *
-		 * We're allocating these before the next loop so we're not mixing memory allocation sizes.
-		 */
-		td_buffers[i] = main_memory_alloc(1024, 1024);
+	//We should be waiting for detach to complete here...
+	delay_us(20000);
 	}
 
-	for (i = 0; i < NUM_ENDPOINTS  * DIRECTIONS_PER_ENDPOINT; i++) {
-		struct endpoint_td *td = main_memory_alloc(sizeof *td, 32);
+//Reset USB
+HW_USBCTRL_USBCMD_SET(BM_USBCTRL_USBCMD_RST);
 
-		memset(td, 0, sizeof(*td));
-
-		td->next_td_ptr = (struct endpoint_td *) 1; //Lowbit set means the next pointer is invalid (no next struct)
-		td->size_ioc_sts = 1 << 15; //Interrupt on completion
-
-		/*
-		 * We'll only provide enough buffers for a single page transfer, so only set one of the
-		 * buffer pointers.
-		 */
-		td->buff_ptr0 = td_buffers[i];
-
-		//Right now we will have no active TDs, set the low bit of next ptr to show it is invalid
-		endpoint_queueheads[i].td_overlay_area.next_td_ptr = (struct endpoint_td *) ((uintptr_t) td | 1);
+while (HW_USBCTRL_USBCMD.B.RST)
+	{
+	//Wait for reset to complete
 	}
 
-	HW_USBCTRL_ENDPOINTLISTADDR_SET((uint32_t)endpoint_queueheads);
+//Clear interrupt status bits that can apply to us as a Device
+
+//These ones are actually cleared by setting them:
+HW_USBCTRL_USBSTS_SET(
+	BM_USBCTRL_USBSTS_URI | // USB Reset Enable 			(ASPT)
+	BM_USBCTRL_USBSTS_PCI | // USB Port Change Detect Enable	(ASPT)
+	BM_USBCTRL_USBSTS_TI0 |
+	BM_USBCTRL_USBSTS_TI1 |
+	BM_USBCTRL_USBSTS_SRI |
+	BM_USBCTRL_USBSTS_URI
+	);
+
+//This one has unspecified clear behaviour so I'm going to assume I can just CLR
+HW_USBCTRL_USBSTS_CLR(BM_USBCTRL_USBSTS_UI);
+
+//We're a USB device not a USB host
+HW_USBCTRL_USBMODE.B.CM = BV_USBCTRL_USBMODE_CM__DEVICE;
+
+HW_USBCTRL_USBINTR_WR(
+//				BM_USBCTRL_USBINTR_SRE | //Interrupt me on Start-Of-Frame
+	BM_USBCTRL_USBINTR_URE | // USB Reset Enable 			(ASPT)
+	BM_USBCTRL_USBINTR_PCE | // USB Port Change Detect Enable	(ASPT)
+
+	BM_USBCTRL_USBINTR_UE | //USBINT
+	BM_USBCTRL_USBINTR_SEE | //System error
+	BM_USBCTRL_USBINTR_TIE0 | //Interrupt on general purpose timer 0
+	BM_USBCTRL_USBINTR_TIE1 //Interrupt on general purpose timer 1
+	);
+
+HW_USBCTRL_DEVICEADDR_WR(0); //This should be the reset default but let's make sure
+
+HW_USBCTRL_ENDPTSETUPSTAT_WR(0);
+
+usb_setup_endpoints();
+
+HW_USBCTRL_PORTSC1.B.PSPD = 0; //Full speed (12Mbps) (default)
+
+//Disable setup lockout mode
+HW_USBCTRL_USBMODE.B.SLOM = 1;
+
+HW_USBCTRL_USBCMD.B.RS = 1; //Run
 }
 
-void usb_controller_startup() {
-	//Turn on clocks to the USB block
-	HW_DIGCTL_CTRL_CLR(BM_DIGCTL_CTRL_USB_CLKGATE);
-
-	//USB shouldn't be running but let's just verify
-	if (HW_USBCTRL_USBCMD.B.RS) {
-		//Stop USB
-		HW_USBCTRL_USBCMD_CLR(BM_USBCTRL_USBCMD_RS);
-
-		//We should be waiting for detach to complete here...
-		delay_us(20000);
-	}
-
-	//Reset USB
-	HW_USBCTRL_USBCMD_SET(BM_USBCTRL_USBCMD_RST);
-
-	while (HW_USBCTRL_USBCMD.B.RST) {
-		//Wait for reset to complete
-	}
-
-	//Clear interrupt status bits that can apply to us as a Device
-
-	//These ones are actually cleared by setting them:
-	HW_USBCTRL_USBSTS_SET(
-		BM_USBCTRL_USBSTS_TI0 |
-		BM_USBCTRL_USBSTS_TI1 |
-		BM_USBCTRL_USBSTS_SRI |
-		BM_USBCTRL_USBSTS_URI
-	);
-
-	//This one has unspecified clear behaviour so I'm going to assume I can just CLR
-	HW_USBCTRL_USBSTS_CLR(
-		BM_USBCTRL_USBSTS_UI
-	);
-
-	//We're a USB device not a USB host
-	HW_USBCTRL_USBMODE.B.CM = BV_USBCTRL_USBMODE_CM__DEVICE;
-
-	HW_USBCTRL_USBINTR_WR(
-		//BM_USBCTRL_USBINTR_SRE | //Interrupt me on Start-Of-Frame
-		BM_USBCTRL_USBINTR_UE | //USBINT
-		BM_USBCTRL_USBINTR_SEE | //System error
-		BM_USBCTRL_USBINTR_TIE0 | //Interrupt on general purpose timer 0
-		BM_USBCTRL_USBINTR_TIE1 //Interrupt on general purpose timer 1
-	);
-
-	HW_USBCTRL_DEVICEADDR_WR(0); //This should be the reset default but let's make sure
-
-	HW_USBCTRL_ENDPTSETUPSTAT_WR(0);
-
-	usb_setup_endpoints();
-
-	HW_USBCTRL_PORTSC1.B.PSPD = 0; //Full speed (12Mbps) (default)
-
-	//Disable setup lockout mode
-	HW_USBCTRL_USBMODE.B.SLOM = 1;
-
-	HW_USBCTRL_USBCMD.B.RS = 1; //Run
-}
-
-/**
+/*
+	USB_WAIT_FOR_PLUGIN()
+	---------------------
  * This is derived from a sequence diagram in the IMX233 manual... no suggestion is
  * made of when this is allowed to be called or even how to restore pulldowns to their
  * original state.
- */
+*/
 void usb_wait_for_plugin() {
 	//Take control of 15K pulldown resistor
 	HW_USBPHY_DEBUG_SET(BM_USBPHY_DEBUG_ENHSTPULLDOWN);
@@ -915,6 +1014,10 @@ void usb_wait_for_plugin() {
 	HW_USBPHY_CTRL_CLR(BM_USBPHY_CTRL_ENDEVPLUGINDETECT);
 }
 
+/*
+	USB_WAIT_FOR_UNPLUG()
+	---------------------
+*/
 void usb_wait_for_unplug() {
 	//Take control of 15K pulldown resistor
 	HW_USBPHY_DEBUG_SET(BM_USBPHY_DEBUG_ENHSTPULLDOWN);
@@ -940,124 +1043,171 @@ void usb_wait_for_unplug() {
 }
 
 /*
- C_ENTRY()
- ---------
- */
-void c_entry(void) {
-	uint32_t irq_stack[256];
-	uint32_t *irq_sp = irq_stack + sizeof(irq_stack);
+	C_ENTRY()
+	---------
+*/
+void c_entry(void)
+{
+uint32_t irq_stack[256];
+uint32_t *irq_sp = irq_stack + sizeof(irq_stack);
 
-	//Magic to get around the brownout problem in the FourARM
-	HW_POWER_VDDIOCTRL.B.PWDN_BRNOUT = 0;
+/*
+	Magic to get around the brownout problem in the FourARM
+*/
+HW_POWER_VDDIOCTRL.B.PWDN_BRNOUT = 0;
 
-	extern void (*start_ctors)();
-	extern void (*end_ctors)();
-	void (**constructor)() = &start_ctors;
+/*
+	call all C++ static object constructors
+*/
+extern void (*start_ctors)();
+extern void (*end_ctors)();
+void (**constructor)() = &start_ctors;
 
-	while (constructor < &end_ctors)
-		{
-		(*constructor)();
-		constructor++;
-		}
-
-	extern uint32_t ATOSE_top_of_memory;
-
-	internal_memory_head = (char *) &ATOSE_top_of_memory;
-
-	//Set up the IRQ stack
-	asm volatile
-	(
-		"mov r2, %[stack];"
-		"mrs r0, cpsr;"							// get the current mode
-		"bic r1, r0, #0x1F;"// turn off the mode bits
-		"orr r1, r1, #0x12;"// turn on the IRQ bits
-		"msr cpsr, r1;"// go into IRQ mode
-		"mov sp, r2;"// set the stack top
-		"msr cpsr, r0;"// back to original mode
-		:
-		: [stack]"r"(irq_sp)
-		: "r0", "r1", "r2"
-	);
-
-	/*
-	 Move the interrupt vector table to 0x00000000
-	 */
-	uint32_t p15;
-	asm volatile
-	(
-		"MRC p15, 0, R0, c1, c0, 0;"			// read control register
-		"AND R0, #~(1<<13);"// turn off the high-interrupt vector table bit
-		"MCR p15, 0, R0, c1, c0, 0;"// write control register
-		:
-		:
-		: "r0"
-	);
-
-	/*
-	 Program Interrupt controller (i.MX233 ICOLL)
-	 */
-	HW_ICOLL_CTRL_WR(0); // reset the interrupt controller
-	HW_ICOLL_INTERRUPTn_SET(VECTOR_IRQ_USB_WAKEUP, BM_ICOLL_INTERRUPTn_ENABLE);
-	HW_ICOLL_INTERRUPTn_SET(VECTOR_IRQ_USB_CTRL, BM_ICOLL_INTERRUPTn_ENABLE);
-
-	// Tell the PIC to pass interrupts on to the CPU (and do ARM-style ISRs)
-	HW_ICOLL_CTRL_SET(
-		BM_ICOLL_CTRL_ARM_RSE_MODE |
-		BM_ICOLL_CTRL_IRQ_FINAL_ENABLE
-	);
-
-	enable_IRQ();
-
-	debug_print_string("APBX reset...");
-	apbx_reset();
-	debug_print_string(" done!\r\n");
-
-	debug_print_string("USB PHY startup... ");
-	usb_phy_startup();
-	debug_print_string(" done!\r\n");
-
-	debug_print_string("USB controller startup... ");
-	usb_controller_startup();
-	debug_print_string(" done!\r\n");
-
-	debug_print_string("\r\nSystem online.\r\n");
-
-	/*debug_print_string("Let's set a timer for 3 seconds from now...");
-
-	HW_USBCTRL_GPTIMER0LD.B.GPTLD = 3000000;
-
-	hw_usbctrl_gptimer0ctrl_t timer_setup;
-
-	timer_setup.U = 0;
-	timer_setup.B.GPTRUN = 1;
-	timer_setup.B.GPTRST = 1;
-	timer_setup.B.GPTMODE = BV_USBCTRL_GPTIMER0CTRL_GPTMODE__ONESHOT;
-
-	//Clear the timer interrupt first
-	HW_USBCTRL_USBSTS_SET(BM_USBCTRL_USBSTS_TI0);
-
-	debug_print_string("USB status register: ");
-	debug_print_hex(HW_USBCTRL_USBSTS_RD());
-	debug_print_string("\r\n");
-
-	HW_USBCTRL_GPTIMER0CTRL_WR(timer_setup.U);
-
-	do {
-		debug_print_hex(HW_USBCTRL_GPTIMER0CTRL.B.GPTCNT);
-		debug_print_string("\r\n");
-		delay_us(200000);
-	} while (HW_USBCTRL_GPTIMER0CTRL.B.GPTCNT);*/
-
-	debug_print_string("USB status register: ");
-	debug_print_hex(HW_USBCTRL_USBSTS_RD());
-	debug_print_string("\r\n");
-
-	while (1) {
-
+while (constructor < &end_ctors)
+	{
+	(*constructor)();
+	constructor++;
 	}
 
-	debug_print_this("USB endptsetup register: ", HW_USBCTRL_ENDPTSETUPSTAT_RD(), "");
+/*
+	Find the top of memory
+*/
+extern uint32_t ATOSE_start_of_heap;
 
-	for (;;)
-		;				// loop forever
+internal_memory_head = (char *) &ATOSE_start_of_heap;
+
+//Set up the IRQ stack
+asm volatile
+	(
+	"mov r2, %[stack];"
+	"mrs r0, cpsr;"							// get the current mode
+	"bic r1, r0, #0x1F;"					// turn off the mode bits
+	"orr r1, r1, #0x12;"					// turn on the IRQ bits
+	"msr cpsr, r1;"							// go into IRQ mode
+	"mov sp, r2;"							// set the stack top
+	"msr cpsr, r0;"							// back to original mode
+	:
+	: [stack]"r"(irq_sp)
+	: "r0", "r1", "r2"
+	);
+
+/*
+	Move the interrupt vector table to 0x00000000
+*/
+asm volatile
+	(
+	"MRC p15, 0, R0, c1, c0, 0;"			// read control register
+	"AND R0, #~(1<<13);"					// turn off the high-interrupt vector table bit
+	"MCR p15, 0, R0, c1, c0, 0;"			// write control register
+	:
+	:
+	: "r0"
+	);
+
+/*
+	Program Interrupt controller (i.MX233 ICOLL)
+*/
+HW_ICOLL_CTRL_WR(0); // reset the interrupt controller
+
+/*
+	Enable USB WAKE UP and USB CTRL
+*/
+HW_ICOLL_INTERRUPTn_SET(VECTOR_IRQ_USB_WAKEUP, BM_ICOLL_INTERRUPTn_ENABLE);
+HW_ICOLL_INTERRUPTn_SET(VECTOR_IRQ_USB_CTRL, BM_ICOLL_INTERRUPTn_ENABLE);
+
+/*
+	Tell the PIC to pass interrupts on to the CPU (and do ARM-style ISRs)
+*/
+HW_ICOLL_CTRL_SET(
+	BM_ICOLL_CTRL_ARM_RSE_MODE |
+	BM_ICOLL_CTRL_IRQ_FINAL_ENABLE
+	);
+
+/*
+	Now we allow IRQ interrupts
+*/
+enable_IRQ();
+
+/*
+	Reset the APBX
+*/
+debug_print_string("APBX reset...");
+apbx_reset();
+debug_print_string(" done!\r\n");
+
+/*
+	Enable the PHY (physical interface)
+*/
+debug_print_string("USB PHY startup... ");
+usb_phy_startup();
+debug_print_string(" done!\r\n");
+
+/*
+	Start the USB Controller
+*/
+debug_print_string("USB controller startup... ");
+usb_controller_startup();
+debug_print_string(" done!\r\n");
+
+debug_print_string("\r\nSystem online.\r\n");
+
+#ifdef NEVER
+/*
+			debug_print_string("Let's set a timer for 3 seconds from now...");
+
+			HW_USBCTRL_GPTIMER0LD.B.GPTLD = 3000000;
+
+			hw_usbctrl_gptimer0ctrl_t timer_setup;
+
+			timer_setup.U = 0;
+			timer_setup.B.GPTRUN = 1;
+			timer_setup.B.GPTRST = 1;
+			timer_setup.B.GPTMODE = BV_USBCTRL_GPTIMER0CTRL_GPTMODE__ONESHOT;
+
+			//Clear the timer interrupt first
+			HW_USBCTRL_USBSTS_SET(BM_USBCTRL_USBSTS_TI0);
+
+			debug_print_string("USB status register: ");
+			debug_print_hex(HW_USBCTRL_USBSTS_RD());
+			debug_print_string("\r\n");
+
+			HW_USBCTRL_GPTIMER0CTRL_WR(timer_setup.U);
+
+			do
+				{
+				debug_print_hex(HW_USBCTRL_GPTIMER0CTRL.B.GPTCNT);
+				debug_print_string("\r\n");
+				delay_us(200000);
+				} while (HW_USBCTRL_GPTIMER0CTRL.B.GPTCNT);
+*/
+#endif
+
+
+debug_print_string("USB status register: ");
+debug_print_hex(HW_USBCTRL_USBSTS_RD());
+debug_print_string("\r\n");
+
+uint32_t done = 0;
+while (1)
+	{
+	if ((HW_USBCTRL_ENDPTSETUPSTAT_RD() != 0) & !done)
+		{
+		done = 1;
+		debug_print_string("[SETUP]");
+
+		debug_print_string("USB status register: ");
+		debug_print_hex(HW_USBCTRL_USBSTS_RD());
+		debug_print_string("\r\n");
+		}
+
+/*	debug_print_string("ENDPTSETUPSTAT: ");
+	debug_print_hex(HW_USBCTRL_ENDPTSETUPSTAT_RD());
+	debug_print_string("\r\n");
+*/
+	}
+
+debug_print_this("USB endptsetup register: ", HW_USBCTRL_ENDPTSETUPSTAT_RD(), "");
+
+for (;;)
+;				// loop forever
 }
