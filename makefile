@@ -18,7 +18,7 @@ CPU = ARM926
 !ENDIF
 
 CCC = arm-none-eabi-gcc
-CCCFLAGS = -mcpu=arm926ej-s  -D$(CPU) -D$(TARGET) -Os -g3 -Wall
+CCCFLAGS = -mcpu=arm926ej-s  -D$(CPU) -D$(TARGET) -g3 -Wall -Os
 CC = @arm-none-eabi-g++
 CFLAGS = -fno-exceptions -fno-rtti $(CCCFLAGS) -ffreestanding -nostdlib -nodefaultlibs -nostartfiles
 CLINKFLAGS = -l gcc
@@ -78,6 +78,7 @@ ATOSE_TOOLS =								\
 	$(BIN_DIR)\imx233_nand.elf				\
 	$(BIN_DIR)\imx233_mmu.elf				\
 	$(BIN_DIR)\imx233_timer.elf				\
+	$(BIN_DIR)\imx233_usb.elf				\
 	$(BIN_DIR)\test_ram.elf
 
 
@@ -112,6 +113,7 @@ $(ATOSE_TOOLS) : startup.o $(SOURCE_DIR)\atose.ld
 $(BIN_DIR)\atose.elf : startup.o $(OBJ_DIR)\main.o $(OBJECTS) $(SOURCE_DIR)\atose.ld
 	@echo $@
 	$(CC) $(CFLAGS) -o $(BIN_DIR)\atose.elf startup.o $(OBJ_DIR)\main.o $(OBJECTS) -T $(SOURCE_DIR)\atose.ld $(CLINKFLAGS)
+	arm-none-eabi-objdump -S -d bin\atose.elf > ers
 
 startup.o : $(SOURCE_DIR)\atose_startup.asm
 	@echo $@

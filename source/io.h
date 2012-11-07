@@ -89,7 +89,7 @@ public:
 	/*
 		OPERATOR <<()
 		-------------
-		dump stuff to the outout channel
+		dump stuff to the output channel
 	*/
 	ATOSE_IO &operator << (const uint8_t character) 		{ write(&character, 1); return *this; }
 	ATOSE_IO &operator << (const int8_t character) 			{ *this << (uint8_t)character; return *this; }

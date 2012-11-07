@@ -112,24 +112,12 @@ assume(identity_page_table);
 
 	NOTE: the data cache and instruction cache are addressed on virtual address
 	and therefore need to be flushed on each context switch
-
-	As the cache starts inactive it should not be necessart to flush it
-	but we will anyway.
 */
-flush_caches();
 asm volatile
 	(
 	"mrc	p15, 0, r0, c1, c0, 0;"			// read c1
 	"orr	r0, r0, %[cache_enable];"		// enable data cache and instruction cache
 	"mcr	p15, 0, r0, c1, c0, 0;"			// write c1
-	"nop;"									// flush the pipeline (probably not necessary)
-	"nop;"
-	"nop;"
-	"nop;"									// flush the pipeline (probably not necessary)
-	"nop;"
-	"nop;"
-	"nop;"
-	"nop;"
 	:
 	: [cache_enable]"r"(ARM_MMU_V5_CP15_R1_C | ARM_MMU_V5_CP15_R1_I | ARM_MMU_V5_CP15_R1_M)
 	: "r0"
@@ -143,19 +131,45 @@ asm volatile
 void ATOSE_mmu::flush_caches(void)
 {
 /*
-	The cache on the ARM926 is addressed by virtual address not physical address. This is
-	apparently faster than using physical addresses because no address translation is required
-	to get entries out of the cache, but it means that every time a context switch occurs
-	its necessary to invalidate both the instruction and data cache.
+	The cache on the ARM926 is addressed by virtual address not physical
+	address. This is apparently faster than using physical addresses
+	because no address translation is required to get entries out of the
+	cache, but it means that every time a context switch occurs its
+	necessary to invalidate both the instruction and data cache.
+
+	As writes cannot happen to the instruction cache, ICache, we just
+	invalidate it.  The data cache, DCache, however can have dirty data
+	in it.  We need to flush this to memory.  To do that we "test and
+	clean" the cache which checks for dirty data and flushes it to
+	memory.  We then need to invalidate the cache.  As there's a test,
+	clean, and invalidate instruction we just use that.  Note (from page
+	2-23 of the ARM926EJ-S Technical Reference Manual) that we need to
+	check each line in a loop.
+
+	The cache is, of course, not actually flushed to memory, but is
+	rather flushed to the write buffer.  To truely flush the cache its
+	necessary to also flush the write buffer.
 */
 asm volatile
 	(
-	"mov	r0, #0;"				// the register should be zero
-	"mcr p15, 0, r0, c7, c10, 4;"	// drain the write buffer
-	"mcr p15, 0, r0, c7, c7, 0;"	// invalidate the data cache and the instruction cache
+	/*
+		Invalidate the Instruction Cache
+	*/
+	"mcr p15, 0, %0, c7, c5, 0;"
+
+	/*
+		Test, Clean, and Invalidate the Data Cache
+	*/
+	"tci_loop:;"
+	"mrc p15, 0, r15, c7, c14, 3;"
+	"bne tci_loop;"
+	/*
+		Drain the Write Buffer
+	*/
+	"mcr p15, 0, %0, c7, c10, 4;"
 	:
+	: "r"(0)
 	:
-	: "r0"
 	);
 }
 
@@ -255,7 +269,6 @@ asm volatile
 	(
 	"mov	r0, #0;"						// zero r0
 	"mov	r1, %[table];"					// place the address of page table into r1
-	"mcr 	p15, 0, r0, c8, c7, 0;"			// clear the CPU TLB
 	"mcr	p15, 0, r1, c2, c0;"			// set the Translation Table Base Register
 	"mcr 	p15, 0, r0, c8, c7, 0;"			// clear the CPU TLB
 	:
@@ -272,7 +285,6 @@ void ATOSE_mmu::assume(ATOSE_address_space *address_space)
 {
 flush_caches();
 assume(address_space->get_page_table());
-flush_caches();
 }
 
 /*
@@ -283,5 +295,4 @@ void ATOSE_mmu::assume_identity(void)
 {
 flush_caches();
 assume(identity_page_table);
-flush_caches();
 }

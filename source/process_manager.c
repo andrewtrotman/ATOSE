@@ -324,14 +324,14 @@ uint32_t ATOSE_process_manager::initialise_process(ATOSE_process *process, size_
 /*
 	Set up the stack-pointer (ARM register R13)
 */
-process->execution_path.registers.r13 = mmu->highest_address - 512;
+process->execution_path.registers.r13 = (mmu->highest_address) & ((uint32_t)~0x03);		// align it correctly
 
 /*
 	The process will enter where-ever the link-register (ARM register
 	R14_current) points once the scheduler schedules the process to be
 	run
 */
-process->execution_path.registers.r14_current = (uint32_t)(entry_point + 4);
+process->execution_path.registers.r14_current = (uint32_t)(entry_point + 4);			// we add 4 because we'll enter as a consequence of leaving an IRQ which must substract 4 from the link register on return.
 
 /*
 	When we do run we need to return to user-mode which is done by setting the CPSR register's low bits

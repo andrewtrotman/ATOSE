@@ -20,12 +20,12 @@ int __cxa_pure_virtual(void)
 return 0;
 }
 
-/*
 void __cs3_isr_undef(void)
 { 
 ATOSE *os = ATOSE::get_global_entry_point();
 os->heap.assume_identity();
 os->io << "\r\nUNDEFINED INTERRUPT\r\n";
+for (;;);
 }
 
 void __cs3_isr_pabort(void)
@@ -33,6 +33,7 @@ void __cs3_isr_pabort(void)
 ATOSE *os = ATOSE::get_global_entry_point();
 os->heap.assume_identity();
 os->io << "\r\nP-ABORT INTERRUPT\r\n";
+for (;;);
 }
 
 void __cs3_isr_dabort(void)
@@ -40,6 +41,7 @@ void __cs3_isr_dabort(void)
 ATOSE *os = ATOSE::get_global_entry_point();
 os->heap.assume_identity();
 os->io << "\r\nD-ABORT INTERRUPT\r\n";
+for (;;);
 }
 
 void __cs3_isr_reserved(void)
@@ -47,6 +49,7 @@ void __cs3_isr_reserved(void)
 ATOSE *os = ATOSE::get_global_entry_point();
 os->heap.assume_identity();
 os->io << "\r\nRESERVED INTERRUPT\r\n";
+for (;;);
 }
 
 void __cs3_isr_fiq(void)
@@ -54,8 +57,8 @@ void __cs3_isr_fiq(void)
 ATOSE *os = ATOSE::get_global_entry_point();
 os->heap.assume_identity();
 os->io << "\r\nFIQ INTERRUPT\r\n";
+for (;;);
 }
-*/
 
 /*
 	ATOSE_ISR_IRQ()
@@ -87,14 +90,14 @@ os->heap.assume_identity();
 
 	ATOSE_device_driver *device_driver;
 
-	uint32_t got = HW_ICOLL_STAT_RD();										// get the interrupt number (in case we need it)
+//	uint32_t got = HW_ICOLL_STAT_RD();										// get the interrupt number (in case we need it)
 
 	device_driver = *((ATOSE_device_driver **)HW_ICOLL_VECTOR_RD());		// tell the CPU that we've entered the interrupt service routine and get the ISR address
 	
 	if (device_driver != 0)
 		device_driver->acknowledge();
 
-	os->io << "[" << got << "]";
+//	os->io << "[" << got << "]";
 
 	HW_ICOLL_LEVELACK_WR(BV_ICOLL_LEVELACK_IRQLEVELACK__LEVEL0);			// finished processing the interrupt
 
@@ -115,8 +118,8 @@ os->heap.assume_identity();
 */
 if (os->scheduler.get_next_process() != NULL)
 	{
-	os->io.hex();
-	os->io << "->" << os->scheduler.get_current_process()->execution_path.registers.r14_current;
+//	os->io.hex();
+//	os->io << "->" << os->scheduler.get_current_process()->execution_path.registers.r14_current << " SPACE:" << (uint32_t)&os->scheduler.get_current_process()->address_space;
 
 	/*
 		Set the registers so that we fall back to the next context
@@ -154,9 +157,7 @@ if (( (*(uint32_t *)(registers->r14_current - 4)) & 0x00FFFFFF) != ATOSE_SWI)
 */
 os->heap.assume_identity();
 
-#ifdef NEVER
-	os->io << "[" << (char)registers->r0 << "->" << (char)registers->r1 << (const uint8_t)registers->r2 << "]";
-#endif
+//	os->io << "[" << (char)registers->r0 << "->" << (char)registers->r1 << (const uint8_t)registers->r2 << "]";
 
 /*
 	The SWI is for us.
@@ -179,6 +180,7 @@ switch (registers->r0)
 		object = &os->scheduler;
 		break;
 	default:
+		os->io << "Fatal (1)";
 		return 0;
 	}
 
@@ -211,6 +213,7 @@ switch (registers->r1)
 		break;
 		}
 	default:
+		os->io << "Fatal (2)";
 		return 0;
 	}
 

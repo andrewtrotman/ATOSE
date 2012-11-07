@@ -14,7 +14,6 @@
 #endif
 
 
-ATOSE_API_ATOSE api;
 
 int ATOSE_main(void);
 int main(void);
@@ -114,9 +113,12 @@ return 0;
 */
 int ATOSE_main(void)
 {
+ATOSE_API_ATOSE api;
 uint64_t loop, MAX = 100;
 
-api.io << "ATOSE" << ATOSE_IO::eoln;
+api.io.write((uint8_t *)"ATOSE\r\n", 7);
+
+//api.io << "ATOSE" << ATOSE_IO::eoln;
 
 for (loop = 0; loop < MAX; loop++)
 	api.io << ":";
