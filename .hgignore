@@ -5,6 +5,7 @@
 ^bootlets/
 ^test/
 ^libusb/
+^rockbox/
 \.bak$
 \.o$
 \.elf$
