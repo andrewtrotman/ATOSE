@@ -34,6 +34,7 @@
 #define USB_REQ_SET_DESCRIPTOR					0x07
 #define USB_REQ_GET_CONFIGURATION				0x08
 #define USB_REQ_SET_CONFIGURATION				0x09
+#define USB_REQ_GET_FEATURE_DESCRIPTOR			0x0C
 
 #define USB_DESCRIPTOR_TYPE_DEVICE				0x01
 #define USB_DESCRIPTOR_TYPE_CONFIGURATION		0x02
@@ -134,20 +135,211 @@ struct usb_device_descriptor our_device_descriptor =
 {
 .bLength = sizeof(our_device_descriptor),
 .bDescriptorType = USB_DESCRIPTOR_TYPE_DEVICE,
-.bcdUSB = 0x0200, 				//USB 2.0
-.bDeviceClass = 0x20, 			// Communications Device Class (Pretend to be a Serial Port)
+.bcdUSB = 0x0200, 				// USB 2.0
+.bDeviceClass = 0x02, 			// Communications Device Class (Pretend to be a Serial Port)
 .bDeviceSubClass = 0x00,
 .bDeviceProtocol = 0x00,
-.bMaxPacketSize0 = 64, 		//Accept 64 bytes packet size on control endpoint (the maximum)
-.idVendor = 0xDEAD,
-.idProduct = 0xBEEF,
-.bcdDevice = 0x0100,
-.iManufacturer = 0x00,
-.iProduct = 0x00,
-.iSerialNumber = 0x00,
+.bMaxPacketSize0 = 64, 		// Accept 64 bytes packet size on control endpoint (the maximum)
+.idVendor = 0xDEAD,			// Manufacturer's ID
+.idProduct = 0x0009,			// Product's ID
+.bcdDevice = 0x0100,			// Product Verison Number (revision number)
+.iManufacturer = 0x01,			// string ID of the manufacturer
+.iProduct = 0x02,				// string ID of the Product
+.iSerialNumber = 0x03,			// string ID of the serial number
 .bNumConfigurations = 0x01
 };
 
+/*
+	struct USB_LANGUAGE
+	-------------------
+*/
+struct usb_language
+{
+uint8_t bLength;
+uint8_t bDescriptorType;
+uint16_t wLANGID;
+}  __attribute__ ((packed));
+
+/*
+	OUR_LANGUAGE
+	------------
+*/
+struct usb_language our_language =
+{
+.bLength = sizeof(our_language),
+.bDescriptorType = 0x03,
+.wLANGID = 0x1409
+};
+
+/*
+	struct USB_STRING
+	-----------------
+*/
+struct usb_string
+{
+uint8_t bLength;
+uint8_t bDescriptorType;
+uint8_t string[22];
+}  __attribute__ ((packed));
+
+/*
+	OUR_SERIAL_NUMBER
+	-----------------
+*/
+struct usb_string our_serial_number =
+{
+.bLength = 14,
+.bDescriptorType = 0x03,
+.string = {'S', 0x00, 'N', 0x00, '#', 0x00, 'D', 0x00, 'E', 0x00, 'V', 0x00}
+} ;
+
+/*
+	OUR_MANUFACTURER
+	----------------
+*/
+struct usb_string our_manufacturer =
+{
+.bLength = 10,
+.bDescriptorType = 0x03,
+.string = {'A', 0x00, 'S', 0x00, 'P', 0x00, 'T', 0x00}
+} ;
+
+/*
+	OUR_PRODUCT
+	-----------
+*/
+struct usb_string our_product =
+{
+.bLength = 16,
+.bDescriptorType = 0x03,
+.string = {'F', 0x00, 'o', 0x00, 'u', 0x00, 'r', 0x00, 'A', 0x00, 'R', 0x00, 'M', 0x00}
+} ;
+
+/*
+	struct USB_CONFIG_DESCRIPTOR
+	----------------------------
+*/
+struct usb_config_descriptor
+{
+uint8_t bLength;
+uint8_t bDescriptorType;
+uint16_t wTotalLength;
+uint8_t bNumInterfaces;
+uint8_t bConfigurationValue;
+uint8_t iConfiguration;
+uint8_t bmAttributes;
+uint8_t bMaxPower;
+} __attribute__ ((packed));
+
+/*
+	struct USB_ENDPOINT_DESCRIPTOR
+	------------------------------
+*/
+struct usb_endpoint_descriptor
+{
+uint8_t bLength;
+uint8_t bDescriptorType;
+uint8_t bEndpointAddress;
+uint8_t bmAttributes;
+uint16_t wMaxPacketSize;
+uint8_t bInterval;
+} __attribute__ ((packed));
+
+/*
+	struct USB_INTERFACE_DESCRIPTOR
+	-------------------------------
+*/
+struct usb_interface_descriptor
+{
+uint8_t bLength;
+uint8_t bDescriptorType;
+uint8_t bInterfaceNumber;
+uint8_t bAlternateSetting;
+uint8_t bNumEndpoints;
+uint8_t bInterfaceClass;
+uint8_t bInterfaceSubClass;
+uint8_t bInterfaceProtocol;
+uint8_t iInterface;
+} __attribute__ ((packed));
+
+/*
+	OUR_CONFIG_DESCRIPTOR
+	---------------------
+*/
+struct usb_config_descriptor our_config_descriptor =
+{
+.bLength = sizeof(our_config_descriptor),
+.bDescriptorType = USB_DESCRIPTOR_TYPE_CONFIGURATION,
+.wTotalLength = sizeof(our_config_descriptor),
+.bNumInterfaces = 1,
+.bConfigurationValue = 1,
+.iConfiguration = 2,
+.bmAttributes = 0x03 << 6,		// self powered
+.bMaxPower = 0xFF
+} ;
+
+/*
+	struct USB_MS_OS_STRING_DESCRIPTOR
+	----------------------------------
+*/
+struct usb_ms_os_string_descriptor
+{
+uint8_t bLength;
+uint8_t bDescriptorType;
+uint8_t signature[14];
+uint8_t vVendorCode;
+uint8_t paddind;
+} ;
+
+/*
+	OUR_MS_OS_STRING_DESCRIPTOR
+	---------------------------
+*/
+struct usb_ms_os_string_descriptor our_ms_os_string_descriptor = 
+{
+.bLength = sizeof(our_ms_os_string_descriptor),
+.bDescriptorType = 3,
+.signature = {0x4D, 0x00, 0x53, 0x00, 0x46, 0x00, 0x54, 0x00, 0x31, 0x00, 0x30, 0x00, 0x30, 0x00},	//MSFT100
+.vVendorCode = 0,
+.paddind = 0
+};
+
+
+/*
+	struct USB_MS_COMPATIBLE_ID_FEATURE_DESCRIPTOR
+	----------------------------------------------
+*/
+struct usb_ms_compatible_id_feature_descriptor
+{
+uint32_t length;					// header
+uint16_t version;
+uint16_t compatibility_id_descriptor_index;
+uint8_t number_of_sections;
+uint8_t reserved1[7];
+uint8_t interface_number;			// and several of these
+uint8_t reserved2;
+uint8_t compatible_id[8];
+uint8_t sub_compatible_id[8];
+uint8_t reserved3[6];
+} ;
+
+/*
+	OUR_MS_COMPATIBLE_ID_FEATURE_DESCRIPTOR
+	---------------------------------------
+*/
+struct usb_ms_compatible_id_feature_descriptor our_ms_compatible_id_feature_descriptor =
+{
+.length = sizeof(our_ms_compatible_id_feature_descriptor),
+.version = 1,
+.compatibility_id_descriptor_index = 4,
+.number_of_sections = 1,
+.reserved1 = {0},
+.interface_number = 0,
+.reserved2 = 0,
+.compatible_id = {0x57, 0x49, 0x4E, 0x55, 0x53, 0x42, 0x00, 0x00},
+.sub_compatible_id = {0},
+.reserved3 = {0}
+} ;
 
 /*
 	Pointers to memory (use for allocators)
@@ -509,34 +701,74 @@ switch (descriptor_type)
 		usb_queue_td_in(DEVICE_ENDPOINT_CONTROL, (char*)&our_device_descriptor, len, 0);
 
 
-		debug_print_this("Replied to host's request for our device descriptor with ", len," Bytes");
+//		debug_print_this("Replied to host's request for our device descriptor with ", len," Bytes");
 
 		//We expect to receive a zero-byte confirmation from the host, and we'll ask for an interrupt when that occurs
 		usb_queue_td_out(DEVICE_ENDPOINT_CONTROL, 0, 1);
 
 		break;
-/*
 	case USB_DESCRIPTOR_TYPE_CONFIGURATION:
 		{
 		debug_print_string("USB_DESCRIPTOR_TYPE_CONFIGURATION\r\n");
-		char buffer[64];
-		int i;
 
-		//Transmit some nonsense configuration to the host
-		for (i = 0; i < 64; i++)
-			buffer[i] = i;
-		usb_queue_td_in(DEVICE_ENDPOINT_CONTROL, buffer, 64, 0);
+		usb_queue_td_in(DEVICE_ENDPOINT_CONTROL, (char *)&our_config_descriptor, sizeof(our_config_descriptor), 0);
+
+//		debug_print_string("Replied to host's request for our configuration descriptor\r\n");
 
 		//We expect to receive a zero-byte confirmation from the host, and we'll ask for an interrupt when that occurs
 		usb_queue_td_out(DEVICE_ENDPOINT_CONTROL, 0, 1);
 		break;
 		}
-*/
+	case USB_DESCRIPTOR_TYPE_STRING:
+		switch (descriptor_index)
+			{
+			case 0xEE:
+				debug_print_string("MS OS STRING DESCRIPTOR\r\n");
+				/*
+					Microsoft OS String Desciptor
+				*/
+				usb_queue_td_in(DEVICE_ENDPOINT_CONTROL, (char *)&our_ms_os_string_descriptor, sizeof(our_ms_os_string_descriptor), 0);
+				usb_queue_td_out(DEVICE_ENDPOINT_CONTROL, 0, 1);
+				break;
+			case 0x00:
+				debug_print_string("STRING - LANG ID\r\n");
+				usb_queue_td_in(DEVICE_ENDPOINT_CONTROL, (char *)&our_language, sizeof(our_language), 0);
+				usb_queue_td_out(DEVICE_ENDPOINT_CONTROL, 0, 1);
+				break;
+			case 0x01:
+				debug_print_string("STRING - MANUFACTURER\r\n");
+				usb_queue_td_in(DEVICE_ENDPOINT_CONTROL, (char *)&our_manufacturer, sizeof(our_manufacturer), 0);
+				usb_queue_td_out(DEVICE_ENDPOINT_CONTROL, 0, 1);
+				break;
+			case 0x02:
+				debug_print_string("STRING - PRODUCT\r\n");
+				usb_queue_td_in(DEVICE_ENDPOINT_CONTROL, (char *)&our_product, sizeof(our_product), 0);
+				usb_queue_td_out(DEVICE_ENDPOINT_CONTROL, 0, 1);
+				break;
+			case 0x03:
+				debug_print_string("STRING - SERIAL NUMBER\r\n");
+				usb_queue_td_in(DEVICE_ENDPOINT_CONTROL, (char *)&our_serial_number, sizeof(our_serial_number), 0);
+				usb_queue_td_out(DEVICE_ENDPOINT_CONTROL, 0, 1);
+				break;
+			default:
+				debug_print_this("Unhandled STRING DESCRIPTOR:" , descriptor_index, "");
+				break;
+			}
+		break;
 	default:
+		debug_print_string("SETUP PACKET\r\n");
+		debug_print_this("bmRequestType:", req.bmRequestType, "");
+		debug_print_this("bRequest:", req.bRequest, "");
+		debug_print_this("wValue:", req.wValue, "");
+		debug_print_this("wIndex:", req.wIndex, "");
+		debug_print_this("wLength:", req.wLength, "");
+		debug_print_string("  this had lead to\r\n");
 		debug_print_string("Unknown USB descriptor request received:\r\n");
 		debug_print_this("Type:" , descriptor_type, "");
 		debug_print_this("Index:" , descriptor_index, "");
 		debug_print_this("Length:" , descriptor_length, "");
+
+
 	}
 }
 
@@ -554,7 +786,7 @@ if (HW_USBCTRL_ENDPTSETUPSTAT_RD() & 0x1F)
 	{
 	if (HW_USBCTRL_ENDPTSETUPSTAT_RD() & 1)
 		{
-		debug_print_string("USB SETUP request.\r\n");
+//		debug_print_string("USB SETUP request.\r\n");
 	
 		struct usb_setup_packet setup_packet;
 
@@ -580,26 +812,36 @@ if (HW_USBCTRL_ENDPTSETUPSTAT_RD() & 0x1F)
 			HW_USBCTRL_ENDPTSETUPSTAT_WR(1);
 		while (HW_USBCTRL_ENDPTSETUPSTAT_RD() & 1);
 
-
+/*
 debug_print_string("SETUP PACKET\r\n");
 debug_print_this("bmRequestType:", setup_packet.bmRequestType, "");
 debug_print_this("bRequest:", setup_packet.bRequest, "");
 debug_print_this("wValue:", setup_packet.wValue, "");
 debug_print_this("wIndex:", setup_packet.wIndex, "");
 debug_print_this("wLength:", setup_packet.wLength, "");
-
+*/
 
 		if (setup_packet.bmRequestType & 0x80)
 			{
 			//Packets with a device-to-host data phase direction
-			switch (setup_packet.bRequest)
+
+			if (setup_packet.bmRequestType == 0xC0)		//USB_REQ_GET_FEATURE_DESCRIPTOR:
 				{
-				case USB_REQ_GET_DESCRIPTOR:
-					handle_usb_get_descriptor(setup_packet);
-					handled = 1;
-					break;
-				default:
-					debug_print_this("Unhandled device-to-host data direction setup request ", setup_packet.bRequest, " was received.");
+				debug_print_string("USB_REQ_GET_FEATURE DESCRIPTOR\r\n");
+				usb_queue_td_in(DEVICE_ENDPOINT_CONTROL, (char *)&our_ms_compatible_id_feature_descriptor, sizeof(our_ms_compatible_id_feature_descriptor), 0);
+				usb_queue_td_out(DEVICE_ENDPOINT_CONTROL, 0, 1);
+				}
+			else
+				{
+				switch (setup_packet.bRequest)
+					{
+					case USB_REQ_GET_DESCRIPTOR:
+						handle_usb_get_descriptor(setup_packet);
+						handled = 1;
+						break;
+					default:
+						debug_print_this("Unhandled device-to-host data direction setup request ", setup_packet.bRequest, " was received.");
+					}
 				}
 			}
 		else
@@ -633,7 +875,7 @@ else
 if (!handled)
 	debug_print_string("We got a USB interrupt, but we didn't do anything in response.\r\n");
 
-HW_USBCTRL_USBSTS_SET(BM_USBCTRL_USBSTS_UI);
+//HW_USBCTRL_USBSTS_SET(BM_USBCTRL_USBSTS_UI);
 }
 
 /*
@@ -688,6 +930,8 @@ if (got == VECTOR_IRQ_USB_CTRL)
 	else if (usb_status.B.UI)
 		{
 		debug_print_string(" [I: USB UI Interrupt ] \r\n");
+		HW_USBCTRL_USBSTS_SET(BM_USBCTRL_USBSTS_UI);
+
 		handle_usb_interrupt();
 		} 
 	else if (usb_status.B.PCI)
