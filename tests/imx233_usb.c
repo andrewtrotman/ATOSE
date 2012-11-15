@@ -31,10 +31,16 @@
 #define USB_REQ_SET_FEATURE					0x03
 #define USB_REQ_SET_ADDRESS					0x05
 #define USB_REQ_GET_DESCRIPTOR					0x06
-#define USB_REQ_SET_DESCRIPTOR					0x07						   `
+#define USB_REQ_SET_DESCRIPTOR					0x07
 #define USB_REQ_GET_CONFIGURATION				0x08
 #define USB_REQ_SET_CONFIGURATION				0x09
 #define USB_REQ_GET_FEATURE_DESCRIPTOR			0x0C
+
+#define USB_CDC_SET_LINE_CODING				0x20
+#define USB_CDC_GET_LINE_CODING				0x21
+#define USB_CDC_SET_CONTROL_LINE_STATE			0x22
+
+#define USB_REQ_MS_GET_EXTENDED_PROPERTIES		0x05
 
 #define USB_DESCRIPTOR_TYPE_DEVICE				0x01
 #define USB_DESCRIPTOR_TYPE_CONFIGURATION		0x02
@@ -65,29 +71,32 @@
 #define USB_DEVICE_STATE_ADDRESSED				0x01
 #define USB_DEVICE_STATE_CONFIGURED			0x02
 
-
 #define USB_DESCRIPTOR_TYPE_CONFIGURATION_SELFPOWERED 0xC0
 #define USB_DESCRIPTOR_TYPE_CONFIGURATION_REMOTEWAKE  0xA0
 
 #define USB_DESCRIPTOR_TYPE_INTERFACE_CLASS_CDC 0x02
 #define USB_DESCRIPTOR_TYPE_INTERFACE_CLASS_CDC_ABSTRACT_CONTROL 0x02
+#define USB_DESCRIPTOR_TYPE_INTERFACE_CLASS_CDC_PROTOCOL_NONE 0x00
 #define USB_DESCRIPTOR_TYPE_INTERFACE_CLASS_CDC_PROTOCOL_HAYES 0x01
-
-
-#define DIRECTIONS_PER_ENDPOINT 				2
+#define USB_DESCRIPTOR_TYPE_INTERFACE_CLASS_DATA_INTERFACE 0x0A
 
 //Constants for the endpoints we're going to define in our program:
 #define DEVICE_ENDPOINT_CONTROL 						0			// The first endpoint is always a control endpoint
-#define DEVICE_ENDPOINT_SERIAL 						1			// Endpoint 1 will be a serial port
+//#define DEVICE_ENDPOINT_SERIAL 						1						// Endpoint 1 will be a serial port
 #define DEVICE_ENDPOINT_ABSTRACT_CONTROL_MANAGEMENT	2			// Endpoint 2 is the abstract control management interface
+#define DEVICE_ENDPOINT_SERIAL_OUT						3			// Endpoint 3 will be serial out
+#define DEVICE_ENDPOINT_SERIAL_IN	 					4			// Endpoint 4 will be serial in
+
 
 #define USB_ENDPOINT_DIRECTION_IN						0x80
 #define USB_ENDPOINT_DIRECTION_OUT						0x00
 
+#define USB_ENDPOINT_TYPE_CONTROL						0x00
+#define USB_ENDPOINT_TYPE_ISOCHRONOUS					0x01
+#define USB_ENDPOINT_TYPE_BULK							0x02
 #define USB_ENDPOINT_TYPE_INTERRUPT					0x03
 
-
-#define NUM_ENDPOINTS 1
+#define REG_SZ 1
 
 /*
 	struct USB_SETUP_PACKET
@@ -172,13 +181,51 @@ struct usb_device_descriptor our_device_descriptor =
 .bDeviceProtocol = 0x00,
 .bMaxPacketSize0 = 64, 		// Accept 64 bytes packet size on control endpoint (the maximum)
 .idVendor = 0xDEAD,			// Manufacturer's ID
-.idProduct = 0x0009,			// Product's ID
+.idProduct = 0x000E,			// Product's ID
 .bcdDevice = 0x0100,			// Product Verison Number (revision number)
 .iManufacturer = 0x01,			// string ID of the manufacturer
 .iProduct = 0x02,				// string ID of the Product
 .iSerialNumber = 0x03,			// string ID of the serial number
 .bNumConfigurations = 0x01
 };
+
+
+
+/*
+	struct USB_DEVICE_QUALIFIER
+	---------------------------
+	This gets used when a high-speed device is plugged in so that the host
+	can determine what would happen if plugged into a non-high-speed port!
+*/
+struct usb_device_qualifier
+{
+uint8_t bLength;
+uint8_t bDescriptorType;
+uint16_t bcdUSB;
+uint8_t bDeviceClass;
+uint8_t bDeviceSubClass;
+uint8_t bDeviceProtocol;
+uint8_t bMaxPacketSize0;
+uint8_t bNumConfigurations;
+uint8_t reserved;
+} __attribute__ ((packed));
+
+/*
+	OUR_DEVICE_QUALIFIER
+	--------------------
+*/
+struct usb_device_qualifier our_device_qualifier =
+{
+.bLength = sizeof(our_device_descriptor),
+.bDescriptorType = USB_DESCRIPTOR_TYPE_DEVICE,
+.bcdUSB = 0x0200, 				// USB 2.0
+.bDeviceClass = 0x02, 			// Communications Device Class (Pretend to be a Serial Port)
+.bDeviceSubClass = 0x00,
+.bDeviceProtocol = 0x00,
+.bMaxPacketSize0 = 64, 		// Accept 64 bytes packet size on control endpoint (the maximum)
+.bNumConfigurations = 0x01,
+.reserved = 0x00
+} ;
 
 /*
 	struct USB_LANGUAGE
@@ -210,7 +257,7 @@ struct usb_string
 {
 uint8_t bLength;
 uint8_t bDescriptorType;
-uint8_t string[22];
+uint8_t wString[22];
 }  __attribute__ ((packed));
 
 /*
@@ -221,7 +268,7 @@ struct usb_string our_serial_number =
 {
 .bLength = 14,
 .bDescriptorType = USB_DESCRIPTOR_TYPE_STRING,
-.string = {'S', 0x00, 'N', 0x00, '#', 0x00, 'D', 0x00, 'E', 0x00, 'V', 0x00}
+.wString = {'S', 0x00, 'N', 0x00, '#', 0x00, 'D', 0x00, 'E', 0x00, 'V', 0x00}
 } ;
 
 /*
@@ -232,7 +279,7 @@ struct usb_string our_manufacturer =
 {
 .bLength = 10,
 .bDescriptorType = USB_DESCRIPTOR_TYPE_STRING,
-.string = {'A', 0x00, 'S', 0x00, 'P', 0x00, 'T', 0x00}
+.wString = {'A', 0x00, 'S', 0x00, 'P', 0x00, 'T', 0x00}
 } ;
 
 /*
@@ -243,7 +290,7 @@ struct usb_string our_product =
 {
 .bLength = 16,
 .bDescriptorType = USB_DESCRIPTOR_TYPE_STRING,
-.string = {'F', 0x00, 'o', 0x00, 'u', 0x00, 'r', 0x00, 'A', 0x00, 'R', 0x00, 'M', 0x00}
+.wString = {'F', 0x00, 'o', 0x00, 'u', 0x00, 'r', 0x00, 'A', 0x00, 'R', 0x00, 'M', 0x00}
 } ;
 
 /*
@@ -353,25 +400,25 @@ uint8_t bSlaveInterface0;
 
 struct usb_com_descriptor
 {
-struct usb_config_descriptor configuration;
-struct usb_interface_descriptor interface;
-struct usb_cdc_functional_descriptor;
-struct usb_cdc_functional_descriptor;
-struct usb_cdc_call_management_functional_descriptor;
-struct usb_cdc_abstract_control_management_functional_descriptor;
-struct usb_union_interface_functional_descriptor;
-struct usb_endpoint_descriptor;
-struct usb_interface_descriptor interface;
-struct usb_endpoint_descripto;
-struct usb_endpoint_descriptor;
+struct usb_config_descriptor cd;
+
+struct usb_interface_descriptor id0;
+		struct usb_cdc_functional_descriptor fd1;
+		struct usb_cdc_call_management_functional_descriptor fd2;
+		struct usb_cdc_abstract_control_management_functional_descriptor fd3;
+		struct usb_union_interface_functional_descriptor fd4;
+			struct usb_endpoint_descriptor ep2;
+
+	struct usb_interface_descriptor id1;
+		struct usb_endpoint_descriptor ep3;
+		struct usb_endpoint_descriptor ep4;
 } __attribute__ ((packed));
 
 /*
-	I addapted this from the USB Serial Example for Teensy USB
-	Development Board (http://www.pjrc.com/teensy/usb_serial.html) but as
-	it isn't a "substantial portions of the Software" and that software
-	is under a BSD licence, I don't reproduce their copyright notice
-	here.
+	I based this on the USB Serial Example for Teensy USB Development
+	Board (http://www.pjrc.com/teensy/usb_serial.html) but as it isn't a
+	"substantial portions of the Software" and that software is under a
+	BSD-like licence, I don't reproduce their copyright notice here.
 
 	The version of the CDC spec being referenced is "Universal Serial Bus
 	Class Definitions for Communication Devices Version 1.1 January 19,
@@ -380,93 +427,144 @@ struct usb_endpoint_descriptor;
 	The version of the USB spec being referenced is "Universal Serial Bus
 	Specification Revision 2.0 April 27, 2000"
 
-	Endpoint 2 (OUT) Abstract Control Management
+	Interface 0:
+		Abstract Control Management
+			Endpoint 2 (OUT from host) Interrupt
+	Interface 1:
+		Data
+			Endpoint 3 (OUT from host) Bulk
+			Endpoint 4 (IN to host)  Bulk
 */
 struct usb_com_descriptor our_com_descriptor =
 {
+	{
 	// configuration descriptor, USB spec 9.6.3, page 264-266, Table 9-10
-	sizeof(usb_config_descriptor),												// bLength;
+	sizeof(struct usb_config_descriptor),										// bLength;
 	USB_DESCRIPTOR_TYPE_CONFIGURATION,											// bDescriptorType;
-	sizeof(our_com_descriptor),													// wTotalLength
+	sizeof(struct usb_com_descriptor),											// wTotalLength
 	2,																			// bNumInterfaces
 	1,																			// bConfigurationValue (id)
 	0,																			// iConfiguration (string descriptor)
 	USB_DESCRIPTOR_TYPE_CONFIGURATION_SELFPOWERED,								// bmAttributes
-	50,																			// bMaxPower
+	50																			// bMaxPower
+	},
+	{
 	// interface descriptor, USB spec 9.6.5, page 267-269, Table 9-12
-	sizeof(usb_interface_descriptor),											// bLength
+	sizeof(struct usb_interface_descriptor),									// bLength
 	USB_DESCRIPTOR_TYPE_INTERFACE,												// bDescriptorType
 	0,																			// bInterfaceNumber
 	0,																			// bAlternateSetting
 	1,																			// bNumEndpoints
-	USB_DESCRIPTOR_TYPE_INTERFACE_CDC,											// bInterfaceClass
+	USB_DESCRIPTOR_TYPE_INTERFACE_CLASS_CDC,									// bInterfaceClass
 	USB_DESCRIPTOR_TYPE_INTERFACE_CLASS_CDC_ABSTRACT_CONTROL,					// bInterfaceSubClass
 	USB_DESCRIPTOR_TYPE_INTERFACE_CLASS_CDC_PROTOCOL_HAYES,						// bInterfaceProtocol (Hayes Model AT command set)
-	0,																			// iInterface (string descriptor)
+	0																			// iInterface (string descriptor)
+	},
+	{
 	// CDC Header Functional Descriptor, CDC Spec 5.2.3.1, Table 26
-	sizeof(usb_cdc_functional_descriptor),										// bFunctionLength
+	sizeof(struct usb_cdc_functional_descriptor),								// bFunctionLength
 	USB_DESCRIPTOR_TYPE_CS_INTERFACE,											// bDescriptorType
 	USB_DESCRIPTOR_SUBTYPE_HEADER,												// bDescriptorSubtype
-	0x0110,																		// bcdCDC (version of the CDC spec we adhere to (in this case v1.1))
+	0x0110																		// bcdCDC (version of the CDC spec we adhere to (in this case v1.1))
+	},
+	{
 	// Call Management Functional Descriptor, CDC Spec 5.2.3.2, Table 27
-	sizeof(usb_cdc_functional_descriptor),										// bFunctionLength
+	sizeof(struct usb_cdc_call_management_functional_descriptor),				// bFunctionLength
 	USB_DESCRIPTOR_TYPE_CS_INTERFACE,											// bDescriptorType
-	USB_DESCRIPTOR_SUBTYPE_CALL_MANAGEMENT_FUNCTION,							// bDescriptorSubtype	(call management)
+	USB_DESCRIPTOR_SUBTYPE_CALL_MANAGEMENT,										// bDescriptorSubtype	(call management)
 	USB_CAPABILITIES_CALL_MANAGEMENT_COMS,										// bmCapabilities (call management over the communications class interface)
-	1,																			// bDataInterface (use this class for call management)
+	1																			// bDataInterface (use this class for call management)
+	},
+	{
 	// Abstract Control Management Functional Descriptor, CDC Spec 5.2.3.3, Table 28
-	sizeof(usb_cdc_abstract_control_management_functional_descriptor),			// bFunctionLength
+	sizeof(struct usb_cdc_abstract_control_management_functional_descriptor),	// bFunctionLength
 	USB_DESCRIPTOR_TYPE_CS_INTERFACE,											// bDescriptorType
 	USB_DESCRIPTOR_SUBTYPE_ABSTRACT_CONTROL_MANAGEMENT,							// bDescriptorSubtype
-	USB_CAPABILITIES_BREAK | USB_CAPABILITIES_LINE,								// bmCapabilities (handle line and break management)
+	USB_CAPABILITIES_BREAK | USB_CAPABILITIES_LINE								// bmCapabilities (handle line and break management)
+	},
+	{
 	// Union Functional Descriptor, CDC Spec 5.2.3.8, Table 33
-	sizeof(usb_union_interface_functional_descriptor),							// bFunctionLength
+	sizeof(struct usb_union_interface_functional_descriptor),					// bFunctionLength
 	USB_DESCRIPTOR_TYPE_CS_INTERFACE,											// bDescriptorType
 	USB_DESCRIPTOR_SUBTYPE_UNION_FUNCTION,										// bDescriptorSubtype
 	0,																			// bMasterInterface (The interface number of the Communication or Data Class interface, designated as the master or controlling interface for the union)
-	1,																			// bSlaveInterface0 (Interface number of first slave or associated interface in the union.)
+	1																			// bSlaveInterface0 (Interface number of first slave or associated interface in the union.)
+	},
+	{
 	// endpoint descriptor, USB spec 9.6.6, page 269-271, Table 9-13
-	sizeof(usb_endpoint_descriptor),											// bLength
+	sizeof(struct usb_endpoint_descriptor),										// bLength
 	USB_DESCRIPTOR_TYPE_ENDPOINT,												// bDescriptorType
 	DEVICE_ENDPOINT_ABSTRACT_CONTROL_MANAGEMENT | USB_ENDPOINT_DIRECTION_IN,	// bEndpointAddress (Endpoint number | direction (in | out))
 	USB_ENDPOINT_TYPE_INTERRUPT,												// bmAttributes (Interrupt end point)
 	16,																			// wMaxPacketSize
-	64,																			// bInterval (polling interval)
-
-
+	64																			// bInterval (polling interval)
+	},
+	{
 	// interface descriptor, USB spec 9.6.5, page 267-269, Table 9-12
-	9,					// bLength
-	4,					// bDescriptorType
-	1,					// bInterfaceNumber
-	0,					// bAlternateSetting
-	2,					// bNumEndpoints
-	0x0A,					// bInterfaceClass
-	0x00,					// bInterfaceSubClass
-	0x00,					// bInterfaceProtocol
-	0,					// iInterface
+	sizeof(struct usb_interface_descriptor),									// bLength
+	USB_DESCRIPTOR_TYPE_INTERFACE,												// bDescriptorType
+	1,																			// bInterfaceNumber
+	0,																			// bAlternateSetting
+	2,																			// bNumEndpoints
+	USB_DESCRIPTOR_TYPE_INTERFACE_CLASS_DATA_INTERFACE,							// bInterfaceClass
+	0x00,																		// bInterfaceSubClass
+	USB_DESCRIPTOR_TYPE_INTERFACE_CLASS_CDC_PROTOCOL_NONE,						// bInterfaceProtocol
+	0																			// iInterface (string desceiptor)
+	},
+	{
 	// endpoint descriptor, USB spec 9.6.6, page 269-271, Table 9-13
-	7,					// bLength
-	5,					// bDescriptorType
-	CDC_RX_ENDPOINT,			// bEndpointAddress
-	0x02,					// bmAttributes (0x02=bulk)
-	CDC_RX_SIZE, 0,				// wMaxPacketSize
-	0,					// bInterval
+	sizeof(struct usb_endpoint_descriptor),										// bLength
+	USB_DESCRIPTOR_TYPE_ENDPOINT,												// bDescriptorType
+	DEVICE_ENDPOINT_SERIAL_OUT | USB_ENDPOINT_DIRECTION_OUT,					// bEndpointAddress
+	USB_ENDPOINT_TYPE_BULK,														// bmAttributes (0x02=bulk)
+	64,																			// wMaxPacketSize
+	0																			// bInterval
+	},
+	{
 	// endpoint descriptor, USB spec 9.6.6, page 269-271, Table 9-13
-	7,					// bLength
-	5,					// bDescriptorType
-	CDC_TX_ENDPOINT | 0x80,			// bEndpointAddress
-	0x02,					// bmAttributes (0x02=bulk)
-	CDC_TX_SIZE, 0,				// wMaxPacketSize
-	0					// bInterval
+	sizeof(struct usb_endpoint_descriptor),										// bLength
+	USB_DESCRIPTOR_TYPE_ENDPOINT,												// bDescriptorType
+	DEVICE_ENDPOINT_SERIAL_IN | USB_ENDPOINT_DIRECTION_IN,						// bEndpointAddress
+	USB_ENDPOINT_TYPE_BULK,														// bmAttributes (0x02=bulk)
+	64,																			// wMaxPacketSize
+	0																			// bInterval
+	}
 };
 
-}
+/*
+	USB CDC stuff
+	=============
+*/
 
+/*
+	struct USB_CDC_LINE_CODING
+	--------------------------
+*/
+struct usb_cdc_line_coding
+{
+uint32_t dwDTERat;		// Number Data terminal rate, in bits per second.
+uint8_t bCharFormat;	// Number Stop bits (0 = 1 Stop bit, 1 = 1.5 Stop bits, 2 = 2 Stop bits)
+uint8_t bParityType;	// Number Parity (0 = None, 1 = Odd, 2 = Even, 3 = Mark, 4 = Space)
+uint8_t bDataBits;		// Number Data bits (5, 6, 7, 8 or 16).
+} ;
+
+/*
+	OUR_CDC_LINE_CODING
+	-------------------
+	9600,n,8,1
+*/
+struct usb_cdc_line_coding our_cdc_line_coding =
+{
+.dwDTERat = 115200,
+.bCharFormat = 0,
+.bParityType =  0,
+.bDataBits =  8
+} ;
 
 
 /*
-	Weard-ass Microsoft descriptor stuff
-	====================================
+	Microsoft descriptor extensions
+	===============================
 */
 /*
 	struct USB_MS_OS_STRING_DESCRIPTOR
@@ -476,9 +574,9 @@ struct usb_ms_os_string_descriptor
 {
 uint8_t bLength;
 uint8_t bDescriptorType;
-uint8_t signature[14];
-uint8_t vVendorCode;
-uint8_t paddind;
+uint8_t qwSignature[14];
+uint8_t bMS_VendorCode;
+uint8_t bPad;
 } ;
 
 /*
@@ -489,11 +587,37 @@ struct usb_ms_os_string_descriptor our_ms_os_string_descriptor =
 {
 .bLength = sizeof(our_ms_os_string_descriptor),
 .bDescriptorType = USB_DESCRIPTOR_TYPE_STRING,
-.signature = {0x4D, 0x00, 0x53, 0x00, 0x46, 0x00, 0x54, 0x00, 0x31, 0x00, 0x30, 0x00, 0x30, 0x00},	//MSFT100
-.vVendorCode = 0,
-.paddind = 0
+.qwSignature = {'M', 0x00, 'S', 0x00, 'F', 0x00, 'T', 0x00, '1', 0x00, '0', 0x00, '0', 0x00},     //{0x4D, 0x00, 0x53, 0x00, 0x46, 0x00, 0x54, 0x00, 0x31, 0x00, 0x30, 0x00, 0x30, 0x00},	//MSFT100
+.bMS_VendorCode = 0,
+.bPad = 0
 };
 
+
+/*
+	struct USB_MS_COMPATIBLE_ID_FEATURE_DESCRIPTOR_HEADER
+	-----------------------------------------------------
+*/
+struct usb_ms_compatible_id_feature_descriptor_header
+{
+uint32_t dwLength;
+uint16_t bcdVersion;
+uint16_t wIndex;
+uint8_t bCount;
+uint8_t reserved1[7];
+};
+
+/*
+	struct USB_MS_COMPATIBLE_ID_FEATURE_FUNCTION_SECTION
+	----------------------------------------------------
+*/
+struct usb_ms_compatible_id_feature_function_section
+{
+uint8_t bFirstInterfaceNumber;
+uint8_t reserved1;
+uint8_t compatibleID[8];
+uint8_t subCompatibleID[8];
+uint8_t reserved2[6];
+} ;
 
 /*
 	struct USB_MS_COMPATIBLE_ID_FEATURE_DESCRIPTOR
@@ -501,16 +625,8 @@ struct usb_ms_os_string_descriptor our_ms_os_string_descriptor =
 */
 struct usb_ms_compatible_id_feature_descriptor
 {
-uint32_t length;					// header
-uint16_t version;
-uint16_t compatibility_id_descriptor_index;
-uint8_t number_of_sections;
-uint8_t reserved1[7];
-uint8_t interface_number;			// and several of these
-uint8_t reserved2;
-uint8_t compatible_id[8];
-uint8_t sub_compatible_id[8];
-uint8_t reserved3[6];
+struct usb_ms_compatible_id_feature_descriptor_header header;
+struct usb_ms_compatible_id_feature_function_section section1;
 } ;
 
 /*
@@ -519,18 +635,81 @@ uint8_t reserved3[6];
 */
 struct usb_ms_compatible_id_feature_descriptor our_ms_compatible_id_feature_descriptor =
 {
-.length = sizeof(our_ms_compatible_id_feature_descriptor),
-.version = 1,
-.compatibility_id_descriptor_index = 4,
-.number_of_sections = 1,
-.reserved1 = {0},
-.interface_number = 0,
-.reserved2 = 0,
-.compatible_id = {0x57, 0x49, 0x4E, 0x55, 0x53, 0x42, 0x00, 0x00},
-.sub_compatible_id = {0},
-.reserved3 = {0}
+	{
+	.dwLength = sizeof(our_ms_compatible_id_feature_descriptor),
+	.bcdVersion = 1,
+	.wIndex = 4,
+	.bCount = 1,
+	.reserved1 = {0},
+	},
+	{
+	.bFirstInterfaceNumber = 0,
+	.reserved1 = 0,
+	.compatibleID = {0x57, 0x49, 0x4E, 0x55, 0x53, 0x42, 0x00, 0x00},
+	.subCompatibleID = {0},
+	.reserved2 = {0}
+	}
 } ;
 
+
+/*
+	struct USB_MS_EXTENDED_PROPERTY_HEADER
+	--------------------------------------
+*/
+struct usb_ms_extended_property_header
+{
+uint32_t dwLength;				// sizeof whole descriptor
+uint16_t bcdVersion;			// verion 0x0100
+uint16_t wIndex;				// USB_REQ_MS_GET_EXTENDED_PROPERTIES
+uint16_t wCount;
+} ;
+
+/*
+	struct USB_MS_CUSTOM_PROPERTY_LABEL
+	-----------------------------------
+*/
+struct usb_ms_custom_property_label
+{
+uint32_t dwSize;
+uint32_t dwPropertyDataType;
+uint16_t wPropertyNameLength;
+uint8_t bPropertyName[12];				// "Label" in Unicode
+uint32_t dwPropertyDataLength;
+uint8_t bPropertyData[16];				// "FourARM" in Unicode
+} ;
+
+
+/*
+	struct USB_MS_EXTENDED_PROPERTIES
+	---------------------------------
+*/
+struct usb_ms_extended_properties
+{
+struct usb_ms_extended_property_header header;
+struct usb_ms_custom_property_label property1;
+} ;
+
+/*
+	OUR_MS_EXTENDED_PROPERTIES
+	--------------------------
+*/
+struct usb_ms_extended_properties our_ms_extended_properties =
+{
+	{
+	sizeof(our_ms_extended_properties),
+	0x0100,
+	USB_REQ_MS_GET_EXTENDED_PROPERTIES,
+	1
+	},
+	{
+	sizeof(struct usb_ms_custom_property_label),
+	REG_SZ,
+	12,
+	{'L', 0x00, 'a', 0x00, 'b', 0x00, 'e', 0x00, 'l', 0x00, 0x00, 0x00},
+	16,
+	{'F', 0x00, 'o', 0x00, 'u', 0x00, 'r', 0x00, 'A', 0x00, 'R', 0x00, 'M', 0x00, 0x00, 0x00}
+	}
+} ;
 
 
 /*
@@ -547,11 +726,23 @@ char *internal_memory_head;
 /*
 	Queue heads must lie in internal memory for controller speed requirements.
 	Lower 11 bits of address cannot be set so we must have a 2K alignment.
+
+	Endpoint 0: IN  (USB Control to host)
+	Endpoint 1: OUT (USB Control from host)
+	Endpoint 2: OUT (Abstract Control Management from host) 
+	Endpoint 3: OUT (Data from host) 
+	Endpoint 4: IN  (Data to host)
 */
-struct endpoint_queue_head endpoint_queueheads[2] __attribute__ ((aligned (2048))); // 0 = IN (to host),  1 = OUT (from host)
+#define ENDPOINT_CONTROL_IN 	USB_DIRECTION_IN
+#define ENDPOINT_CONTROL_OUT	USB_DIRECTION_OUT
+#define ENDPOINT_ACM			2
+#define ENDPOINT_DATA_OUT		3
+#define ENDPOINT_DATA_IN		4
+
+struct endpoint_queue_head endpoint_queueheads[5] __attribute__ ((aligned (2048)));
+struct endpoint_td dTD[5] __attribute__ ((aligned (32)));
 
 int usb_state = USB_DEVICE_STATE_DEFAULT;
-
 
 /*
 	Interrupt Service Routines
@@ -827,7 +1018,7 @@ while ((HW_USBCTRL_ENDPTPRIME_RD() & endpoint_prime_mask) != 0)
  * direction - One of USB_DIRECTION_OUT, USB_DIRECTION_IN
  * ioc - Interrupt on completion
  */
-void usb_queue_td_in(int endpoint, const char * buffer, unsigned int length, int ioc)
+void usb_queue_td_in(int endpoint, const char *buffer, unsigned int length, int ioc)
 {
 struct endpoint_td dTD __attribute__ ((aligned (32)));
 memset(&dTD, 0, sizeof(dTD));
@@ -874,6 +1065,21 @@ dQH->td_overlay_area.next_td_ptr = dTD; //Activate this TD by clearing the 'T' b
 usb_prime_endpoint(endpoint, USB_DIRECTION_OUT); //Signal the controller to start processing this queuehead
 }
 
+
+/*
+	PRINT_SETUP_PACKET()
+	--------------------
+*/
+void print_setup_packet(struct usb_setup_packet req)
+{
+debug_print_string("SETUP PACKET\r\n");
+debug_print_this("bmRequestType:", req.bmRequestType, "");
+debug_print_this("bRequest:", req.bRequest, "");
+debug_print_this("wValue:", req.wValue, "");
+debug_print_this("wIndex:", req.wIndex, "");
+debug_print_this("wLength:", req.wLength, "");
+}
+
 /*
 	HANDLE_USB_GET_DESCRIPTOR()
 	---------------------------
@@ -890,32 +1096,25 @@ switch (descriptor_type)
 	case USB_DESCRIPTOR_TYPE_DEVICE:
 		debug_print_string("USB_DESCRIPTOR_TYPE_DEVICE\r\n");
 
-		if (req.wLength == 0x40)		// should probably be sizeof(our_device_descriptor), not 0x40
+		if (req.wLength != sizeof(our_device_descriptor))		// should probably be sizeof(our_device_descriptor), not 0x40
 			len = 8;
 		else
 			len = sizeof(our_device_descriptor);
 
 		usb_queue_td_in(DEVICE_ENDPOINT_CONTROL, (char*)&our_device_descriptor, len, 0);
 
-
-//		debug_print_this("Replied to host's request for our device descriptor with ", len," Bytes");
-
 		//We expect to receive a zero-byte confirmation from the host, and we'll ask for an interrupt when that occurs
 		usb_queue_td_out(DEVICE_ENDPOINT_CONTROL, 0, 1);
 
 		break;
 	case USB_DESCRIPTOR_TYPE_CONFIGURATION:
-		{
 		debug_print_string("USB_DESCRIPTOR_TYPE_CONFIGURATION\r\n");
 
-		usb_queue_td_in(DEVICE_ENDPOINT_CONTROL, (char *)&our_config_descriptor, sizeof(our_config_descriptor), 0);
-
-//		debug_print_string("Replied to host's request for our configuration descriptor\r\n");
+		usb_queue_td_in(DEVICE_ENDPOINT_CONTROL, (char *)&our_com_descriptor, sizeof(our_com_descriptor), 0);
 
 		//We expect to receive a zero-byte confirmation from the host, and we'll ask for an interrupt when that occurs
 		usb_queue_td_out(DEVICE_ENDPOINT_CONTROL, 0, 1);
 		break;
-		}
 	case USB_DESCRIPTOR_TYPE_STRING:
 		switch (descriptor_index)
 			{
@@ -952,22 +1151,24 @@ switch (descriptor_type)
 				break;
 			}
 		break;
+	case USB_DESCRIPTOR_TYPE_DEVICE_QUALIFIER:
+		debug_print_string("USB_DESCRIPTOR_TYPE_DEVICE_QUALIFIER\r\n");
+
+		usb_queue_td_in(DEVICE_ENDPOINT_CONTROL, (char *)&our_device_qualifier, sizeof(our_device_qualifier), 0);
+
+		//We expect to receive a zero-byte confirmation from the host, and we'll ask for an interrupt when that occurs
+		usb_queue_td_out(DEVICE_ENDPOINT_CONTROL, 0, 1);
+		break;
 	default:
-		debug_print_string("SETUP PACKET\r\n");
-		debug_print_this("bmRequestType:", req.bmRequestType, "");
-		debug_print_this("bRequest:", req.bRequest, "");
-		debug_print_this("wValue:", req.wValue, "");
-		debug_print_this("wIndex:", req.wIndex, "");
-		debug_print_this("wLength:", req.wLength, "");
+		print_setup_packet(req);
 		debug_print_string("  this had lead to\r\n");
 		debug_print_string("Unknown USB descriptor request received:\r\n");
 		debug_print_this("Type:" , descriptor_type, "");
 		debug_print_this("Index:" , descriptor_index, "");
 		debug_print_this("Length:" , descriptor_length, "");
-
-
 	}
 }
+
 
 /*
 	HANDLE_USB_INTERRUPT()
@@ -1010,12 +1211,12 @@ if (HW_USBCTRL_ENDPTSETUPSTAT_RD() & 0x1F)
 		while (HW_USBCTRL_ENDPTSETUPSTAT_RD() & 1);
 
 /*
-debug_print_string("SETUP PACKET\r\n");
-debug_print_this("bmRequestType:", setup_packet.bmRequestType, "");
-debug_print_this("bRequest:", setup_packet.bRequest, "");
-debug_print_this("wValue:", setup_packet.wValue, "");
-debug_print_this("wIndex:", setup_packet.wIndex, "");
-debug_print_this("wLength:", setup_packet.wLength, "");
+			debug_print_string("SETUP PACKET\r\n");
+			debug_print_this("bmRequestType:", setup_packet.bmRequestType, "");
+			debug_print_this("bRequest:", setup_packet.bRequest, "");
+			debug_print_this("wValue:", setup_packet.wValue, "");
+			debug_print_this("wIndex:", setup_packet.wIndex, "");
+			debug_print_this("wLength:", setup_packet.wLength, "");
 */
 
 		if (setup_packet.bmRequestType & 0x80)
@@ -1024,9 +1225,38 @@ debug_print_this("wLength:", setup_packet.wLength, "");
 
 			if (setup_packet.bmRequestType == 0xC0)		//USB_REQ_GET_FEATURE_DESCRIPTOR:
 				{
-				debug_print_string("USB_REQ_GET_FEATURE DESCRIPTOR\r\n");
+				debug_print_string("USB_REQ_GET_MS_DESCRIPTOR\r\n");
 				usb_queue_td_in(DEVICE_ENDPOINT_CONTROL, (char *)&our_ms_compatible_id_feature_descriptor, sizeof(our_ms_compatible_id_feature_descriptor), 0);
 				usb_queue_td_out(DEVICE_ENDPOINT_CONTROL, 0, 1);
+				}
+			else if (setup_packet.bmRequestType == 0xC1)
+				{
+				switch (setup_packet.wIndex)
+					{
+					case USB_REQ_MS_GET_EXTENDED_PROPERTIES:
+						debug_print_string("USB_REQ_MS_GET_EXTENDED_PROPERTIES\r\n");
+
+						usb_queue_td_in(DEVICE_ENDPOINT_CONTROL, (char *)&our_ms_extended_properties, sizeof(our_ms_extended_properties), 0);
+						usb_queue_td_out(DEVICE_ENDPOINT_CONTROL, 0, 1);
+						break;
+					default:
+						print_setup_packet(setup_packet);
+						debug_print_this("Unhandled GET_MS_DESCRIPTOR  ", setup_packet.wIndex, " was received.");
+					}
+				}
+			else if (setup_packet.bmRequestType == 0xA1)		// CDC commands
+				{
+				switch (setup_packet.bRequest)
+					{
+					case USB_CDC_GET_LINE_CODING:
+						debug_print_string("USB_CDC_GET_LINE_CODING\r\n");
+						usb_queue_td_in(DEVICE_ENDPOINT_CONTROL, (char *)&our_cdc_line_coding, sizeof(our_cdc_line_coding), 0);
+						usb_queue_td_out(DEVICE_ENDPOINT_CONTROL, 0, 1);
+						break;
+					default:
+						print_setup_packet(setup_packet);
+						debug_print_this("Unhandled device-to-host data direction setup request ", setup_packet.bRequest, " was received.");
+					}
 				}
 			else
 				{
@@ -1037,37 +1267,97 @@ debug_print_this("wLength:", setup_packet.wLength, "");
 						handled = 1;
 						break;
 					default:
+						print_setup_packet(setup_packet);
 						debug_print_this("Unhandled device-to-host data direction setup request ", setup_packet.bRequest, " was received.");
 					}
 				}
 			}
 		else
 			{
-			switch (setup_packet.bRequest)
+			if (setup_packet.bmRequestType == 0x21)		// CDC commands (Abstract Control Model)	
 				{
-				case USB_REQ_SET_ADDRESS:
-					new_address = setup_packet.wValue;
+				switch (setup_packet.bRequest)
+					{
+					case USB_CDC_SET_CONTROL_LINE_STATE:								// this means the PC is online
+						debug_print_string("USB_CDC_SET_CONTROL_LINE_STATE\r\n");
+						usb_queue_td_in(DEVICE_ENDPOINT_CONTROL, 0, 0, 0);				// respond with a 0-byte transfer (ACK)
+						usb_queue_td_out(DEVICE_ENDPOINT_CONTROL, 0, 1);
+						break;
+					case USB_CDC_SET_LINE_CODING:										// this tells us "9600,n,8,1" stuff (so we ignore)
+						print_setup_packet(setup_packet);
+						debug_print_string("USB_CDC_SET_LINE_CODING\r\n");
+						usb_queue_td_in(DEVICE_ENDPOINT_CONTROL, 0, 0, 0);				// respond with a 0-byte transfer (ACK)
+						usb_queue_td_out(DEVICE_ENDPOINT_CONTROL, 0, 1);
+						break;
+					default:
+						print_setup_packet(setup_packet);
+						debug_print_this("Unhandled device-to-host data direction setup request ", setup_packet.bRequest, " was received.");
+					}
+				}
+			else
+				{
+				switch (setup_packet.bRequest)
+					{
+					case USB_REQ_SET_CONFIGURATION:
+						debug_print_string("USB_REQ_SET_CONFIGURATION\r\n");
+						usb_queue_td_in(DEVICE_ENDPOINT_CONTROL, 0, 0, 0);		// respond with a 0-byte transfer
+						break;
 
-					HW_USBCTRL_DEVICEADDR_WR(BF_USBCTRL_DEVICEADDR_USBADR(new_address) | BM_USBCTRL_DEVICEADDR_USBADRA);
+					case USB_REQ_SET_ADDRESS:
+						debug_print_string("USB_REQ_SET_ADDRESS\r\n");
+						new_address = setup_packet.wValue;
 
-					usb_queue_td_in(DEVICE_ENDPOINT_CONTROL, 0, 0, 0);		// respond with a 0-byte transfer
+						HW_USBCTRL_DEVICEADDR_WR(BF_USBCTRL_DEVICEADDR_USBADR(new_address) | BM_USBCTRL_DEVICEADDR_USBADRA);
 
-					usb_state = USB_DEVICE_STATE_ADDRESSED;
-					handled = 1;
-					debug_print_this("                       Host has set our address to ", new_address, ".");
+						usb_queue_td_in(DEVICE_ENDPOINT_CONTROL, 0, 0, 0);		// respond with a 0-byte transfer
 
-					break;
-				default:
-					//Packets with a host-to-device data phase direction
-					debug_print_this("Unhandled host-to-device data direction setup request ", setup_packet.bRequest, " was received.");
+						usb_state = USB_DEVICE_STATE_ADDRESSED;
+						handled = 1;
+						debug_print_this("                       Host has set our address to ", new_address, ".");
+
+						break;
+					default:
+						//Packets with a host-to-device data phase direction
+						print_setup_packet(setup_packet);
+						debug_print_this("Unhandled host-to-device data direction setup request ", setup_packet.bRequest, " was received.");
+					}
 				}
 			}
 	
 		handled = 1;
 		}
+	else
+		debug_print_this("SETUP PACKET arrived on endpoint other than 0 (HW_USBCTRL_ENDPTSETUPSTAT = ", HW_USBCTRL_ENDPTSETUPSTAT_RD(), ")");
 	}
 else
-	debug_print_string("Request for something other than a setup\r\n");
+	{
+	int managed = 0;
+	int endpt;
+	uint32_t endpoint_status = HW_USBCTRL_ENDPTSTAT_RD();
+	uint32_t endpoint_setup_status = HW_USBCTRL_ENDPTSETUPSTAT_RD();
+
+	for (endpt = 0; endpt < 4; endpt++)
+		{
+		if (HW_USBCTRL_ENDPTSTAT_RD() & BF_USBCTRL_ENDPTSTAT_ERBR(1 << endpt))
+			{
+			debug_print_this("Recieve Endpoint Empty (", endpt, ")");
+			managed = 1;
+			}
+		else if (HW_USBCTRL_ENDPTSTAT_RD() & BF_USBCTRL_ENDPTSTAT_ETBR(1 << endpt))
+			{
+			debug_print_this("Transmit Endpoint Empty (", endpt, ")");
+			managed = 1;
+			}
+		}
+	if (!managed)
+		{
+		debug_print_string("Unknown interrupt source (HW_USBCTRL_ENDPTSTAT = ");
+		debug_print_hex(endpoint_status);
+		debug_print_string(") (HW_USBCTRL_ENDPTSETUPSTAT = ");
+		debug_print_hex(endpoint_setup_status);
+		debug_print_string(")\r\n");
+		}
+	}
 
 if (!handled)
 	debug_print_string("We got a USB interrupt, but we didn't do anything in response.\r\n");
@@ -1159,80 +1449,74 @@ return 0;
 }
 
 /*
- GET_CPSR()
- ----------
- */
-uint32_t get_cpsr(void) {
-	uint32_t answer;
+	GET_CPSR()
+	----------
+*/
+uint32_t get_cpsr(void)
+{
+uint32_t answer;
 
-	asm volatile
-	(
-		"mrs %0,CPSR"
-		:"=r" (answer)
-	);
-	return answer;
+asm volatile ("mrs %0,CPSR" :"=r" (answer));
+return answer;
 }
 
 /*
- SET_CPSR()
- ----------
- */
-void set_cpsr(uint32_t save_cpsr) {
-	asm volatile
-	(
-		"msr CPSR_cxsf, %0"
-		:
-		:"r"(save_cpsr)
-	);
+	SET_CPSR()
+	----------
+*/
+void set_cpsr(uint32_t save_cpsr)
+{
+asm volatile ("msr CPSR_cxsf, %0"::"r"(save_cpsr));
 }
 
 /*
- ENABLE_IRQ()
- ------------
- */
-void enable_IRQ(void) {
-	set_cpsr(get_cpsr() & ~0x80);
+	ENABLE_IRQ()
+	------------
+*/
+void enable_IRQ(void)
+{
+set_cpsr(get_cpsr() & ~0x80);
 }
 
 /*
 	APBX_RESET()
 	------------
 */
-void apbx_reset() {
-	//Clear SFTRST
-	HW_APBX_CTRL0_CLR(BM_APBX_CTRL0_SFTRST);
+void apbx_reset()
+{
+//Clear SFTRST
+HW_APBX_CTRL0_CLR(BM_APBX_CTRL0_SFTRST);
 
-	//Wait for SFTRST to fall
-	do {
-		delay_us(1);
-	} while (HW_APBX_CTRL0.B.SFTRST);
+//Wait for SFTRST to fall
+do
+	delay_us(1);
+while (HW_APBX_CTRL0.B.SFTRST);
 
-	//Clear CLKGATE to wait for SFTRST to assert it
-	HW_APBX_CTRL0_CLR(BM_APBX_CTRL0_CLKGATE);
+//Clear CLKGATE to wait for SFTRST to assert it
+HW_APBX_CTRL0_CLR(BM_APBX_CTRL0_CLKGATE);
 
-	//Soft reset
-	HW_APBX_CTRL0_SET(BM_APBX_CTRL0_SFTRST);
+//Soft reset
+HW_APBX_CTRL0_SET(BM_APBX_CTRL0_SFTRST);
 
-	//Wait for CLKGATE to be brought high by the reset process
-	while (!HW_APBX_CTRL0.B.CLKGATE) {
-		//Nothing
-	}
+//Wait for CLKGATE to be brought high by the reset process
+while (!HW_APBX_CTRL0.B.CLKGATE)
+	; //Nothing
 
-	//Bring out of reset
-	HW_APBX_CTRL0_CLR(BM_APBX_CTRL0_SFTRST);
+//Bring out of reset
+HW_APBX_CTRL0_CLR(BM_APBX_CTRL0_SFTRST);
 
-	//Wait for that to complete
-	do {
-		delay_us(1);
-	} while (HW_APBX_CTRL0.B.SFTRST);
+//Wait for that to complete
+do
+	delay_us(1);
+while (HW_APBX_CTRL0.B.SFTRST);
 
-	//Enable clock again
-	HW_APBX_CTRL0_CLR(BM_APBX_CTRL0_CLKGATE);
+//Enable clock again
+HW_APBX_CTRL0_CLR(BM_APBX_CTRL0_CLKGATE);
 
-	//Wait for that to complete
-	do {
-		delay_us(1);
-	} while (HW_APBX_CTRL0.B.CLKGATE);
+//Wait for that to complete
+do
+	delay_us(1);
+while (HW_APBX_CTRL0.B.CLKGATE);
 }
 
 /*
@@ -1242,7 +1526,6 @@ void apbx_reset() {
 void usb_phy_startup()
 {
 //	HW_CLKCTRL_XBUS.B.DIV = 20; // "make sure XBUS is lower than HBUS"
-
 HW_CLKCTRL_XBUS.B.DIV = 1;
 
 HW_CLKCTRL_PLLCTRL0_SET(BM_CLKCTRL_PLLCTRL0_EN_USB_CLKS);
@@ -1254,9 +1537,7 @@ HW_USBPHY_CTRL_CLR(BM_USBPHY_CTRL_SFTRST);
 
 //Wait for SFTRST to fall
 do
-	{
 	delay_us(1);
-	}
 while (HW_USBPHY_CTRL.B.SFTRST);
 
 //Clear CLKGATE to wait for SFTRST to assert it
@@ -1267,18 +1548,14 @@ HW_USBPHY_CTRL_SET(BM_USBPHY_CTRL_SFTRST);
 
 //Wait for CLKGATE to be brought high by the reset process
 while (!HW_USBPHY_CTRL.B.CLKGATE)
-	{
-	//Nothing
-	}
+	; //Nothing
 
 //Bring out of reset
 HW_USBPHY_CTRL_CLR(BM_USBPHY_CTRL_SFTRST);
 
 //Wait for that to complete
 do
-	{
 	delay_us(1);
-	}
 while (HW_USBPHY_CTRL.B.SFTRST);
 
 //Enable clock again
@@ -1286,9 +1563,7 @@ HW_USBPHY_CTRL_CLR(BM_USBPHY_CTRL_CLKGATE);
 
 //Wait for that to complete
 do
-	{
 	delay_us(1);
-	}
 while (HW_USBPHY_CTRL.B.CLKGATE);
 
 HW_USBPHY_PWD_WR(0); //Bring USB PHY components out of powerdown state
@@ -1296,18 +1571,41 @@ HW_USBPHY_PWD_WR(0); //Bring USB PHY components out of powerdown state
 //Clear HW_POWER_CTRL_CLKGATE (we will assume this already happened in powerprep)
 
 //For some unexplained reason we should:
-HW_POWER_DEBUG_SET(
-BM_POWER_DEBUG_VBUSVALIDPIOLOCK |
-BM_POWER_DEBUG_AVALIDPIOLOCK |
-BM_POWER_DEBUG_BVALIDPIOLOCK
-);
+HW_POWER_DEBUG_SET
+	(
+	BM_POWER_DEBUG_VBUSVALIDPIOLOCK |
+	BM_POWER_DEBUG_AVALIDPIOLOCK |
+	BM_POWER_DEBUG_BVALIDPIOLOCK
+	);
 
-HW_POWER_STS_SET(
-BM_POWER_STS_VBUSVALID |
-BM_POWER_STS_AVALID |
-BM_POWER_STS_BVALID
-);
+HW_POWER_STS_SET
+	(
+	BM_POWER_STS_VBUSVALID |
+	BM_POWER_STS_AVALID |
+	BM_POWER_STS_BVALID
+	);
 }
+
+/*
+	CONFIG_ENDPOINT()
+	-----------------
+*/
+void config_endpoint(int which)
+{
+struct endpoint_td *td;
+
+td = main_memory_alloc(sizeof(*td), 32);
+memset(td, 0, sizeof(*td));
+td->next_td_ptr = (struct endpoint_td *)1;
+td->size_ioc_sts = 1 << 15; //Interrupt on completion
+
+endpoint_queueheads[which].td_overlay_area.next_td_ptr = (struct endpoint_td *)(((uint32_t)td) + 1);			// correct pointer, but mark as invalid
+endpoint_queueheads[which].td_overlay_area.size_ioc_sts = 1 << 15; 	//Interrupt on completion
+endpoint_queueheads[which].td_overlay_area.buff_ptr0 = main_memory_alloc(1024, 1024);
+
+endpoint_queueheads[which].max_pkt_length = (64 << 16) | (1 << 15); 	//Control OUT endpoint, 64 byte max packet size, interrupt on setup
+}
+
 
 /*
 	USB_SETUP_ENDPOINTS()
@@ -1315,40 +1613,52 @@ BM_POWER_STS_BVALID
 */
 void usb_setup_endpoints()
 {
-struct endpoint_td *td;
+hw_usbctrl_endptctrln_t endpointcfg;
+
 /*
 	Zero everything
 */
 memset(endpoint_queueheads, 0, (sizeof *endpoint_queueheads));
 
 /*
-	set up the outgoing (from host) endpoing
+	Configure the i.MX233 structures
 */
-endpoint_queueheads[USB_DIRECTION_OUT].max_pkt_length = (64 << 16) | (1 << 15); 	//Control OUT endpoint, 64 byte max packet size, interrupt on setup
-
-td = main_memory_alloc(sizeof(*td), 32);
-memset(td, 0, sizeof(*td));
-td->next_td_ptr = (struct endpoint_td *)1;
-td->size_ioc_sts = 1 << 15; //Interrupt on completion
-
-endpoint_queueheads[USB_DIRECTION_OUT].td_overlay_area.next_td_ptr = (struct endpoint_td *)(((uint32_t)td) + 1);			// correct pointer, but mark as invalid
-endpoint_queueheads[USB_DIRECTION_OUT].td_overlay_area.size_ioc_sts = 1 << 15; 	//Interrupt on completion
-endpoint_queueheads[USB_DIRECTION_OUT].td_overlay_area.buff_ptr0 = main_memory_alloc(1024, 1024);
+/*
+	Endpoints 0 and 1 : USB Control
+*/
+config_endpoint(ENDPOINT_CONTROL_OUT);
+config_endpoint(ENDPOINT_CONTROL_IN);
 
 /*
-	set up the outgoing (to host) endpoing
+	Endpoint 2 : Abstracrt Control Management Interface
 */
-endpoint_queueheads[USB_DIRECTION_IN].max_pkt_length = (64 << 16) | (1 << 15); 	//Control IN endpoint, 64 byte max packet size, interrupt on setup
+endpointcfg.U = 0;
+endpointcfg.B.RXE = 1; //RX endpoint enable
+endpointcfg.B.RXT = BV_USBCTRL_ENDPTCTRLn_RXT__INT;
+config_endpoint(ENDPOINT_ACM);
+HW_USBCTRL_ENDPTCTRLn_WR(ENDPOINT_ACM, endpointcfg.U);
 
-td = main_memory_alloc(sizeof(*td), 32);
-memset(td, 0, sizeof(*td));
-td->next_td_ptr = (struct endpoint_td *)1;
-td->size_ioc_sts = 1 << 15; //Interrupt on completion
+/*
+	Endpoint 3 : Data from host
+*/
+endpointcfg.U = 0;
+endpointcfg.B.RXE = 1; //RX endpoint enable
+endpointcfg.B.RXT = BV_USBCTRL_ENDPTCTRLn_RXT__BULK;
+config_endpoint(ENDPOINT_DATA_OUT);
+HW_USBCTRL_ENDPTCTRLn_WR(ENDPOINT_DATA_OUT, endpointcfg.U);
 
-endpoint_queueheads[USB_DIRECTION_IN].td_overlay_area.next_td_ptr = (struct endpoint_td *)(((uint32_t)td) + 1);			// correct pointer, but mark as invalid
-endpoint_queueheads[USB_DIRECTION_IN].td_overlay_area.size_ioc_sts = 1 << 15; 	//Interrupt on completion
-endpoint_queueheads[USB_DIRECTION_IN].td_overlay_area.buff_ptr0 = main_memory_alloc(1024, 1024);
+/*
+	Endpoint 4 : Data to host
+*/
+endpointcfg.U = 0;
+endpointcfg.B.TXE = 1; //TX endpoint enable
+endpointcfg.B.TXT = BV_USBCTRL_ENDPTCTRLn_TXT__BULK;
+config_endpoint(ENDPOINT_DATA_IN);
+HW_USBCTRL_ENDPTCTRLn_WR(ENDPOINT_DATA_IN, endpointcfg.U);
 
+/*
+	Hand off to the i.MX233
+*/
 HW_USBCTRL_ENDPOINTLISTADDR_SET((uint32_t)endpoint_queueheads);
 }
 
@@ -1375,14 +1685,13 @@ if (HW_USBCTRL_USBCMD.B.RS)
 HW_USBCTRL_USBCMD_SET(BM_USBCTRL_USBCMD_RST);
 
 while (HW_USBCTRL_USBCMD.B.RST)
-	{
-	//Wait for reset to complete
-	}
+	; //Wait for reset to complete
 
 //Clear interrupt status bits that can apply to us as a Device
 
 //These ones are actually cleared by setting them:
-HW_USBCTRL_USBSTS_SET(
+HW_USBCTRL_USBSTS_SET
+	(
 	BM_USBCTRL_USBSTS_URI | // USB Reset Enable 			(ASPT)
 	BM_USBCTRL_USBSTS_PCI | // USB Port Change Detect Enable	(ASPT)
 	BM_USBCTRL_USBSTS_TI0 |
@@ -1397,8 +1706,9 @@ HW_USBCTRL_USBSTS_CLR(BM_USBCTRL_USBSTS_UI);
 //We're a USB device not a USB host
 HW_USBCTRL_USBMODE.B.CM = BV_USBCTRL_USBMODE_CM__DEVICE;
 
-HW_USBCTRL_USBINTR_WR(
-//				BM_USBCTRL_USBINTR_SRE | //Interrupt me on Start-Of-Frame
+HW_USBCTRL_USBINTR_WR
+	(
+	//		BM_USBCTRL_USBINTR_SRE | //Interrupt me on Start-Of-Frame
 	BM_USBCTRL_USBINTR_URE | // USB Reset Enable 			(ASPT)
 	BM_USBCTRL_USBINTR_PCE | // USB Port Change Detect Enable	(ASPT)
 
@@ -1420,65 +1730,6 @@ HW_USBCTRL_PORTSC1.B.PSPD = 0; //Full speed (12Mbps) (default)
 HW_USBCTRL_USBMODE.B.SLOM = 1;
 
 HW_USBCTRL_USBCMD.B.RS = 1; //Run
-}
-
-/*
-	USB_WAIT_FOR_PLUGIN()
-	---------------------
- * This is derived from a sequence diagram in the IMX233 manual... no suggestion is
- * made of when this is allowed to be called or even how to restore pulldowns to their
- * original state.
-*/
-void usb_wait_for_plugin() {
-	//Take control of 15K pulldown resistor
-	HW_USBPHY_DEBUG_SET(BM_USBPHY_DEBUG_ENHSTPULLDOWN);
-	//And switch it off
-	HW_USBPHY_DEBUG_CLR(BM_USBPHY_DEBUG_HSTPULLDOWN);
-
-	/*
-	 * Turn on a 200K pullup resistor, if a host is connected then it will
-	 * overpower this pullup with its own 15K pulldown and force the line low.
-	 */
-	HW_USBPHY_CTRL_SET(BM_USBPHY_CTRL_ENDEVPLUGINDETECT);
-
-	do {
-		delay_us(1);
-	} while (!HW_USBPHY_STATUS.B.DEVPLUGIN_STATUS);
-
-	//Return to regular pullups/downs state
-
-	//Return control of our pulldowns to the USB controller
-	HW_USBPHY_DEBUG_CLR(BM_USBPHY_DEBUG_ENHSTPULLDOWN);
-	//Don't need our 200K pullup on any more
-	HW_USBPHY_CTRL_CLR(BM_USBPHY_CTRL_ENDEVPLUGINDETECT);
-}
-
-/*
-	USB_WAIT_FOR_UNPLUG()
-	---------------------
-*/
-void usb_wait_for_unplug() {
-	//Take control of 15K pulldown resistor
-	HW_USBPHY_DEBUG_SET(BM_USBPHY_DEBUG_ENHSTPULLDOWN);
-	//And switch it off
-	HW_USBPHY_DEBUG_CLR(BM_USBPHY_DEBUG_HSTPULLDOWN);
-
-	/*
-	 * Turn on a 200K pullup resistor, if a host is connected then it will
-	 * overpower this pullup with its own 15K pulldown and force the line low.
-	 */
-	HW_USBPHY_CTRL_SET(BM_USBPHY_CTRL_ENDEVPLUGINDETECT);
-
-	do {
-		delay_us(1);
-	} while (HW_USBPHY_STATUS.B.DEVPLUGIN_STATUS);
-
-	//Return to regular pullups/downs state
-
-	//Return control of our pulldowns to the USB controller
-	HW_USBPHY_DEBUG_CLR(BM_USBPHY_DEBUG_ENHSTPULLDOWN);
-	//Don't need our 200K pullup on any more
-	HW_USBPHY_CTRL_CLR(BM_USBPHY_CTRL_ENDEVPLUGINDETECT);
 }
 
 /*
@@ -1593,37 +1844,6 @@ debug_print_string("\r\nSystem online.\r\n");
 debug_print_string("USB status register: ");
 debug_print_hex(HW_USBCTRL_USBSTS_RD());
 debug_print_string("\r\n");
-
-//uint32_t done = 0;
-
-while (1)
-	{
-/*
-	if ((HW_USBCTRL_ENDPTSETUPSTAT_RD() != 0) & !done)
-		{
-		done = 1;
-		debug_print_string("[SETUP]");
-
-		debug_print_string("USB status register: ");
-		debug_print_hex(HW_USBCTRL_USBSTS_RD());
-		debug_print_string("\r\n");
-		}
-*/
-
-/*		{
-		struct endpoint_queue_head *dQH = &endpoint_queueheads[0 * DIRECTIONS_PER_ENDPOINT + USB_DIRECTION_IN];
-	
-		debug_print_this("STATUS:", dQH->td_overlay_area.size_ioc_sts, "\r\n");
-		}
-*/
-
-/*	debug_print_string("ENDPTSETUPSTAT: ");
-	debug_print_hex(HW_USBCTRL_ENDPTSETUPSTAT_RD());
-	debug_print_string("\r\n");
-*/
-	}
-
-debug_print_this("USB endptsetup register: ", HW_USBCTRL_ENDPTSETUPSTAT_RD(), "");
 
 for (;;);				// loop forever
 }
