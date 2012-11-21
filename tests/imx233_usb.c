@@ -101,13 +101,20 @@
 void usb_setup_endpoint_nonzero(void);
 void usb_setup_endpoint_zero(void);
 
+
 /*
-	struct USB_SETUP_PACKET
-	-----------------------
-	Setup packets are stored in the queue head, this structure makes
-	it possible to access the seperate members by name
+	=========
+	USB stuff
+	=========
 */
-struct usb_setup_packet
+/*
+	struct USB_SETUP_DATA
+	---------------------
+	Page 248 of "Universal Serial Bus Specification Revision 2.0"
+	This structure is the shape of the setup packet sent from the host to the device.
+	It is used in communications before the device comes on line
+*/
+struct usb_setup_data
 {
 uint8_t bmRequestType;
 uint8_t bRequest;
@@ -115,6 +122,339 @@ uint16_t wValue;
 uint16_t wIndex;
 uint16_t wLength;
 } __attribute__ ((packed));
+
+/*
+	struct USB_STANDARD_DEVICE_DESCRIPTOR
+	-------------------------------------
+	Page 262-263 of "Universal Serial Bus Specification Revision 2.0"
+	This structure is used by the device to tell the host what the device is
+*/
+struct usb_standard_device_descriptor
+{
+uint8_t bLength;
+uint8_t bDescriptorType;
+uint16_t bcdUSB;
+uint8_t bDeviceClass;
+uint8_t bDeviceSubClass;
+uint8_t bDeviceProtocol;
+uint8_t bMaxPacketSize0;
+uint16_t idVendor;
+uint16_t idProduct;
+uint16_t bcdDevice;
+uint8_t iManufacturer;
+uint8_t iProduct;
+uint8_t iSerialNumber;
+uint8_t bNumConfigurations;
+} __attribute__ ((packed));
+
+/*
+	struct USB_DEVICE_QUALIFIER_DESCRIPTOR
+	--------------------------------------
+	Page 262-263 of "Universal Serial Bus Specification Revision 2.0"
+	This gets used when a high-speed device is plugged in so that the host
+	can determine what would happen if plugged into a non-high-speed port.
+*/
+struct usb_device_qualifier_descriptor
+{
+uint8_t bLength;
+uint8_t bDescriptorType;
+uint16_t bcdUSB;
+uint8_t bDeviceClass;
+uint8_t bDeviceSubClass;
+uint8_t bDeviceProtocol;
+uint8_t bMaxPacketSize0;
+uint8_t bNumConfigurations;
+uint8_t reserved;
+} __attribute__ ((packed));
+
+/*
+	struct USB_STRING_DESCRIPTOR_LANGUAGE
+	-------------------------------------
+	Page 273 of "Universal Serial Bus Specification Revision 2.0" 
+	The host will ask us what language our text strings are in, the device
+	responds with one of these.  As some devices support multiple languages
+	the response can include several languages.  We'll only worry about one
+	language at the moment.
+*/
+struct usb_string_descriptor_language
+{
+uint8_t bLength;
+uint8_t bDescriptorType;
+uint16_t wLANGID;
+}  __attribute__ ((packed));
+
+
+/*
+	struct USB_STRING_DESCRIPTOR
+	----------------------------
+	Page 273 of "Universal Serial Bus Specification Revision 2.0" 
+	When we return a string to the host its in one of these objects
+*/
+struct usb_string_descriptor
+{
+uint8_t bLength;
+uint8_t bDescriptorType;
+uint8_t wString[];
+}  __attribute__ ((packed));
+
+/*
+	struct USB_STANDARD_CONFIGURATION_DESCRIPTOR
+	--------------------------------------------
+	Page 265 of "Universal Serial Bus Specification Revision 2.0"
+	A device may have several configurations, the host selects which one to use
+	by calling SetConfiguration() using the bConfigurationValue value
+
+*/
+struct usb_standard_configuration_descriptor
+{
+uint8_t bLength;
+uint8_t bDescriptorType;
+uint16_t wTotalLength;
+uint8_t bNumInterfaces;
+uint8_t bConfigurationValue;
+uint8_t iConfiguration;
+uint8_t bmAttributes;
+uint8_t bMaxPower;
+} __attribute__ ((packed));
+
+/*
+	struct USB_STANDARD_INTERFACE_DESCRIPTOR
+	----------------------------------------
+	Page 268-269 of "Universal Serial Bus Specification Revision 2.0"
+	Each configuration has one or more interfaces.
+*/
+struct usb_standard_interface_descriptor
+{
+uint8_t bLength;
+uint8_t bDescriptorType;
+uint8_t bInterfaceNumber;
+uint8_t bAlternateSetting;
+uint8_t bNumEndpoints;
+uint8_t bInterfaceClass;
+uint8_t bInterfaceSubClass;
+uint8_t bInterfaceProtocol;
+uint8_t iInterface;
+} __attribute__ ((packed));
+
+
+/*
+	struct USB_STANDARD_ENDPOINT_DESCRIPTOR
+	---------------------------------------
+	Page 269-271 of "Universal Serial Bus Specification Revision 2.0"
+	Each interface is attached to some number of endpoints.  An endpoint is
+	just like a socket - it is where we speak in order to pass a message around.
+*/
+struct usb_standard_endpoint_descriptor
+{
+uint8_t bLength;
+uint8_t bDescriptorType;
+uint8_t bEndpointAddress;			// the endpont number
+uint8_t bmAttributes;
+uint16_t wMaxPacketSize;
+uint8_t bInterval;
+} __attribute__ ((packed));
+
+
+/*
+	=============
+	USB CDC stuff
+	=============
+*/
+/*
+	struct USB_CDC_HEADER_FUNCTIONAL_DESCRIPTOR
+	-------------------------------------------
+	Page 34 of "Universal Serial Bus Class Definitions for Communication Devices Version 1.1"
+*/
+struct usb_cdc_header_functional_descriptor
+{
+uint8_t bLength;
+uint8_t bDescriptorType;
+uint8_t bDescriptorSubType;
+uint16_t bcdCDC;
+} __attribute__ ((packed));
+
+/*
+	struct USB_CDC_CALL_MANAGEMENT_FUNCTIONAL_DESCRIPTOR
+	----------------------------------------------------
+	Page 34-35 of "Universal Serial Bus Class Definitions for Communication Devices Version 1.1"
+*/
+struct usb_cdc_call_management_functional_descriptor
+{
+uint8_t bLength;
+uint8_t bDescriptorType;
+uint8_t bDescriptorSubType;
+uint8_t bmCapabilities;
+uint8_t bDataInterface;
+} __attribute__ ((packed));
+
+/*
+	struct USB_CDC_ABSTRACT_CONTROL_MANAGEMENT_FUNCTIONAL_DESCRIPTOR
+	----------------------------------------------------------------
+	Page 35-36 of "Universal Serial Bus Class Definitions for Communication Devices Version 1.1"
+*/
+struct usb_cdc_abstract_control_management_functional_descriptor
+{
+uint8_t bLength;
+uint8_t bDescriptorType;
+uint8_t bDescriptorSubType;
+uint8_t bmCapabilities;
+} __attribute__ ((packed));
+
+/*
+	struct USB_UNION_INTERFACE_FUNCTIONAL_DESCRIPTOR
+	------------------------------------------------
+	Page 40-41 of "Universal Serial Bus Class Definitions for Communication Devices Version 1.1"
+*/
+struct usb_union_interface_functional_descriptor
+{
+uint8_t bFunctionLength;
+uint8_t bDescriptorType;
+uint8_t bDescriptorSubtype;
+uint8_t bMasterInterface;
+uint8_t bSlaveInterface0;
+} __attribute__ ((packed));
+
+/*
+	stuct USB_CDC_VIRTUAL_COM_PORT
+	------------------------------
+	A virtual COM port has one configuration, two interfaces (data and control) and three
+	endpoints (data in and data out count as two).
+*/
+
+struct usb_cdc_virtual_com_port
+{
+struct usb_standard_configuration_descriptor cd;
+	struct usb_standard_interface_descriptor id0;
+		struct usb_cdc_header_functional_descriptor fd1;
+		struct usb_cdc_call_management_functional_descriptor fd2;
+		struct usb_cdc_abstract_control_management_functional_descriptor fd3;
+		struct usb_union_interface_functional_descriptor fd4;
+			struct usb_standard_endpoint_descriptor ep2;
+
+	struct usb_standard_interface_descriptor id1;
+		struct usb_standard_endpoint_descriptor ep3;
+		struct usb_standard_endpoint_descriptor ep4;
+} __attribute__ ((packed));
+
+/*
+	struct USB_CDC_LINE_CODING
+	--------------------------
+*/
+struct usb_cdc_line_coding
+{
+uint32_t dwDTERat;		// Number Data terminal rate, in bits per second.
+uint8_t bCharFormat;	// Number Stop bits (0 = 1 Stop bit, 1 = 1.5 Stop bits, 2 = 2 Stop bits)
+uint8_t bParityType;	// Number Parity (0 = None, 1 = Odd, 2 = Even, 3 = Mark, 4 = Space)
+uint8_t bDataBits;		// Number Data bits (5, 6, 7, 8 or 16).
+} ;
+
+/*
+	=========================================
+	Microsoft extensions to the USB protocols
+	=========================================
+*/
+
+/*
+	struct USB_MS_OS_STRING_DESCRIPTOR
+	----------------------------------
+	Page 7 of "Microsoft OS Descriptors Overview (July 13, 2012)"
+*/
+struct ms_usb_os_string_descriptor
+{
+uint8_t bLength;
+uint8_t bDescriptorType;
+uint8_t qwSignature[14];
+uint8_t bMS_VendorCode;
+uint8_t bPad;
+} ;
+
+/*
+	struct MS_USB_COMPATIBLE_ID_HEADER
+	----------------------------------
+	Page 6 of "Extended Compat ID OS Feature Descriptor Specification (July 13, 2012)"
+*/
+struct ms_usb_compatible_id_header
+{
+uint32_t dwLength;
+uint16_t bcdVersion;
+uint16_t wIndex;
+uint8_t bCount;
+uint8_t reserved[7];
+};
+
+/*
+	struct MS_USB_COMPATIBLE_ID_FUNCTION
+	------------------------------------
+	Page 7 of "Extended Compat ID OS Feature Descriptor Specification (July 13, 2012)"
+*/
+struct ms_usb_compatible_id_function
+{
+uint8_t bFirstInterfaceNumber;
+uint8_t reserved1;
+uint8_t compatibleID[8];
+uint8_t subCompatibleID[8];
+uint8_t reserved2[6];
+} ;
+
+/*
+	struct MS_USB_EXTENDED_COMPATIBLE_ID_OS_FEATURE_DESCRIPTOR
+	----------------------------------------------------------
+	Page 6 of "Extended Compat ID OS Feature Descriptor Specification (July 13, 2012)"
+	This structure can hold manty different ms_usb_function_section objects, but for
+	what we need one is enough.
+*/
+struct ms_usb_extended_compatible_id_os_feature_descriptor
+{
+struct ms_usb_compatible_id_header header;
+struct ms_usb_compatible_id_function section1;
+} ;
+
+/*
+	struct MS_USB_EXTENDED_PROPERTY_HEADER
+	--------------------------------------
+	Page 6 of "Extended Properties OS Feature Descriptor Specification (July 13, 2012)"
+*/
+struct ms_usb_extended_property_header
+{
+uint32_t dwLength;				// sizeof whole descriptor
+uint16_t bcdVersion;
+uint16_t wIndex;
+uint16_t wCount;
+} ;
+
+/*
+	struct MS_USB_CUSTOM_PROPERTY_FUNCTION
+	--------------------------------------
+	Page 7 of "Extended Properties OS Feature Descriptor Specification (July 13, 2012)"
+*/
+struct ms_usb_extended_property_function
+{
+uint32_t dwSize;
+uint32_t dwPropertyDataType;
+uint16_t wPropertyNameLength;
+uint8_t bPropertyName[12];				// "Label" in Unicode
+uint32_t dwPropertyDataLength;
+uint8_t bPropertyData[16];
+} ;
+
+
+/*
+	struct USB_MS_EXTENDED_PROPERTIES
+	---------------------------------
+	Page 6 of "Extended Properties OS Feature Descriptor Specification (July 13, 2012)"
+	This can have several properties, but we only need one.
+*/
+struct ms_usb_extended_properties
+{
+struct ms_usb_extended_property_header header;
+struct ms_usb_extended_property_function property1;
+} ;
+
+/*
+	=============
+	i.MX233 stuff
+	=============
+*/
 
 /*
 	struct ENDPOINT_TD
@@ -143,39 +483,23 @@ struct endpoint_queue_head
 uint32_t max_pkt_length;				/* bitfield: Mult(31-30) , Zlt(29) , Max Pkt len  and IOS(15) */
 void *curr_dtd_ptr;					/* Current dTD Pointer(31-5). This is set by the USB controller */
 struct endpoint_td td_overlay_area; 	/* dTD Overlay Area - I believe this is a 32 byte copy of the current dTD written by the USB controller, except for the "next" field which we should set to our first dTD address when we prime the endpoint. */
-struct usb_setup_packet setup_buffer;	/* setup packets are dumped here on arrival */
+struct usb_setup_data setup_buffer;	/* setup packets are dumped here on arrival */
 uint32_t reserved2[4];					/* Needed to guarantee 64-byte allignment */
 } __attribute__ ((packed));
 
+
 /*
-	struct USB_DEVICE_DESCRIPTOR
-	----------------------------
-	This is the device descripter that we send back to the host
+	================================
+	Now for some of our constants...
+	================================
 */
-struct usb_device_descriptor
-{
-uint8_t bLength;
-uint8_t bDescriptorType;
-uint16_t bcdUSB;
-uint8_t bDeviceClass;
-uint8_t bDeviceSubClass;
-uint8_t bDeviceProtocol;
-uint8_t bMaxPacketSize0;
-uint16_t idVendor;
-uint16_t idProduct;
-uint16_t bcdDevice;
-uint8_t iManufacturer;
-uint8_t iProduct;
-uint8_t iSerialNumber;
-uint8_t bNumConfigurations;
-} __attribute__ ((packed));
 
 /*
 	OUR_DEVICE_DESCRIPTOR
 	---------------------
 	We're going top fake being a serial port
 */
-struct usb_device_descriptor our_device_descriptor =
+struct usb_standard_device_descriptor our_device_descriptor =
 {
 .bLength = sizeof(our_device_descriptor),
 .bDescriptorType = USB_DESCRIPTOR_TYPE_DEVICE,
@@ -193,32 +517,11 @@ struct usb_device_descriptor our_device_descriptor =
 .bNumConfigurations = 0x01
 };
 
-
-
-/*
-	struct USB_DEVICE_QUALIFIER
-	---------------------------
-	This gets used when a high-speed device is plugged in so that the host
-	can determine what would happen if plugged into a non-high-speed port!
-*/
-struct usb_device_qualifier
-{
-uint8_t bLength;
-uint8_t bDescriptorType;
-uint16_t bcdUSB;
-uint8_t bDeviceClass;
-uint8_t bDeviceSubClass;
-uint8_t bDeviceProtocol;
-uint8_t bMaxPacketSize0;
-uint8_t bNumConfigurations;
-uint8_t reserved;
-} __attribute__ ((packed));
-
 /*
 	OUR_DEVICE_QUALIFIER
 	--------------------
 */
-struct usb_device_qualifier our_device_qualifier =
+struct usb_device_qualifier_descriptor our_device_qualifier =
 {
 .bLength = sizeof(our_device_descriptor),
 .bDescriptorType = USB_DESCRIPTOR_TYPE_DEVICE,
@@ -231,22 +534,12 @@ struct usb_device_qualifier our_device_qualifier =
 .reserved = 0x00
 } ;
 
-/*
-	struct USB_LANGUAGE
-	-------------------
-*/
-struct usb_language
-{
-uint8_t bLength;
-uint8_t bDescriptorType;
-uint16_t wLANGID;
-}  __attribute__ ((packed));
 
 /*
 	OUR_LANGUAGE
 	------------
 */
-struct usb_language our_language =
+struct usb_string_descriptor_language our_language =
 {
 .bLength = sizeof(our_language),
 .bDescriptorType = 0x03,
@@ -254,21 +547,10 @@ struct usb_language our_language =
 };
 
 /*
-	struct USB_STRING
-	-----------------
-*/
-struct usb_string
-{
-uint8_t bLength;
-uint8_t bDescriptorType;
-uint8_t wString[22];
-}  __attribute__ ((packed));
-
-/*
 	OUR_SERIAL_NUMBER
 	-----------------
 */
-struct usb_string our_serial_number =
+struct usb_string_descriptor our_serial_number =
 {
 .bLength = 14,
 .bDescriptorType = USB_DESCRIPTOR_TYPE_STRING,
@@ -279,7 +561,7 @@ struct usb_string our_serial_number =
 	OUR_MANUFACTURER
 	----------------
 */
-struct usb_string our_manufacturer =
+struct usb_string_descriptor our_manufacturer =
 {
 .bLength = 10,
 .bDescriptorType = USB_DESCRIPTOR_TYPE_STRING,
@@ -290,133 +572,13 @@ struct usb_string our_manufacturer =
 	OUR_PRODUCT
 	-----------
 */
-struct usb_string our_product =
+struct usb_string_descriptor our_product =
 {
 .bLength = 16,
 .bDescriptorType = USB_DESCRIPTOR_TYPE_STRING,
 .wString = {'F', 0x00, 'o', 0x00, 'u', 0x00, 'r', 0x00, 'A', 0x00, 'R', 0x00, 'M', 0x00}
 } ;
 
-/*
-	struct USB_CONFIG_DESCRIPTOR
-	----------------------------
-*/
-struct usb_config_descriptor
-{
-uint8_t bLength;
-uint8_t bDescriptorType;
-uint16_t wTotalLength;
-uint8_t bNumInterfaces;
-uint8_t bConfigurationValue;
-uint8_t iConfiguration;
-uint8_t bmAttributes;
-uint8_t bMaxPower;
-} __attribute__ ((packed));
-
-/*
-	struct USB_ENDPOINT_DESCRIPTOR
-	------------------------------
-*/
-struct usb_endpoint_descriptor
-{
-uint8_t bLength;
-uint8_t bDescriptorType;
-uint8_t bEndpointAddress;
-uint8_t bmAttributes;
-uint16_t wMaxPacketSize;
-uint8_t bInterval;
-} __attribute__ ((packed));
-
-/*
-	struct USB_INTERFACE_DESCRIPTOR
-	-------------------------------
-*/
-struct usb_interface_descriptor
-{
-uint8_t bLength;
-uint8_t bDescriptorType;
-uint8_t bInterfaceNumber;
-uint8_t bAlternateSetting;
-uint8_t bNumEndpoints;
-uint8_t bInterfaceClass;
-uint8_t bInterfaceSubClass;
-uint8_t bInterfaceProtocol;
-uint8_t iInterface;
-} __attribute__ ((packed));
-
-/*
-	struct USB_CDC_FUNCTIONAL_DESCRIPTOR
-	------------------------------------
-*/
-struct usb_cdc_functional_descriptor
-{
-uint8_t bLength;
-uint8_t bDescriptorType;
-uint8_t bDescriptorSubType;
-uint16_t bcdUSB;
-} __attribute__ ((packed));
-
-/*
-	struct USB_CDC_CALL_MANAGEMENT_FUNCTIONAL_DESCRIPTOR
-	----------------------------------------------------
-*/
-struct usb_cdc_call_management_functional_descriptor
-{
-uint8_t bLength;
-uint8_t bDescriptorType;
-uint8_t bDescriptorSubType;
-uint8_t bmCapabilities;
-uint8_t bDataInterface;
-} __attribute__ ((packed));
-
-/*
-	struct USB_CDC_ABSTRACT_CONTROL_MANAGEMENT_FUNCTIONAL_DESCRIPTOR
-	----------------------------------------------------------------
-*/
-struct usb_cdc_abstract_control_management_functional_descriptor
-{
-uint8_t bLength;
-uint8_t bDescriptorType;
-uint8_t bDescriptorSubType;
-uint8_t bmCapabilities;
-} __attribute__ ((packed));
-
-/*
-	struct USB_UNION_INTERFACE_FUNCTIONAL_DESCRIPTOR
-	------------------------------------------------
-*/
-struct usb_union_interface_functional_descriptor
-{
-uint8_t bFunctionLength;
-uint8_t bDescriptorType;
-uint8_t bDescriptorSubtype;
-uint8_t bMasterInterface;
-uint8_t bSlaveInterface0;
-} __attribute__ ((packed));
-
-
-
-/*
-	stuct USB_COM_DESCRIPTOR
-	------------------------
-	For a COM port we have three end points
-*/
-
-struct usb_com_descriptor
-{
-struct usb_config_descriptor cd;
-
-struct usb_interface_descriptor id0;
-		struct usb_cdc_functional_descriptor fd1;
-		struct usb_cdc_call_management_functional_descriptor fd2;
-		struct usb_cdc_abstract_control_management_functional_descriptor fd3;
-		struct usb_union_interface_functional_descriptor fd4;
-			struct usb_endpoint_descriptor ep2;
-
-	struct usb_interface_descriptor id1;
-		struct usb_endpoint_descriptor ep3;
-		struct usb_endpoint_descriptor ep4;
-} __attribute__ ((packed));
 
 /*
 	I based this on the USB Serial Example for Teensy USB Development
@@ -439,13 +601,13 @@ struct usb_interface_descriptor id0;
 			Endpoint 3 (OUT from host) Bulk
 			Endpoint 4 (IN to host)  Bulk
 */
-struct usb_com_descriptor our_com_descriptor =
+struct usb_cdc_virtual_com_port our_com_descriptor =
 {
 	{
 	// configuration descriptor, USB spec 9.6.3, page 264-266, Table 9-10
-	sizeof(struct usb_config_descriptor),										// bLength;
+	sizeof(struct usb_standard_configuration_descriptor),						// bLength;
 	USB_DESCRIPTOR_TYPE_CONFIGURATION,											// bDescriptorType;
-	sizeof(struct usb_com_descriptor),											// wTotalLength
+	sizeof(struct usb_cdc_virtual_com_port),									// wTotalLength
 	2,																			// bNumInterfaces
 	1,																			// bConfigurationValue (id)
 	0,																			// iConfiguration (string descriptor)
@@ -454,7 +616,7 @@ struct usb_com_descriptor our_com_descriptor =
 	},
 	{
 	// interface descriptor, USB spec 9.6.5, page 267-269, Table 9-12
-	sizeof(struct usb_interface_descriptor),									// bLength
+	sizeof(struct usb_standard_interface_descriptor),							// bLength
 	USB_DESCRIPTOR_TYPE_INTERFACE,												// bDescriptorType
 	0,																			// bInterfaceNumber
 	0,																			// bAlternateSetting
@@ -466,7 +628,7 @@ struct usb_com_descriptor our_com_descriptor =
 	},
 	{
 	// CDC Header Functional Descriptor, CDC Spec 5.2.3.1, Table 26
-	sizeof(struct usb_cdc_functional_descriptor),								// bFunctionLength
+	sizeof(struct usb_cdc_header_functional_descriptor),						// bFunctionLength
 	USB_DESCRIPTOR_TYPE_CS_INTERFACE,											// bDescriptorType
 	USB_DESCRIPTOR_SUBTYPE_HEADER,												// bDescriptorSubtype
 	0x0110																		// bcdCDC (version of the CDC spec we adhere to (in this case v1.1))
@@ -496,7 +658,7 @@ struct usb_com_descriptor our_com_descriptor =
 	},
 	{
 	// endpoint descriptor, USB spec 9.6.6, page 269-271, Table 9-13
-	sizeof(struct usb_endpoint_descriptor),										// bLength
+	sizeof(struct usb_standard_endpoint_descriptor),							// bLength
 	USB_DESCRIPTOR_TYPE_ENDPOINT,												// bDescriptorType
 	DEVICE_ENDPOINT_ABSTRACT_CONTROL_MANAGEMENT | USB_ENDPOINT_DIRECTION_IN,	// bEndpointAddress (Endpoint number | direction (in | out) IN going to host)
 	USB_ENDPOINT_TYPE_INTERRUPT,												// bmAttributes (Interrupt end point)
@@ -505,7 +667,7 @@ struct usb_com_descriptor our_com_descriptor =
 	},
 	{
 	// interface descriptor, USB spec 9.6.5, page 267-269, Table 9-12
-	sizeof(struct usb_interface_descriptor),									// bLength
+	sizeof(struct usb_standard_interface_descriptor),							// bLength
 	USB_DESCRIPTOR_TYPE_INTERFACE,												// bDescriptorType
 	1,																			// bInterfaceNumber
 	0,																			// bAlternateSetting
@@ -517,7 +679,7 @@ struct usb_com_descriptor our_com_descriptor =
 	},
 	{
 	// endpoint descriptor, USB spec 9.6.6, page 269-271, Table 9-13
-	sizeof(struct usb_endpoint_descriptor),										// bLength
+	sizeof(struct usb_standard_endpoint_descriptor),							// bLength
 	USB_DESCRIPTOR_TYPE_ENDPOINT,												// bDescriptorType
 	DEVICE_ENDPOINT_SERIAL_OUT | USB_ENDPOINT_DIRECTION_OUT,					// bEndpointAddress (OUTGOING from host)
 	USB_ENDPOINT_TYPE_BULK,														// bmAttributes (0x02=bulk)
@@ -526,7 +688,7 @@ struct usb_com_descriptor our_com_descriptor =
 	},
 	{
 	// endpoint descriptor, USB spec 9.6.6, page 269-271, Table 9-13
-	sizeof(struct usb_endpoint_descriptor),										// bLength
+	sizeof(struct usb_standard_endpoint_descriptor),							// bLength
 	USB_DESCRIPTOR_TYPE_ENDPOINT,												// bDescriptorType
 	DEVICE_ENDPOINT_SERIAL_IN | USB_ENDPOINT_DIRECTION_IN,						// bEndpointAddress (INGOING to host)
 	USB_ENDPOINT_TYPE_BULK,														// bmAttributes (0x02=bulk)
@@ -541,18 +703,6 @@ struct usb_com_descriptor our_com_descriptor =
 */
 
 /*
-	struct USB_CDC_LINE_CODING
-	--------------------------
-*/
-struct usb_cdc_line_coding
-{
-uint32_t dwDTERat;		// Number Data terminal rate, in bits per second.
-uint8_t bCharFormat;	// Number Stop bits (0 = 1 Stop bit, 1 = 1.5 Stop bits, 2 = 2 Stop bits)
-uint8_t bParityType;	// Number Parity (0 = None, 1 = Odd, 2 = Even, 3 = Mark, 4 = Space)
-uint8_t bDataBits;		// Number Data bits (5, 6, 7, 8 or 16).
-} ;
-
-/*
 	OUR_CDC_LINE_CODING
 	-------------------
 	9600,n,8,1
@@ -565,29 +715,15 @@ struct usb_cdc_line_coding our_cdc_line_coding =
 .bDataBits =  8
 } ;
 
-
 /*
 	Microsoft descriptor extensions
 	===============================
 */
 /*
-	struct USB_MS_OS_STRING_DESCRIPTOR
-	----------------------------------
-*/
-struct usb_ms_os_string_descriptor
-{
-uint8_t bLength;
-uint8_t bDescriptorType;
-uint8_t qwSignature[14];
-uint8_t bMS_VendorCode;
-uint8_t bPad;
-} ;
-
-/*
 	OUR_MS_OS_STRING_DESCRIPTOR
 	---------------------------
 */
-struct usb_ms_os_string_descriptor our_ms_os_string_descriptor = 
+struct ms_usb_os_string_descriptor our_ms_os_string_descriptor = 
 {
 .bLength = sizeof(our_ms_os_string_descriptor),
 .bDescriptorType = USB_DESCRIPTOR_TYPE_STRING,
@@ -598,53 +734,17 @@ struct usb_ms_os_string_descriptor our_ms_os_string_descriptor =
 
 
 /*
-	struct USB_MS_COMPATIBLE_ID_FEATURE_DESCRIPTOR_HEADER
-	-----------------------------------------------------
-*/
-struct usb_ms_compatible_id_feature_descriptor_header
-{
-uint32_t dwLength;
-uint16_t bcdVersion;
-uint16_t wIndex;
-uint8_t bCount;
-uint8_t reserved1[7];
-};
-
-/*
-	struct USB_MS_COMPATIBLE_ID_FEATURE_FUNCTION_SECTION
-	----------------------------------------------------
-*/
-struct usb_ms_compatible_id_feature_function_section
-{
-uint8_t bFirstInterfaceNumber;
-uint8_t reserved1;
-uint8_t compatibleID[8];
-uint8_t subCompatibleID[8];
-uint8_t reserved2[6];
-} ;
-
-/*
-	struct USB_MS_COMPATIBLE_ID_FEATURE_DESCRIPTOR
-	----------------------------------------------
-*/
-struct usb_ms_compatible_id_feature_descriptor
-{
-struct usb_ms_compatible_id_feature_descriptor_header header;
-struct usb_ms_compatible_id_feature_function_section section1;
-} ;
-
-/*
 	OUR_MS_COMPATIBLE_ID_FEATURE_DESCRIPTOR
 	---------------------------------------
 */
-struct usb_ms_compatible_id_feature_descriptor our_ms_compatible_id_feature_descriptor =
+struct ms_usb_extended_compatible_id_os_feature_descriptor our_ms_compatible_id_feature_descriptor =
 {
 	{
 	.dwLength = sizeof(our_ms_compatible_id_feature_descriptor),
 	.bcdVersion = 1,
 	.wIndex = 4,
 	.bCount = 1,
-	.reserved1 = {0},
+	.reserved = {0},
 	},
 	{
 	.bFirstInterfaceNumber = 0,
@@ -657,61 +757,24 @@ struct usb_ms_compatible_id_feature_descriptor our_ms_compatible_id_feature_desc
 
 
 /*
-	struct USB_MS_EXTENDED_PROPERTY_HEADER
-	--------------------------------------
-*/
-struct usb_ms_extended_property_header
-{
-uint32_t dwLength;				// sizeof whole descriptor
-uint16_t bcdVersion;			// verion 0x0100
-uint16_t wIndex;				// USB_REQ_MS_GET_EXTENDED_PROPERTIES
-uint16_t wCount;
-} ;
-
-/*
-	struct USB_MS_CUSTOM_PROPERTY_LABEL
-	-----------------------------------
-*/
-struct usb_ms_custom_property_label
-{
-uint32_t dwSize;
-uint32_t dwPropertyDataType;
-uint16_t wPropertyNameLength;
-uint8_t bPropertyName[12];				// "Label" in Unicode
-uint32_t dwPropertyDataLength;
-uint8_t bPropertyData[16];				// "FourARM" in Unicode
-} ;
-
-
-/*
-	struct USB_MS_EXTENDED_PROPERTIES
-	---------------------------------
-*/
-struct usb_ms_extended_properties
-{
-struct usb_ms_extended_property_header header;
-struct usb_ms_custom_property_label property1;
-} ;
-
-/*
 	OUR_MS_EXTENDED_PROPERTIES
 	--------------------------
 */
-struct usb_ms_extended_properties our_ms_extended_properties =
+struct ms_usb_extended_properties our_ms_extended_properties =
 {
 	{
-	sizeof(our_ms_extended_properties),
-	0x0100,
-	USB_REQ_MS_GET_EXTENDED_PROPERTIES,
-	1
+	.dwLength = sizeof(our_ms_extended_properties),
+	.bcdVersion = 0x0100,
+	.wIndex = USB_REQ_MS_GET_EXTENDED_PROPERTIES,
+	.wCount = 1
 	},
 	{
-	sizeof(struct usb_ms_custom_property_label),
-	REG_SZ,
-	12,
-	{'L', 0x00, 'a', 0x00, 'b', 0x00, 'e', 0x00, 'l', 0x00, 0x00, 0x00},
-	16,
-	{'F', 0x00, 'o', 0x00, 'u', 0x00, 'r', 0x00, 'A', 0x00, 'R', 0x00, 'M', 0x00, 0x00, 0x00}
+	.dwSize = sizeof(struct ms_usb_extended_property_function),
+	.dwPropertyDataType = REG_SZ,
+	.wPropertyNameLength = 12,
+	.bPropertyName = {'L', 0x00, 'a', 0x00, 'b', 0x00, 'e', 0x00, 'l', 0x00, 0x00, 0x00},
+	.dwPropertyDataLength = 16,
+	.bPropertyData = {'F', 0x00, 'o', 0x00, 'u', 0x00, 'r', 0x00, 'A', 0x00, 'R', 0x00, 'M', 0x00, 0x00, 0x00}
 	}
 } ;
 
@@ -1081,7 +1144,7 @@ usb_prime_endpoint(endpoint, USB_DIRECTION_OUT); //Signal the controller to star
 	PRINT_SETUP_PACKET()
 	--------------------
 */
-void print_setup_packet(struct usb_setup_packet req)
+void print_setup_packet(struct usb_setup_data req)
 {
 debug_print_string("SETUP PACKET\r\n");
 debug_print_this("bmRequestType:", req.bmRequestType, "");
@@ -1095,7 +1158,7 @@ debug_print_this("wLength:", req.wLength, "");
 	HANDLE_USB_GET_DESCRIPTOR()
 	---------------------------
 */
-void handle_usb_get_descriptor(struct usb_setup_packet req)
+void handle_usb_get_descriptor(struct usb_setup_data req)
 {
 int descriptor_type = req.wValue >> 8;
 int descriptor_index = req.wValue & 0xFF;
@@ -1197,7 +1260,7 @@ if (HW_USBCTRL_ENDPTSETUPSTAT_RD() & 0x1F)
 		{
 //		debug_print_string("USB SETUP request.\r\n");
 	
-		struct usb_setup_packet setup_packet;
+		struct usb_setup_data setup_packet;
 
 		/* We'll be slowly copying the setup packet from the endpoint descriptor.
 		*
