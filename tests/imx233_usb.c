@@ -454,38 +454,87 @@ struct ms_usb_extended_property_function property1;
 	=============
 	i.MX233 stuff
 	=============
+	The i.MX233 data sheet does not discuss these structures at all, they are assumed.  Freescale discuss them
+	in various documents, but since this stuff is the same on the i.MX6Q, the structures are taken from there.
 */
 
 /*
-	struct ENDPOINT_TD
-	------------------
-	Endpoint Transfer Descriptor data struct
-	must be 32-bye alligned (and is 32-bytes long).
+	union IMX_ENDPOINT_TRANSFER_DESCRIPTOR_DTD_TOKEN
+	------------------------------------------------
 */
-struct endpoint_td
+typedef union
 {
-struct endpoint_td *next_td_ptr;		/* Next TD pointer(31-5), T(0) set indicate invalid */
-uint32_t size_ioc_sts;					/* Total bytes (30-16), IOC (15), MultO(11-10), STS (7-0) */
-void *buff_ptr0;						/* Buffer pointer Page 0 (31-12) */
-void *buff_ptr1;						/* Buffer pointer Page 1 (31-12) */
-void *buff_ptr2;						/* Buffer pointer Page 2 (31-12) */
-void *buff_ptr3;						/* Buffer pointer Page 3 (31-12) */
-void *buff_ptr4;						/* Buffer pointer Page 4 (31-12) */
-uint32_t reserved1;					/* Reserved */
-} __attribute__ ((packed));
+uint32_t all;
+struct
+	{
+	unsigned status : 8;
+	unsigned reserved0 : 2;
+	unsigned mult0 : 2;
+	unsigned reserved1 : 3;
+	unsigned ioc : 1;
+	unsigned total_bytes : 15;
+	unsigned reserved2 : 1;
+	} bit __attribute__ ((packed));
+} imx_endpoint_transfer_descriptor_dtd_token;
 
 /*
-	struct ENDPOINT_QUEUE_HEAD
-	--------------------------
+	struct IMX_ENDPOINT_TRANSFER_DESCRIPTOR
+	---------------------------------------
+	Page 5332 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012"
+	
+	The Endpoint Transfer Descriptor data struct must be 32-bye alligned (and is 32-bytes long) hence the padding at the end
 */
-struct endpoint_queue_head
+typedef struct imx_endpoint_transfer_descriptor_
 {
-uint32_t max_pkt_length;				/* bitfield: Mult(31-30) , Zlt(29) , Max Pkt len  and IOS(15) */
-void *curr_dtd_ptr;					/* Current dTD Pointer(31-5). This is set by the USB controller */
-struct endpoint_td td_overlay_area; 	/* dTD Overlay Area - I believe this is a 32 byte copy of the current dTD written by the USB controller, except for the "next" field which we should set to our first dTD address when we prime the endpoint. */
-struct usb_setup_data setup_buffer;	/* setup packets are dumped here on arrival */
-uint32_t reserved2[4];					/* Needed to guarantee 64-byte allignment */
-} __attribute__ ((packed));
+struct imx_endpoint_transfer_descriptor_ *next_link_pointer;		/* Next TD pointer(31-5), T(0) set indicate invalid */
+imx_endpoint_transfer_descriptor_dtd_token token;
+void *buffer_pointer_0;
+void *buffer_pointer_1;
+void *buffer_pointer_2;
+void *buffer_pointer_3;
+void *buffer_pointer_4;
+uint32_t reserved;							/* Reserved */
+} __attribute__ ((packed)) imx_endpoint_transfer_descriptor;
+
+#define IMX_ENDPOINT_TRANSFER_DESCRIPTOR_TERMINATOR ((imx_endpoint_transfer_descriptor *)0x01)
+#define IMX_ENDPOINT_TRANSFER_DESCRIPTOR_STATUS_ACTIVE 0x80
+
+/*
+	union IMX_ENDPOINT_QUEUEHEAD_CAPABILITIES
+	-----------------------------------------
+*/
+typedef union
+{
+uint32_t all;
+struct
+	{
+	unsigned reserved0 : 15;
+	unsigned ios : 1;
+	unsigned maximum_packet_length : 11;
+	unsigned reserved1 : 2;
+	unsigned zlt : 1;
+	unsigned mult : 2;							// not sure if this exists on the i.MX233
+	} bit __attribute__ ((packed));
+} imx_endpoint_queuehead_capabilities;
+
+/*
+	struct IMX_ENDPOINT_QUEUEHEAD
+	-----------------------------
+	Page 5330 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012"
+
+	This structure must be 64-byte aligned.  To make sure an array of
+	these is correctly alligned its necessary to pad the end of the
+	structure with a few extra words
+*/
+typedef struct
+{
+imx_endpoint_queuehead_capabilities capabilities;			/* capability information about the endpoint */
+imx_endpoint_transfer_descriptor *current_dtd_pointer;		/* Current dTD Pointer(31-5). This is set by the USB controller */
+imx_endpoint_transfer_descriptor dtd_overlay_area;			/* The hardware copies the current transfer descriptor here when it actions it. */
+struct usb_setup_data setup_buffer;						/* Setup packets are copies here rather than into the transfer descriptor buffers */
+uint32_t reserved2[4];										/* Needed to guarantee 64-byte allignment */
+} __attribute__ ((packed)) imx_endpoint_queuehead;
+
 
 
 /*
@@ -808,8 +857,8 @@ char *internal_memory_head;
 #define ENDPOINT_DATA_OUT		4
 #define ENDPOINT_DATA_IN		5
 
-struct endpoint_queue_head endpoint_queueheads[10] __attribute__ ((aligned (2048)));
-struct endpoint_td global_dTD[10] __attribute__ ((aligned (32)));
+imx_endpoint_queuehead endpoint_queueheads[10] __attribute__ ((aligned (2048)));
+imx_endpoint_transfer_descriptor global_dTD[10] __attribute__ ((aligned (32)));
 uint8_t *global_transfer_buffer[10];			// should really be 4K aligned
 
 int usb_state = USB_DEVICE_STATE_DEFAULT;
@@ -1090,20 +1139,18 @@ while ((HW_USBCTRL_ENDPTPRIME_RD() & endpoint_prime_mask) != 0)
  */
 void usb_queue_td_in(int endpoint, const char *buffer, unsigned int length, int ioc)
 {
-struct endpoint_td *dTD = &global_dTD[endpoint];
+imx_endpoint_transfer_descriptor *dTD = &global_dTD[endpoint];
 memset(dTD, 0, sizeof(*dTD));
 
-struct endpoint_queue_head *dQH = &endpoint_queueheads[endpoint];
+imx_endpoint_queuehead *dQH = &endpoint_queueheads[endpoint];
 
-dTD->buff_ptr0 = (char *)buffer;
-dTD->next_td_ptr = (struct endpoint_td *) 0x01; //No TD follow this one
-dTD->size_ioc_sts =
-	length << 16
-//	| (ioc ? 1 : 0) << 15
-	| 1 << 15
-	| 0x80; //Status = active
-
-dQH->td_overlay_area.next_td_ptr = dTD; //Activate this TD by clearing the 'T' bit in the queue head next ptr
+dTD->buffer_pointer_0 = (char *)buffer;
+dTD->next_link_pointer = IMX_ENDPOINT_TRANSFER_DESCRIPTOR_TERMINATOR;
+dTD->token.all = 0;
+dTD->token.bit.total_bytes = length;
+dTD->token.bit.ioc = 1;
+dTD->token.bit.status = IMX_ENDPOINT_TRANSFER_DESCRIPTOR_STATUS_ACTIVE;
+dQH->dtd_overlay_area.next_link_pointer = dTD;
 
 usb_prime_endpoint(endpoint, USB_DIRECTION_IN); //Signal the controller to start processing this queuehead
 }
@@ -1115,26 +1162,24 @@ usb_prime_endpoint(endpoint, USB_DIRECTION_IN); //Signal the controller to start
  * Queue up a transfer descriptor on the given endpoint which receives data sent out from the host.
  *
  * endpoint - Endpoint index
- * direction - One of USB_DIRECTION_OUT, USB_DIRECTION_IN
+ * direction - One of USB_DIRECTION_OUT, USB_DIRECTION_IN							    
  * ioc - Interrupt on completion
 */
 void usb_queue_td_out(int endpoint, unsigned int length, int ioc)
 {
 length = 64;		// this is the size of the rec buffer (the parameter is ignored)
-struct endpoint_td *dTD =  &global_dTD[endpoint];
+imx_endpoint_transfer_descriptor *dTD =  &global_dTD[endpoint];
 memset(dTD, 0, sizeof(*dTD));
 
-struct endpoint_queue_head *dQH = &endpoint_queueheads[endpoint];
+imx_endpoint_queuehead *dQH = &endpoint_queueheads[endpoint];
 
-dTD->buff_ptr0 = (char *)global_transfer_buffer[endpoint];
-dTD->next_td_ptr = (struct endpoint_td *) 0x01; //No TD follow this one
-dTD->size_ioc_sts =
-	length << 16
-//	| (ioc ? 1 : 0) << 15
-	| 1 << 15
-	| 0x80; //Status = active
-
-dQH->td_overlay_area.next_td_ptr = dTD; //Activate this TD by clearing the 'T' bit in the queue head next ptr
+dTD->buffer_pointer_0 = (char *)global_transfer_buffer[endpoint];
+dTD->next_link_pointer = (imx_endpoint_transfer_descriptor *) 0x01; //No TD follow this one
+dTD->token.all = 0;
+dTD->token.bit.total_bytes = length;
+dTD->token.bit.ioc = 1;
+dTD->token.bit.status = IMX_ENDPOINT_TRANSFER_DESCRIPTOR_STATUS_ACTIVE;
+dQH->dtd_overlay_area.next_link_pointer = dTD; //Activate this TD by clearing the 'T' bit in the queue head next ptr
 
 usb_prime_endpoint(endpoint, USB_DIRECTION_OUT); //Signal the controller to start processing this queuehead
 }
@@ -1442,7 +1487,7 @@ else
 			debug_print_this("Recieve Endpoint Ready (", endpt, ")");
 			if (endpt != 0)
 				{
-				debug_print_this("  Queue Status:", global_dTD[endpt * 2].size_ioc_sts, "");
+				debug_print_this("  Queue Status:", global_dTD[endpt * 2].token.bit.status, "");
 				debug_print_this("  Listen on ", endpt * 2, "");
 				usb_queue_td_out(endpt * 2, 1024, 1);
 				}
@@ -1563,7 +1608,7 @@ if (got == VECTOR_IRQ_USB_CTRL)
 			debug_print_string("status ");
 			debug_print_hex(ep);
 			debug_print_string(" : ");
-			debug_print_hex(global_dTD[ep].size_ioc_sts & 0xFF);
+			debug_print_hex(global_dTD[ep].token.bit.status);
 			debug_print_string(")\r\n");
 			}
 
@@ -1748,24 +1793,22 @@ HW_POWER_STS_SET
 */
 void config_endpoint(int which)
 {
-struct endpoint_td *td;
+imx_endpoint_transfer_descriptor *td;
 
 //td = main_memory_alloc(sizeof(*td), 32);
 td = &global_dTD[which];
 
 memset(td, 0, sizeof(*td));
-td->next_td_ptr = (struct endpoint_td *)1;
-//td->size_ioc_sts = 1 << 15; //Interrupt on completion
+td->next_link_pointer = IMX_ENDPOINT_TRANSFER_DESCRIPTOR_TERMINATOR;
 
-endpoint_queueheads[which].td_overlay_area.next_td_ptr = (struct endpoint_td *)(((uint32_t)td) + 1);			// end of chain
-endpoint_queueheads[which].td_overlay_area.size_ioc_sts = 1 << 15; 	//Interrupt on completion
+endpoint_queueheads[which].dtd_overlay_area.next_link_pointer = (imx_endpoint_transfer_descriptor *)(((uint32_t)td) + 1);			// end of chain
+endpoint_queueheads[which].dtd_overlay_area.token.all = 0;
+endpoint_queueheads[which].dtd_overlay_area.token.bit.ioc = 1;
 global_transfer_buffer[which] = (uint8_t *)main_memory_alloc(1024, 1024);			// should really be 4K aligned though.
-endpoint_queueheads[which].td_overlay_area.buff_ptr0 = (void *)global_transfer_buffer[which];
-
-if (which == ENDPOINT_CONTROL_OUT || which== ENDPOINT_CONTROL_IN)
-	endpoint_queueheads[which].max_pkt_length = (64 << 16) | (1 << 15); 	// 64 byte max packet size, interrupt on setup, ZLP
-else
-	endpoint_queueheads[which].max_pkt_length = 64 << 16; 	// 64 byte max packet size
+endpoint_queueheads[which].dtd_overlay_area.buffer_pointer_0 = (void *)global_transfer_buffer[which];
+endpoint_queueheads[which].capabilities.all = 0;
+endpoint_queueheads[which].capabilities.bit.maximum_packet_length = 64;
+endpoint_queueheads[which].capabilities.bit.ios = 1;
 }
 
 
