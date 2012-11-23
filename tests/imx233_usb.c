@@ -23,8 +23,184 @@
 #include "../systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsusbphy.h"
 
 
+/*
+	We're compatible with: USB 2.0; CDC 1.1; Microsoft Extensions version 1.0
+	Recall that all directions are RELATIVE TO THE HOST.
+		OUT = from the host (i.e. PC)
+		IN  = to the host (i.e. PC)
+*/
+#define USB_BCD_VERSION 						0x0200		/* we're compliant with USB 2.0 */
+#define USB_CDC_BCD_VERSION					0x0110		// version 1.1 of the CDC spec */
+#define MS_USB_VERSION							0x0100
+
+/*
+	Product and manufacturer IDs (allocated by the USB organisation)
+*/
+#define USB_ID_VENDOR							0xDEAD		// our vendor ID
+#define USB_ID_PRODUCT 						0x000E		// device number
+#define USB_ID_DEVICE							0x0100		// revision number
+
+/*
+	Configurable parameters
+*/
+#define USB_MAX_PACKET_SIZE					64			// under USB 2.0 this must be 8, 16, 32, or 64
+
+/*
+	String constants
+*/
+#define USB_STRING_NONE						0x00
+#define USB_STRING_LANGUAGE					0x00
+#define USB_STRING_MANUFACTURER				0x01
+#define USB_STRING_PRODUCT						0x02
+#define USB_STRING_SERIAL_NUMBER				0x03
+
+/*
+	language codes
+*/
+#define USB_LANGUAGE_ENGLISH_UNITED_STATES		0x0409
+#define USB_LANGUAGE_ENGLISH_UNITED_KINGDOM	0x0809
+#define USB_LANGUAGE_ENGLISH_AUSTRALIAN		0x0c09
+#define USB_LANGUAGE_ENGLISH_CANADIAN			0x1009
+#define USB_LANGUAGE_ENGLISH_NEW_ZEALAND		0x1409
+#define USB_LANGUAGE_ENGLISH_IRELAND			0x1809
+#define USB_LANGUAGE_ENGLISH_SOUTH_AFRICA		0x1c09
+#define USB_LANGUAGE_ENGLISH_JAMAICA			0x2009
+#define USB_LANGUAGE_ENGLISH_CARIBBEAN			0x2409
+#define USB_LANGUAGE_ENGLISH_BELIZE			0x2809
+#define USB_LANGUAGE_ENGLISH_TRINIDAD			0x2c09
+#define USB_LANGUAGE_ENGLISH_ZIMBABWE			0x3009
+#define USB_LANGUAGE_ENGLISH_PHILIPPINES		0x3409
+
+/*
+	The different descriptor types we know about
+*/
+#define USB_DESCRIPTOR_TYPE_DEVICE				0x01
+#define USB_DESCRIPTOR_TYPE_CONFIGURATION		0x02
+#define USB_DESCRIPTOR_TYPE_STRING				0x03
+#define USB_DESCRIPTOR_TYPE_INTERFACE			0x04
+#define USB_DESCRIPTOR_TYPE_ENDPOINT			0x05
+#define USB_DESCRIPTOR_TYPE_DEVICE_QUALIFIER	0x06
+
+#define USB_DESCRIPTOR_TYPE_CS_INTERFACE		0x24
+
+#define MS_USB_DESCRIPTOR_TYPE_EXTENDED_COMPAT_ID 0x04
+#define MS_USB_DESCRIPTOR_TYPE_EXTENDED_PROPERTIES 0x05
+
+/*
+	The different descriptor types we know about
+*/
+#define USB_DESCRIPTOR_SUBTYPE_HEADER			0x00
+#define USB_DESCRIPTOR_SUBTYPE_CALL_MANAGEMENT 0x01
+#define USB_DESCRIPTOR_SUBTYPE_ABSTRACT_CONTROL_MANAGEMENT 0x02
+#define USB_DESCRIPTOR_SUBTYPE_UNION_FUNCTION	0x06
+
+/*
+	The different device classes we know about
+*/
+#define USB_DEVICE_CLASS_CDC					0x02
+
+/*
+	The different interface classes we know about
+*/
+#define USB_INTERFACE_CLASS_CDC				0x02
+#define USB_INTERFACE_CLASS_DATA				0x0A
+
+/*
+	The different device subclasses we know about
+*/
+#define USB_DEVICE_SUBCLASS_NONE 				0x00
+
+/*
+	The different device protocols we know about
+*/
+#define USB_DEVICE_PROTOCOL_NONE				0x00
+
+/*
+	Configurations
+*/
+#define USB_CONFIGURATION_SELFPOWERED 			0xC0
+#define USB_CONFIGURATION_REMOTEWAKE  			0xA0
+#define USB_CONFIGURATION_100mA				50
+
+/*
+	Endpoint directions
+*/
+#define USB_ENDPOINT_DIRECTION_IN				0x80
+#define USB_ENDPOINT_DIRECTION_OUT				0x00
+
+/*
+	Endpoint types
+*/
+#define USB_ENDPOINT_TYPE_CONTROL				0x00
+#define USB_ENDPOINT_TYPE_ISOCHRONOUS			0x01
+#define USB_ENDPOINT_TYPE_BULK					0x02
+#define USB_ENDPOINT_TYPE_INTERRUPT			0x03
+
+/*
+	USB CDC parameters
+*/
+#define USB_CDC_ABSTRACT_CONTROL 				0x02
+#define USB_CDC_PROTOCOL_HAYES 				0x01
+#define USB_CDC_PROTOCOL_NONE 					0x00
+
+/*
+	USB CDC Capabilities:Call Management
+*/
+#define USB_CDC_CAPABILITY_NONE 				0x00
+#define USB_CDC_CAPABILITY_CM_COMUNICATIONS	0x01
+#define USB_CDC_CAPABILITY_CM_DATA				0x03
+
+/*
+	USB CDC Capabilities:Abstract Control Management
+*/
+#define USB_CDC_CAPABILITY_CONNECT				0x08			// supports Network_Connection
+#define USB_CDC_CAPABILITY_BREAK       		0x04			// supports Send_Break
+#define USB_CDC_CAPABILITY_LINE       			0x02			// supports Set_Line_Coding, Set_Control_Line_State, Get_Line_Coding, Serial_State
+#define USB_CDC_CAPABILITY_FEATURE      		0x01			// supports Set_Comm_Feature, Clear_Comm_Feature, Get_Comm_Feature
+
+/*
+	USB CDC Virtual COM port endpoint allocation
+*/
+#define USB_CDC_ENDPOINT_CONTROL 						0 		// Endpoint 0 is always control
+#define USB_CDC_ENDPOINT_ABSTRACT_CONTROL_MANAGEMENT 	1		// Endpoint 1 is control management to the host
+#define USB_CDC_ENDPOINT_SERIAL						2		// Endpoint 2 is for data
+
+/*
+	USB CDC Line parameters
+*/
+
+#define USB_CDC_STOP_BITS_1					0x00
+#define USB_CDC_STOP_BITS_15					0x01
+#define USB_CDC_STOP_BITS_2					0x02
+
+#define USB_CDC_PARITY_NONE					0x00
+#define USB_CDC_PARITY_ODD						0x01
+#define USB_CDC_PARITY_EVEN					0x02
+#define USB_CDC_PARITY_MARK					0x03
+#define USB_CDC_PARITY_SPACE					0x04
+
+
+/*
+	Microsoft specific
+*/
+#define MS_USB_REG_SZ 							0x01
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #define USB_DIRECTION_OUT						0x00
 #define USB_DIRECTION_IN						0x01
+
 
 #define USB_REQ_GET_STATUS						0x00
 #define USB_REQ_CLEAR_FEATURE					0x01
@@ -42,60 +218,9 @@
 
 #define USB_REQ_MS_GET_EXTENDED_PROPERTIES		0x05
 
-#define USB_DESCRIPTOR_TYPE_DEVICE				0x01
-#define USB_DESCRIPTOR_TYPE_CONFIGURATION		0x02
-#define USB_DESCRIPTOR_TYPE_STRING				0x03
-#define USB_DESCRIPTOR_TYPE_INTERFACE			0x04
-#define USB_DESCRIPTOR_TYPE_ENDPOINT			0x05
-#define USB_DESCRIPTOR_TYPE_DEVICE_QUALIFIER	0x06
-#define USB_DESCRIPTOR_TYPE_OTHER_SPEED_CONFIG	0x07
-#define USB_DESCRIPTOR_TYPE_INTERFACE_POWER	0x08
-#define USB_DESCRIPTOR_TYPE_OTG				0x09
-#define USB_DESCRIPTOR_TYPE_CS_INTERFACE		0x24
-
-#define USB_DESCRIPTOR_SUBTYPE_HEADER			0x00
-#define USB_DESCRIPTOR_SUBTYPE_CALL_MANAGEMENT 0x01
-#define USB_DESCRIPTOR_SUBTYPE_ABSTRACT_CONTROL_MANAGEMENT 0x02
-#define USB_DESCRIPTOR_SUBTYPE_UNION_FUNCTION	0x06
-
-#define USB_CAPABILITIES_NO_CALL_MANAGEMENT	0x00 
-#define USB_CAPABILITIES_CALL_MANAGEMENT_COMS	0x01
-#define USB_CAPABILITIES_CALL_MANAGEMENT_DATA	0x03
-
-#define USB_CAPABILITIES_CONNECTION  			0x08
-#define USB_CAPABILITIES_BREAK       			0x04
-#define USB_CAPABILITIES_LINE       			0x02
-#define USB_CAPABILITIES_FEATURE      			0x01
-
 #define USB_DEVICE_STATE_DEFAULT				0x00
 #define USB_DEVICE_STATE_ADDRESSED				0x01
 #define USB_DEVICE_STATE_CONFIGURED			0x02
-
-#define USB_DESCRIPTOR_TYPE_CONFIGURATION_SELFPOWERED 0xC0
-#define USB_DESCRIPTOR_TYPE_CONFIGURATION_REMOTEWAKE  0xA0
-
-#define USB_DESCRIPTOR_TYPE_INTERFACE_CLASS_CDC 0x02
-#define USB_DESCRIPTOR_TYPE_INTERFACE_CLASS_CDC_ABSTRACT_CONTROL 0x02
-#define USB_DESCRIPTOR_TYPE_INTERFACE_CLASS_CDC_PROTOCOL_NONE 0x00
-#define USB_DESCRIPTOR_TYPE_INTERFACE_CLASS_CDC_PROTOCOL_HAYES 0x01
-#define USB_DESCRIPTOR_TYPE_INTERFACE_CLASS_DATA_INTERFACE 0x0A
-
-//Constants for the endpoints we're going to define in our program:
-#define DEVICE_ENDPOINT_CONTROL 						0			// The first endpoint is always a control endpoint
-#define DEVICE_ENDPOINT_ABSTRACT_CONTROL_MANAGEMENT	1			// Endpoint 1 is the abstract control management interface
-#define DEVICE_ENDPOINT_SERIAL_OUT						2			// Endpoint 2 will be serial out
-#define DEVICE_ENDPOINT_SERIAL_IN	 					2			// Endpoint 2 will be serial in
-
-
-#define USB_ENDPOINT_DIRECTION_IN						0x80
-#define USB_ENDPOINT_DIRECTION_OUT						0x00
-
-#define USB_ENDPOINT_TYPE_CONTROL						0x00
-#define USB_ENDPOINT_TYPE_ISOCHRONOUS					0x01
-#define USB_ENDPOINT_TYPE_BULK							0x02
-#define USB_ENDPOINT_TYPE_INTERRUPT					0x03
-
-#define REG_SZ 1
 
 
 void usb_setup_endpoint_nonzero(void);
@@ -114,14 +239,14 @@ void usb_setup_endpoint_zero(void);
 	This structure is the shape of the setup packet sent from the host to the device.
 	It is used in communications before the device comes on line
 */
-struct usb_setup_data
+typedef struct
 {
 uint8_t bmRequestType;
 uint8_t bRequest;
 uint16_t wValue;
 uint16_t wIndex;
 uint16_t wLength;
-} __attribute__ ((packed));
+} __attribute__ ((packed)) usb_setup_data;
 
 /*
 	struct USB_STANDARD_DEVICE_DESCRIPTOR
@@ -129,7 +254,7 @@ uint16_t wLength;
 	Page 262-263 of "Universal Serial Bus Specification Revision 2.0"
 	This structure is used by the device to tell the host what the device is
 */
-struct usb_standard_device_descriptor
+typedef struct 
 {
 uint8_t bLength;
 uint8_t bDescriptorType;
@@ -145,7 +270,7 @@ uint8_t iManufacturer;
 uint8_t iProduct;
 uint8_t iSerialNumber;
 uint8_t bNumConfigurations;
-} __attribute__ ((packed));
+} __attribute__ ((packed)) usb_standard_device_descriptor;
 
 /*
 	struct USB_DEVICE_QUALIFIER_DESCRIPTOR
@@ -154,7 +279,7 @@ uint8_t bNumConfigurations;
 	This gets used when a high-speed device is plugged in so that the host
 	can determine what would happen if plugged into a non-high-speed port.
 */
-struct usb_device_qualifier_descriptor
+typedef struct
 {
 uint8_t bLength;
 uint8_t bDescriptorType;
@@ -165,7 +290,7 @@ uint8_t bDeviceProtocol;
 uint8_t bMaxPacketSize0;
 uint8_t bNumConfigurations;
 uint8_t reserved;
-} __attribute__ ((packed));
+} __attribute__ ((packed)) usb_device_qualifier_descriptor;
 
 /*
 	struct USB_STRING_DESCRIPTOR_LANGUAGE
@@ -176,12 +301,12 @@ uint8_t reserved;
 	the response can include several languages.  We'll only worry about one
 	language at the moment.
 */
-struct usb_string_descriptor_language
+typedef struct
 {
 uint8_t bLength;
 uint8_t bDescriptorType;
 uint16_t wLANGID;
-}  __attribute__ ((packed));
+}  __attribute__ ((packed)) usb_string_descriptor_language;
 
 
 /*
@@ -190,12 +315,12 @@ uint16_t wLANGID;
 	Page 273 of "Universal Serial Bus Specification Revision 2.0" 
 	When we return a string to the host its in one of these objects
 */
-struct usb_string_descriptor
+typedef struct
 {
 uint8_t bLength;
 uint8_t bDescriptorType;
 uint8_t wString[];
-}  __attribute__ ((packed));
+}  __attribute__ ((packed)) usb_string_descriptor;
 
 /*
 	struct USB_STANDARD_CONFIGURATION_DESCRIPTOR
@@ -205,7 +330,7 @@ uint8_t wString[];
 	by calling SetConfiguration() using the bConfigurationValue value
 
 */
-struct usb_standard_configuration_descriptor
+typedef struct
 {
 uint8_t bLength;
 uint8_t bDescriptorType;
@@ -215,7 +340,7 @@ uint8_t bConfigurationValue;
 uint8_t iConfiguration;
 uint8_t bmAttributes;
 uint8_t bMaxPower;
-} __attribute__ ((packed));
+} __attribute__ ((packed)) usb_standard_configuration_descriptor;
 
 /*
 	struct USB_STANDARD_INTERFACE_DESCRIPTOR
@@ -223,7 +348,7 @@ uint8_t bMaxPower;
 	Page 268-269 of "Universal Serial Bus Specification Revision 2.0"
 	Each configuration has one or more interfaces.
 */
-struct usb_standard_interface_descriptor
+typedef struct
 {
 uint8_t bLength;
 uint8_t bDescriptorType;
@@ -234,7 +359,7 @@ uint8_t bInterfaceClass;
 uint8_t bInterfaceSubClass;
 uint8_t bInterfaceProtocol;
 uint8_t iInterface;
-} __attribute__ ((packed));
+} __attribute__ ((packed)) usb_standard_interface_descriptor;
 
 
 /*
@@ -244,7 +369,7 @@ uint8_t iInterface;
 	Each interface is attached to some number of endpoints.  An endpoint is
 	just like a socket - it is where we speak in order to pass a message around.
 */
-struct usb_standard_endpoint_descriptor
+typedef struct 
 {
 uint8_t bLength;
 uint8_t bDescriptorType;
@@ -252,7 +377,7 @@ uint8_t bEndpointAddress;			// the endpont number
 uint8_t bmAttributes;
 uint16_t wMaxPacketSize;
 uint8_t bInterval;
-} __attribute__ ((packed));
+} __attribute__ ((packed)) usb_standard_endpoint_descriptor;
 
 
 /*
@@ -265,54 +390,54 @@ uint8_t bInterval;
 	-------------------------------------------
 	Page 34 of "Universal Serial Bus Class Definitions for Communication Devices Version 1.1"
 */
-struct usb_cdc_header_functional_descriptor
+typedef struct
 {
 uint8_t bLength;
 uint8_t bDescriptorType;
 uint8_t bDescriptorSubType;
 uint16_t bcdCDC;
-} __attribute__ ((packed));
+} __attribute__ ((packed)) usb_cdc_header_functional_descriptor;
 
 /*
 	struct USB_CDC_CALL_MANAGEMENT_FUNCTIONAL_DESCRIPTOR
 	----------------------------------------------------
 	Page 34-35 of "Universal Serial Bus Class Definitions for Communication Devices Version 1.1"
 */
-struct usb_cdc_call_management_functional_descriptor
+typedef struct
 {
 uint8_t bLength;
 uint8_t bDescriptorType;
 uint8_t bDescriptorSubType;
 uint8_t bmCapabilities;
 uint8_t bDataInterface;
-} __attribute__ ((packed));
+} __attribute__ ((packed)) usb_cdc_call_management_functional_descriptor;
 
 /*
 	struct USB_CDC_ABSTRACT_CONTROL_MANAGEMENT_FUNCTIONAL_DESCRIPTOR
 	----------------------------------------------------------------
 	Page 35-36 of "Universal Serial Bus Class Definitions for Communication Devices Version 1.1"
 */
-struct usb_cdc_abstract_control_management_functional_descriptor
+typedef struct 
 {
 uint8_t bLength;
 uint8_t bDescriptorType;
 uint8_t bDescriptorSubType;
 uint8_t bmCapabilities;
-} __attribute__ ((packed));
+} __attribute__ ((packed)) usb_cdc_abstract_control_management_functional_descriptor;
 
 /*
 	struct USB_UNION_INTERFACE_FUNCTIONAL_DESCRIPTOR
 	------------------------------------------------
 	Page 40-41 of "Universal Serial Bus Class Definitions for Communication Devices Version 1.1"
 */
-struct usb_union_interface_functional_descriptor
+typedef struct
 {
-uint8_t bFunctionLength;
+uint8_t bLength;
 uint8_t bDescriptorType;
-uint8_t bDescriptorSubtype;
+uint8_t bDescriptorSubType;
 uint8_t bMasterInterface;
 uint8_t bSlaveInterface0;
-} __attribute__ ((packed));
+} __attribute__ ((packed)) usb_union_interface_functional_descriptor;
 
 /*
 	stuct USB_CDC_VIRTUAL_COM_PORT
@@ -321,32 +446,31 @@ uint8_t bSlaveInterface0;
 	endpoints (data in and data out count as two).
 */
 
-struct usb_cdc_virtual_com_port
+typedef struct
 {
-struct usb_standard_configuration_descriptor cd;
-	struct usb_standard_interface_descriptor id0;
-		struct usb_cdc_header_functional_descriptor fd1;
-		struct usb_cdc_call_management_functional_descriptor fd2;
-		struct usb_cdc_abstract_control_management_functional_descriptor fd3;
-		struct usb_union_interface_functional_descriptor fd4;
-			struct usb_standard_endpoint_descriptor ep2;
-
-	struct usb_standard_interface_descriptor id1;
-		struct usb_standard_endpoint_descriptor ep3;
-		struct usb_standard_endpoint_descriptor ep4;
-} __attribute__ ((packed));
+usb_standard_configuration_descriptor cd;
+	usb_standard_interface_descriptor id0;
+		usb_cdc_header_functional_descriptor fd1;
+		usb_cdc_call_management_functional_descriptor fd2;
+		usb_cdc_abstract_control_management_functional_descriptor fd3;
+		usb_union_interface_functional_descriptor fd4;
+			usb_standard_endpoint_descriptor ep2;
+	usb_standard_interface_descriptor id1;
+		usb_standard_endpoint_descriptor ep3;
+		usb_standard_endpoint_descriptor ep4;
+} __attribute__ ((packed)) usb_cdc_virtual_com_port;
 
 /*
 	struct USB_CDC_LINE_CODING
 	--------------------------
 */
-struct usb_cdc_line_coding
+typedef struct
 {
 uint32_t dwDTERat;		// Number Data terminal rate, in bits per second.
 uint8_t bCharFormat;	// Number Stop bits (0 = 1 Stop bit, 1 = 1.5 Stop bits, 2 = 2 Stop bits)
 uint8_t bParityType;	// Number Parity (0 = None, 1 = Odd, 2 = Even, 3 = Mark, 4 = Space)
 uint8_t bDataBits;		// Number Data bits (5, 6, 7, 8 or 16).
-} ;
+} __attribute__ ((packed)) usb_cdc_line_coding;
 
 /*
 	=========================================
@@ -359,42 +483,42 @@ uint8_t bDataBits;		// Number Data bits (5, 6, 7, 8 or 16).
 	----------------------------------
 	Page 7 of "Microsoft OS Descriptors Overview (July 13, 2012)"
 */
-struct ms_usb_os_string_descriptor
+typedef struct
 {
 uint8_t bLength;
 uint8_t bDescriptorType;
 uint8_t qwSignature[14];
 uint8_t bMS_VendorCode;
 uint8_t bPad;
-} ;
+} __attribute__ ((packed)) ms_usb_os_string_descriptor;
 
 /*
 	struct MS_USB_COMPATIBLE_ID_HEADER
 	----------------------------------
 	Page 6 of "Extended Compat ID OS Feature Descriptor Specification (July 13, 2012)"
 */
-struct ms_usb_compatible_id_header
+typedef struct
 {
 uint32_t dwLength;
 uint16_t bcdVersion;
 uint16_t wIndex;
 uint8_t bCount;
 uint8_t reserved[7];
-};
+} __attribute__ ((packed)) ms_usb_compatible_id_header;
 
 /*
 	struct MS_USB_COMPATIBLE_ID_FUNCTION
 	------------------------------------
 	Page 7 of "Extended Compat ID OS Feature Descriptor Specification (July 13, 2012)"
 */
-struct ms_usb_compatible_id_function
+typedef struct
 {
 uint8_t bFirstInterfaceNumber;
 uint8_t reserved1;
 uint8_t compatibleID[8];
 uint8_t subCompatibleID[8];
 uint8_t reserved2[6];
-} ;
+} __attribute__ ((packed)) ms_usb_compatible_id_function;
 
 /*
 	struct MS_USB_EXTENDED_COMPATIBLE_ID_OS_FEATURE_DESCRIPTOR
@@ -403,31 +527,31 @@ uint8_t reserved2[6];
 	This structure can hold manty different ms_usb_function_section objects, but for
 	what we need one is enough.
 */
-struct ms_usb_extended_compatible_id_os_feature_descriptor
+typedef struct
 {
-struct ms_usb_compatible_id_header header;
-struct ms_usb_compatible_id_function section1;
-} ;
+ms_usb_compatible_id_header header;
+ms_usb_compatible_id_function section1;
+} __attribute__ ((packed)) ms_usb_extended_compatible_id_os_feature_descriptor;
 
 /*
 	struct MS_USB_EXTENDED_PROPERTY_HEADER
 	--------------------------------------
 	Page 6 of "Extended Properties OS Feature Descriptor Specification (July 13, 2012)"
 */
-struct ms_usb_extended_property_header
+typedef struct
 {
 uint32_t dwLength;				// sizeof whole descriptor
 uint16_t bcdVersion;
 uint16_t wIndex;
 uint16_t wCount;
-} ;
+} __attribute__ ((packed)) ms_usb_extended_property_header;
 
 /*
 	struct MS_USB_CUSTOM_PROPERTY_FUNCTION
 	--------------------------------------
 	Page 7 of "Extended Properties OS Feature Descriptor Specification (July 13, 2012)"
 */
-struct ms_usb_extended_property_function
+typedef struct
 {
 uint32_t dwSize;
 uint32_t dwPropertyDataType;
@@ -435,7 +559,7 @@ uint16_t wPropertyNameLength;
 uint8_t bPropertyName[12];				// "Label" in Unicode
 uint32_t dwPropertyDataLength;
 uint8_t bPropertyData[16];
-} ;
+} __attribute__ ((packed)) ms_usb_extended_property_function;
 
 
 /*
@@ -444,11 +568,11 @@ uint8_t bPropertyData[16];
 	Page 6 of "Extended Properties OS Feature Descriptor Specification (July 13, 2012)"
 	This can have several properties, but we only need one.
 */
-struct ms_usb_extended_properties
+typedef struct 
 {
-struct ms_usb_extended_property_header header;
-struct ms_usb_extended_property_function property1;
-} ;
+ms_usb_extended_property_header header;
+ms_usb_extended_property_function property1;
+}  __attribute__ ((packed)) ms_usb_extended_properties;
 
 /*
 	=============
@@ -531,7 +655,7 @@ typedef struct
 imx_endpoint_queuehead_capabilities capabilities;			/* capability information about the endpoint */
 imx_endpoint_transfer_descriptor *current_dtd_pointer;		/* Current dTD Pointer(31-5). This is set by the USB controller */
 imx_endpoint_transfer_descriptor dtd_overlay_area;			/* The hardware copies the current transfer descriptor here when it actions it. */
-struct usb_setup_data setup_buffer;						/* Setup packets are copies here rather than into the transfer descriptor buffers */
+usb_setup_data setup_buffer;								/* Setup packets are copies here rather than into the transfer descriptor buffers */
 uint32_t reserved2[4];										/* Needed to guarantee 64-byte allignment */
 } __attribute__ ((packed)) imx_endpoint_queuehead;
 
@@ -548,21 +672,21 @@ uint32_t reserved2[4];										/* Needed to guarantee 64-byte allignment */
 	---------------------
 	We're going top fake being a serial port
 */
-struct usb_standard_device_descriptor our_device_descriptor =
+usb_standard_device_descriptor our_device_descriptor =
 {
 .bLength = sizeof(our_device_descriptor),
 .bDescriptorType = USB_DESCRIPTOR_TYPE_DEVICE,
-.bcdUSB = 0x0200, 				// USB 2.0
-.bDeviceClass = 0x02, 			// Communications Device Class (Pretend to be a Serial Port)
-.bDeviceSubClass = 0x00,
-.bDeviceProtocol = 0x00,
-.bMaxPacketSize0 = 64, 		// Accept 64 bytes packet size on control endpoint (the maximum)
-.idVendor = 0xDEAD,			// Manufacturer's ID
-.idProduct = 0x000E,			// Product's ID
-.bcdDevice = 0x0100,			// Product Verison Number (revision number)
-.iManufacturer = 0x01,			// string ID of the manufacturer
-.iProduct = 0x02,				// string ID of the Product
-.iSerialNumber = 0x03,			// string ID of the serial number
+.bcdUSB = USB_BCD_VERSION,						// USB 2.0
+.bDeviceClass = USB_DEVICE_CLASS_CDC, 			// Communications Device Class (Pretend to be a Serial Port)
+.bDeviceSubClass = USB_DEVICE_SUBCLASS_NONE,
+.bDeviceProtocol = USB_DEVICE_PROTOCOL_NONE,
+.bMaxPacketSize0 = USB_MAX_PACKET_SIZE, 		// Accept 64 bytes packet size on control endpoint (the maximum)
+.idVendor = USB_ID_VENDOR,						// Manufacturer's ID
+.idProduct = USB_ID_PRODUCT,					// Product's ID
+.bcdDevice = USB_ID_DEVICE,					// Product Verison Number (revision number)
+.iManufacturer = USB_STRING_MANUFACTURER,		// string ID of the manufacturer
+.iProduct = USB_STRING_PRODUCT,				// string ID of the Product
+.iSerialNumber = USB_STRING_SERIAL_NUMBER,		// string ID of the serial number
 .bNumConfigurations = 0x01
 };
 
@@ -570,15 +694,15 @@ struct usb_standard_device_descriptor our_device_descriptor =
 	OUR_DEVICE_QUALIFIER
 	--------------------
 */
-struct usb_device_qualifier_descriptor our_device_qualifier =
+usb_device_qualifier_descriptor our_device_qualifier =
 {
 .bLength = sizeof(our_device_descriptor),
-.bDescriptorType = USB_DESCRIPTOR_TYPE_DEVICE,
-.bcdUSB = 0x0200, 				// USB 2.0
-.bDeviceClass = 0x02, 			// Communications Device Class (Pretend to be a Serial Port)
-.bDeviceSubClass = 0x00,
-.bDeviceProtocol = 0x00,
-.bMaxPacketSize0 = 64, 		// Accept 64 bytes packet size on control endpoint (the maximum)
+.bDescriptorType = USB_DESCRIPTOR_TYPE_DEVICE_QUALIFIER,
+.bcdUSB = USB_BCD_VERSION, 				// USB 2.0
+.bDeviceClass = USB_DEVICE_CLASS_CDC, 			// Communications Device Class (Pretend to be a Serial Port)
+.bDeviceSubClass = USB_DEVICE_SUBCLASS_NONE,
+.bDeviceProtocol = USB_DEVICE_PROTOCOL_NONE,
+.bMaxPacketSize0 = USB_MAX_PACKET_SIZE, 		// Accept 64 bytes packet size on control endpoint (the maximum)
 .bNumConfigurations = 0x01,
 .reserved = 0x00
 } ;
@@ -588,20 +712,20 @@ struct usb_device_qualifier_descriptor our_device_qualifier =
 	OUR_LANGUAGE
 	------------
 */
-struct usb_string_descriptor_language our_language =
+usb_string_descriptor_language our_language =
 {
 .bLength = sizeof(our_language),
-.bDescriptorType = 0x03,
-.wLANGID = 0x1409
+.bDescriptorType = USB_DESCRIPTOR_TYPE_STRING,
+.wLANGID = USB_LANGUAGE_ENGLISH_NEW_ZEALAND
 };
 
 /*
 	OUR_SERIAL_NUMBER
 	-----------------
 */
-struct usb_string_descriptor our_serial_number =
+usb_string_descriptor our_serial_number =
 {
-.bLength = 14,
+.bLength = sizeof(our_serial_number),
 .bDescriptorType = USB_DESCRIPTOR_TYPE_STRING,
 .wString = {'S', 0x00, 'N', 0x00, '#', 0x00, 'D', 0x00, 'E', 0x00, 'V', 0x00}
 } ;
@@ -610,9 +734,9 @@ struct usb_string_descriptor our_serial_number =
 	OUR_MANUFACTURER
 	----------------
 */
-struct usb_string_descriptor our_manufacturer =
+usb_string_descriptor our_manufacturer =
 {
-.bLength = 10,
+.bLength = sizeof(our_manufacturer),
 .bDescriptorType = USB_DESCRIPTOR_TYPE_STRING,
 .wString = {'A', 0x00, 'S', 0x00, 'P', 0x00, 'T', 0x00}
 } ;
@@ -621,19 +745,21 @@ struct usb_string_descriptor our_manufacturer =
 	OUR_PRODUCT
 	-----------
 */
-struct usb_string_descriptor our_product =
+usb_string_descriptor our_product =
 {
-.bLength = 16,
+.bLength = sizeof(our_product),
 .bDescriptorType = USB_DESCRIPTOR_TYPE_STRING,
 .wString = {'F', 0x00, 'o', 0x00, 'u', 0x00, 'r', 0x00, 'A', 0x00, 'R', 0x00, 'M', 0x00}
 } ;
 
 
 /*
+
 	I based this on the USB Serial Example for Teensy USB Development
-	Board (http://www.pjrc.com/teensy/usb_serial.html) but as it isn't a
-	"substantial portions of the Software" and that software is under a
-	BSD-like licence, I don't reproduce their copyright notice here.
+	Board (http://www.pjrc.com/teensy/usb_serial.html) but as its almost
+	completely re-written and isn't "substantial portions of the Software" 
+	and that software is under a BSD-like licence, I don't reproduce their 
+	copyright notice here.
 
 	The version of the CDC spec being referenced is "Universal Serial Bus
 	Class Definitions for Communication Devices Version 1.1 January 19,
@@ -644,105 +770,125 @@ struct usb_string_descriptor our_product =
 
 	Interface 0:
 		Abstract Control Management
-			Endpoint 2 (OUT from host) Interrupt
+			Endpoint 2 (IN to host) Interrupt
 	Interface 1:
 		Data
 			Endpoint 3 (OUT from host) Bulk
 			Endpoint 4 (IN to host)  Bulk
 */
-struct usb_cdc_virtual_com_port our_com_descriptor =
+usb_cdc_virtual_com_port our_com_descriptor =
 {
 	{
-	// configuration descriptor, USB spec 9.6.3, page 264-266, Table 9-10
-	sizeof(struct usb_standard_configuration_descriptor),						// bLength;
-	USB_DESCRIPTOR_TYPE_CONFIGURATION,											// bDescriptorType;
-	sizeof(struct usb_cdc_virtual_com_port),									// wTotalLength
-	2,																			// bNumInterfaces
-	1,																			// bConfigurationValue (id)
-	0,																			// iConfiguration (string descriptor)
-	USB_DESCRIPTOR_TYPE_CONFIGURATION_SELFPOWERED,								// bmAttributes
-	50																			// bMaxPower
+	/*
+		Configuration descriptor, USB spec 9.6.3, page 264-266, Table 9-10
+	*/
+	.bLength = sizeof(usb_standard_configuration_descriptor),
+	.bDescriptorType = USB_DESCRIPTOR_TYPE_CONFIGURATION,
+	.wTotalLength = sizeof(usb_cdc_virtual_com_port),
+	.bNumInterfaces = 2,												// we have 2 interfaces: Abstract control management; and data
+	.bConfigurationValue = 1,											// we are configuration 1
+	.iConfiguration = USB_STRING_NONE,
+	.bmAttributes = USB_CONFIGURATION_SELFPOWERED,						// selfpowered
+	.bMaxPower = USB_CONFIGURATION_100mA								// we draw no more than 100mA
 	},
 	{
-	// interface descriptor, USB spec 9.6.5, page 267-269, Table 9-12
-	sizeof(struct usb_standard_interface_descriptor),							// bLength
-	USB_DESCRIPTOR_TYPE_INTERFACE,												// bDescriptorType
-	0,																			// bInterfaceNumber
-	0,																			// bAlternateSetting
-	1,																			// bNumEndpoints
-	USB_DESCRIPTOR_TYPE_INTERFACE_CLASS_CDC,									// bInterfaceClass
-	USB_DESCRIPTOR_TYPE_INTERFACE_CLASS_CDC_ABSTRACT_CONTROL,					// bInterfaceSubClass
-	USB_DESCRIPTOR_TYPE_INTERFACE_CLASS_CDC_PROTOCOL_HAYES,						// bInterfaceProtocol (Hayes Model AT command set)
-	0																			// iInterface (string descriptor)
+	/*
+		Interface descriptor, USB spec 9.6.5, page 267-269, Table 9-12
+	*/
+	.bLength = sizeof(usb_standard_interface_descriptor),
+	.bDescriptorType = USB_DESCRIPTOR_TYPE_INTERFACE,
+	.bInterfaceNumber = 0,												// control on interface 0
+	.bAlternateSetting = 0,
+	.bNumEndpoints = 1,													// uses 1 endpoint
+	.bInterfaceClass = USB_INTERFACE_CLASS_CDC,
+	.bInterfaceSubClass = USB_CDC_ABSTRACT_CONTROL,						// Abstract Control
+	.bInterfaceProtocol = USB_CDC_PROTOCOL_HAYES,						// using Hayes AT command set
+	.iInterface = 0
 	},
 	{
-	// CDC Header Functional Descriptor, CDC Spec 5.2.3.1, Table 26
-	sizeof(struct usb_cdc_header_functional_descriptor),						// bFunctionLength
-	USB_DESCRIPTOR_TYPE_CS_INTERFACE,											// bDescriptorType
-	USB_DESCRIPTOR_SUBTYPE_HEADER,												// bDescriptorSubtype
-	0x0110																		// bcdCDC (version of the CDC spec we adhere to (in this case v1.1))
+	/*
+		CDC Header Functional Descriptor, CDC Spec 5.2.3.1, Table 26
+	*/
+	.bLength = sizeof(usb_cdc_header_functional_descriptor),
+	.bDescriptorType = USB_DESCRIPTOR_TYPE_CS_INTERFACE,
+	.bDescriptorSubType = USB_DESCRIPTOR_SUBTYPE_HEADER,
+	.bcdCDC = USB_CDC_BCD_VERSION
 	},
 	{
-	// Call Management Functional Descriptor, CDC Spec 5.2.3.2, Table 27
-	sizeof(struct usb_cdc_call_management_functional_descriptor),				// bFunctionLength
-	USB_DESCRIPTOR_TYPE_CS_INTERFACE,											// bDescriptorType
-	USB_DESCRIPTOR_SUBTYPE_CALL_MANAGEMENT,										// bDescriptorSubtype	(call management)
-	USB_CAPABILITIES_CALL_MANAGEMENT_COMS,										// bmCapabilities (call management over the communications class interface)
-	1																			// bDataInterface (use this class for call management)
+	/*
+		Call Management Functional Descriptor, CDC Spec 5.2.3.2, Table 27
+	*/
+	.bLength = sizeof(usb_cdc_call_management_functional_descriptor),
+	.bDescriptorType = USB_DESCRIPTOR_TYPE_CS_INTERFACE,
+	.bDescriptorSubType = USB_DESCRIPTOR_SUBTYPE_CALL_MANAGEMENT,
+	.bmCapabilities = USB_CDC_CAPABILITY_CM_COMUNICATIONS,				// we do call management over the Communicatons Class Interface
+	.bDataInterface = 1													// data class interface is interface 1
 	},
 	{
-	// Abstract Control Management Functional Descriptor, CDC Spec 5.2.3.3, Table 28
-	sizeof(struct usb_cdc_abstract_control_management_functional_descriptor),	// bFunctionLength
-	USB_DESCRIPTOR_TYPE_CS_INTERFACE,											// bDescriptorType
-	USB_DESCRIPTOR_SUBTYPE_ABSTRACT_CONTROL_MANAGEMENT,							// bDescriptorSubtype
-	USB_CAPABILITIES_BREAK | USB_CAPABILITIES_LINE								// bmCapabilities (handle line and break management)
+	/*
+		Abstract Control Management Functional Descriptor, CDC Spec 5.2.3.3, Table 28
+	*/
+	.bLength = sizeof(usb_cdc_abstract_control_management_functional_descriptor),
+	.bDescriptorType = USB_DESCRIPTOR_TYPE_CS_INTERFACE,
+	.bDescriptorSubType = USB_DESCRIPTOR_SUBTYPE_ABSTRACT_CONTROL_MANAGEMENT,
+	.bmCapabilities = USB_CDC_CAPABILITY_BREAK | USB_CDC_CAPABILITY_LINE	// we must manage Set_Line_Coding, Set_Control_Line_State, Get_Line_Coding, Serial_State, and Send_Break
 	},
 	{
-	// Union Functional Descriptor, CDC Spec 5.2.3.8, Table 33
-	sizeof(struct usb_union_interface_functional_descriptor),					// bFunctionLength
-	USB_DESCRIPTOR_TYPE_CS_INTERFACE,											// bDescriptorType
-	USB_DESCRIPTOR_SUBTYPE_UNION_FUNCTION,										// bDescriptorSubtype
-	0,																			// bMasterInterface (The interface number of the Communication or Data Class interface, designated as the master or controlling interface for the union)
-	1																			// bSlaveInterface0 (Interface number of first slave or associated interface in the union.)
+	/*
+		Union Functional Descriptor, CDC Spec 5.2.3.8, Table 33
+	*/
+	.bLength = sizeof(usb_union_interface_functional_descriptor),
+	.bDescriptorType = USB_DESCRIPTOR_TYPE_CS_INTERFACE,
+	.bDescriptorSubType = USB_DESCRIPTOR_SUBTYPE_UNION_FUNCTION,
+	.bMasterInterface = 0,												// interface 0 is for control
+	.bSlaveInterface0 = 1												// interface 1 is for other stuff
 	},
 	{
-	// endpoint descriptor, USB spec 9.6.6, page 269-271, Table 9-13
-	sizeof(struct usb_standard_endpoint_descriptor),							// bLength
-	USB_DESCRIPTOR_TYPE_ENDPOINT,												// bDescriptorType
-	DEVICE_ENDPOINT_ABSTRACT_CONTROL_MANAGEMENT | USB_ENDPOINT_DIRECTION_IN,	// bEndpointAddress (Endpoint number | direction (in | out) IN going to host)
-	USB_ENDPOINT_TYPE_INTERRUPT,												// bmAttributes (Interrupt end point)
-	16,																			// wMaxPacketSize
-	64																			// bInterval (polling interval)
+	/*
+		Endpoint descriptor, USB spec 9.6.6, page 269-271, Table 9-13
+	*/
+	.bLength = sizeof(usb_standard_endpoint_descriptor),
+	.bDescriptorType = USB_DESCRIPTOR_TYPE_ENDPOINT,
+	.bEndpointAddress = USB_CDC_ENDPOINT_ABSTRACT_CONTROL_MANAGEMENT | USB_ENDPOINT_DIRECTION_IN,
+	.bmAttributes = USB_ENDPOINT_TYPE_INTERRUPT,						// notifications on an INTERRUPT ENDPOINT
+	.wMaxPacketSize = USB_MAX_PACKET_SIZE,
+	.bInterval = 10
 	},
 	{
-	// interface descriptor, USB spec 9.6.5, page 267-269, Table 9-12
-	sizeof(struct usb_standard_interface_descriptor),							// bLength
-	USB_DESCRIPTOR_TYPE_INTERFACE,												// bDescriptorType
-	1,																			// bInterfaceNumber
-	0,																			// bAlternateSetting
-	2,																			// bNumEndpoints
-	USB_DESCRIPTOR_TYPE_INTERFACE_CLASS_DATA_INTERFACE,							// bInterfaceClass
-	0x00,																		// bInterfaceSubClass
-	USB_DESCRIPTOR_TYPE_INTERFACE_CLASS_CDC_PROTOCOL_NONE,						// bInterfaceProtocol
-	0																			// iInterface (string desceiptor)
+	/*
+		Interface descriptor, USB spec 9.6.5, page 267-269, Table 9-12
+	*/
+	.bLength = sizeof(usb_standard_interface_descriptor),
+	.bDescriptorType = USB_DESCRIPTOR_TYPE_INTERFACE,
+	.bInterfaceNumber = 1,												// data on interface 1
+	.bAlternateSetting = 0,
+	.bNumEndpoints = 2,													// uses 2 endpoints
+	.bInterfaceClass = USB_INTERFACE_CLASS_DATA,						// data
+	.bInterfaceSubClass = USB_DEVICE_SUBCLASS_NONE,
+	.bInterfaceProtocol = USB_CDC_PROTOCOL_NONE,
+	.iInterface = 0
 	},
 	{
-	// endpoint descriptor, USB spec 9.6.6, page 269-271, Table 9-13
-	sizeof(struct usb_standard_endpoint_descriptor),							// bLength
-	USB_DESCRIPTOR_TYPE_ENDPOINT,												// bDescriptorType
-	DEVICE_ENDPOINT_SERIAL_OUT | USB_ENDPOINT_DIRECTION_OUT,					// bEndpointAddress (OUTGOING from host)
-	USB_ENDPOINT_TYPE_BULK,														// bmAttributes (0x02=bulk)
-	64,																			// wMaxPacketSize
-	0																			// bInterval
+	/*
+		Endpoint descriptor, USB spec 9.6.6, page 269-271, Table 9-13
+	*/
+	.bLength = sizeof(usb_standard_endpoint_descriptor),
+	.bDescriptorType = USB_DESCRIPTOR_TYPE_ENDPOINT,
+	.bEndpointAddress = USB_CDC_ENDPOINT_SERIAL | USB_ENDPOINT_DIRECTION_OUT,
+	.bmAttributes = USB_ENDPOINT_TYPE_BULK,
+	.wMaxPacketSize = USB_MAX_PACKET_SIZE,
+	.bInterval = 0														// this endpoint does not NAK
 	},
 	{
-	// endpoint descriptor, USB spec 9.6.6, page 269-271, Table 9-13
-	sizeof(struct usb_standard_endpoint_descriptor),							// bLength
-	USB_DESCRIPTOR_TYPE_ENDPOINT,												// bDescriptorType
-	DEVICE_ENDPOINT_SERIAL_IN | USB_ENDPOINT_DIRECTION_IN,						// bEndpointAddress (INGOING to host)
-	USB_ENDPOINT_TYPE_BULK,														// bmAttributes (0x02=bulk)
-	64,																			// wMaxPacketSize
-	0																			// bInterval
+	/*
+		Endpoint descriptor, USB spec 9.6.6, page 269-271, Table 9-13
+	*/
+	.bLength = sizeof(usb_standard_endpoint_descriptor),
+	.bDescriptorType = 	USB_DESCRIPTOR_TYPE_ENDPOINT,
+	.bEndpointAddress = USB_CDC_ENDPOINT_SERIAL | USB_ENDPOINT_DIRECTION_IN,
+	.bmAttributes = USB_ENDPOINT_TYPE_BULK,
+	.wMaxPacketSize = USB_MAX_PACKET_SIZE,
+	.bInterval = 0														// this endpoint does not NAK
 	}
 };
 
@@ -754,13 +900,13 @@ struct usb_cdc_virtual_com_port our_com_descriptor =
 /*
 	OUR_CDC_LINE_CODING
 	-------------------
-	9600,n,8,1
+	115200,n,8,1
 */
-struct usb_cdc_line_coding our_cdc_line_coding =
+usb_cdc_line_coding our_cdc_line_coding =
 {
 .dwDTERat = 115200,
-.bCharFormat = 0,
-.bParityType =  0,
+.bCharFormat = USB_CDC_STOP_BITS_1,
+.bParityType =  USB_CDC_PARITY_NONE,
 .bDataBits =  8
 } ;
 
@@ -772,12 +918,12 @@ struct usb_cdc_line_coding our_cdc_line_coding =
 	OUR_MS_OS_STRING_DESCRIPTOR
 	---------------------------
 */
-struct ms_usb_os_string_descriptor our_ms_os_string_descriptor = 
+ms_usb_os_string_descriptor our_ms_os_string_descriptor = 
 {
 .bLength = sizeof(our_ms_os_string_descriptor),
 .bDescriptorType = USB_DESCRIPTOR_TYPE_STRING,
-.qwSignature = {'M', 0x00, 'S', 0x00, 'F', 0x00, 'T', 0x00, '1', 0x00, '0', 0x00, '0', 0x00},     //{0x4D, 0x00, 0x53, 0x00, 0x46, 0x00, 0x54, 0x00, 0x31, 0x00, 0x30, 0x00, 0x30, 0x00},	//MSFT100
-.bMS_VendorCode = 0,
+.qwSignature = {'M', 0x00, 'S', 0x00, 'F', 0x00, 'T', 0x00, '1', 0x00, '0', 0x00, '0', 0x00},		// MSFT100
+.bMS_VendorCode = 0,																				// this is a user-defined value and appears to be pretty much useless
 .bPad = 0
 };
 
@@ -786,19 +932,19 @@ struct ms_usb_os_string_descriptor our_ms_os_string_descriptor =
 	OUR_MS_COMPATIBLE_ID_FEATURE_DESCRIPTOR
 	---------------------------------------
 */
-struct ms_usb_extended_compatible_id_os_feature_descriptor our_ms_compatible_id_feature_descriptor =
+ms_usb_extended_compatible_id_os_feature_descriptor our_ms_compatible_id_feature_descriptor =
 {
 	{
 	.dwLength = sizeof(our_ms_compatible_id_feature_descriptor),
-	.bcdVersion = 1,
-	.wIndex = 4,
+	.bcdVersion = MS_USB_VERSION,
+	.wIndex = MS_USB_DESCRIPTOR_TYPE_EXTENDED_COMPAT_ID,
 	.bCount = 1,
 	.reserved = {0},
 	},
 	{
 	.bFirstInterfaceNumber = 0,
 	.reserved1 = 0,
-	.compatibleID = {0x57, 0x49, 0x4E, 0x55, 0x53, 0x42, 0x00, 0x00},
+	.compatibleID = {0x57, 0x49, 0x4E, 0x55, 0x53, 0x42, 0x00, 0x00},	// WINUSB
 	.subCompatibleID = {0},
 	.reserved2 = {0}
 	}
@@ -809,17 +955,17 @@ struct ms_usb_extended_compatible_id_os_feature_descriptor our_ms_compatible_id_
 	OUR_MS_EXTENDED_PROPERTIES
 	--------------------------
 */
-struct ms_usb_extended_properties our_ms_extended_properties =
+ms_usb_extended_properties our_ms_extended_properties =
 {
 	{
 	.dwLength = sizeof(our_ms_extended_properties),
-	.bcdVersion = 0x0100,
-	.wIndex = USB_REQ_MS_GET_EXTENDED_PROPERTIES,
-	.wCount = 1
+	.bcdVersion = MS_USB_VERSION,
+	.wIndex = MS_USB_DESCRIPTOR_TYPE_EXTENDED_PROPERTIES,
+	.wCount = 1															// 1 custom property
 	},
 	{
-	.dwSize = sizeof(struct ms_usb_extended_property_function),
-	.dwPropertyDataType = REG_SZ,
+	.dwSize = sizeof(ms_usb_extended_property_function),
+	.dwPropertyDataType = MS_USB_REG_SZ,
 	.wPropertyNameLength = 12,
 	.bPropertyName = {'L', 0x00, 'a', 0x00, 'b', 0x00, 'e', 0x00, 'l', 0x00, 0x00, 0x00},
 	.dwPropertyDataLength = 16,
@@ -1189,7 +1335,7 @@ usb_prime_endpoint(endpoint, USB_DIRECTION_OUT); //Signal the controller to star
 	PRINT_SETUP_PACKET()
 	--------------------
 */
-void print_setup_packet(struct usb_setup_data req)
+void print_setup_packet(usb_setup_data req)
 {
 debug_print_string("SETUP PACKET\r\n");
 debug_print_this("bmRequestType:", req.bmRequestType, "");
@@ -1203,7 +1349,7 @@ debug_print_this("wLength:", req.wLength, "");
 	HANDLE_USB_GET_DESCRIPTOR()
 	---------------------------
 */
-void handle_usb_get_descriptor(struct usb_setup_data req)
+void handle_usb_get_descriptor(usb_setup_data req)
 {
 int descriptor_type = req.wValue >> 8;
 int descriptor_index = req.wValue & 0xFF;
@@ -1305,7 +1451,7 @@ if (HW_USBCTRL_ENDPTSETUPSTAT_RD() & 0x1F)
 		{
 //		debug_print_string("USB SETUP request.\r\n");
 	
-		struct usb_setup_data setup_packet;
+		usb_setup_data setup_packet;
 
 		/* We'll be slowly copying the setup packet from the endpoint descriptor.
 		*
@@ -1871,7 +2017,7 @@ endpointcfg.B.RXS = 0;
 
 config_endpoint(ENDPOINT_ACM_OUT);
 config_endpoint(ENDPOINT_ACM_IN);
-HW_USBCTRL_ENDPTCTRLn_WR(DEVICE_ENDPOINT_ABSTRACT_CONTROL_MANAGEMENT, endpointcfg.U);		// EP 1
+HW_USBCTRL_ENDPTCTRLn_WR(USB_CDC_ENDPOINT_ABSTRACT_CONTROL_MANAGEMENT, endpointcfg.U);		// EP 1
 
 /*
 	Queue 4 and 5: Data from host
@@ -1893,7 +2039,7 @@ endpointcfg.B.RXS = 0;
 
 config_endpoint(ENDPOINT_DATA_OUT);
 config_endpoint(ENDPOINT_DATA_IN);
-HW_USBCTRL_ENDPTCTRLn_WR(DEVICE_ENDPOINT_SERIAL_OUT, endpointcfg.U);		// EP 2
+HW_USBCTRL_ENDPTCTRLn_WR(USB_CDC_ENDPOINT_SERIAL, endpointcfg.U);		// EP 2
 
 
 endpointcfg.U = 0;
