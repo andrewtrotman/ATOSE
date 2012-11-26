@@ -65,10 +65,11 @@
 	String constants
 */
 #define USB_STRING_NONE						0x00
-#define USB_STRING_LANGUAGE					0x00
+#define USB_STRING_LANGUAGE					0x00		// See page 273 of "Universal Serial Bus Specification Revision 2.0 April 27, 2000"
 #define USB_STRING_MANUFACTURER				0x01
 #define USB_STRING_PRODUCT						0x02
 #define USB_STRING_SERIAL_NUMBER				0x03
+#define MS_USB_STRING_OS_DESCRIPTOR			0xEE		// See page 6 of "Microsoft OS Descriptors Overview"
 
 /*
 	language codes
@@ -90,20 +91,23 @@
 /*
 	The different descriptor types we know about
 */
-#define USB_DESCRIPTOR_TYPE_DEVICE				0x01
-#define USB_DESCRIPTOR_TYPE_CONFIGURATION		0x02
-#define USB_DESCRIPTOR_TYPE_STRING				0x03
-#define USB_DESCRIPTOR_TYPE_INTERFACE			0x04
-#define USB_DESCRIPTOR_TYPE_ENDPOINT			0x05
-#define USB_DESCRIPTOR_TYPE_DEVICE_QUALIFIER	0x06
+#define USB_DESCRIPTOR_TYPE_DEVICE						0x01
+#define USB_DESCRIPTOR_TYPE_CONFIGURATION				0x02
+#define USB_DESCRIPTOR_TYPE_STRING						0x03
+#define USB_DESCRIPTOR_TYPE_INTERFACE					0x04
+#define USB_DESCRIPTOR_TYPE_ENDPOINT					0x05
+#define USB_DESCRIPTOR_TYPE_DEVICE_QUALIFIER			0x06
+#define USB_DESCRIPTOR_TYPE_OTHER_SPEED_CONFIGURATION	0x07
+#define USB_DESCRIPTOR_TYPE_INTERFACE_POWER			0x08
+
 
 #define USB_DESCRIPTOR_TYPE_CS_INTERFACE		0x24
 
-#define MS_USB_DESCRIPTOR_TYPE_EXTENDED_COMPAT_ID 0x04
+#define MS_USB_DESCRIPTOR_TYPE_EXTENDED_COMPAT_ID  0x04
 #define MS_USB_DESCRIPTOR_TYPE_EXTENDED_PROPERTIES 0x05
 
 /*
-	The different descriptor types we know about
+	The different descriptor subtypes we know about
 */
 #define USB_DESCRIPTOR_SUBTYPE_HEADER			0x00
 #define USB_DESCRIPTOR_SUBTYPE_CALL_MANAGEMENT 0x01
@@ -151,6 +155,24 @@
 #define USB_ENDPOINT_TYPE_ISOCHRONOUS			0x01
 #define USB_ENDPOINT_TYPE_BULK					0x02
 #define USB_ENDPOINT_TYPE_INTERRUPT			0x03
+
+/*
+	Standard USB methods on endpoint 0
+	See page 251 of "Universal Serial Bus Specification Revision 2.0 April 27, 2000"
+*/
+#define USB_REQUEST_GET_STATUS 			0x00
+#define USB_REQUEST_CLEAR_FEATURE 			0x01
+//#define USB_REQUEST_RESERVED				0x02
+#define USB_REQUEST_SET_FEATURE 			0x03
+//#define USB_REQUEST_RESERVED				0x04
+#define USB_REQUEST_SET_ADDRESS 			0x05
+#define USB_REQUEST_GET_DESCRIPTOR 		0x06		// Implemented
+#define USB_REQUEST_SET_DESCRIPTOR 		0x07
+#define USB_REQUEST_GET_CONFIGURATION 		0x08
+#define USB_REQUEST_SET_CONFIGURATION 		0x09
+#define USB_REQUEST_GET_INTERFACE 			0x0A
+#define USB_REQUEST_SET_INTERFACE 			0x0B
+#define USB_REQUEST_SYNCH_FRAME 			0x0C
 
 /*
 	USB CDC parameters
@@ -202,6 +224,9 @@
 */
 #define MS_USB_REG_SZ 							0x01
 
+#define MS_USB_REQUEST_GET_EXTENDED_COMPAT_ID_OS_FEATURE_DESCRIPTOR 0xC0
+#define MS_USB_REQUEST_GET_EXTENDED_PROPERTIES_OS_DESCRIPTOR 0xC1
+
 
 
 /*
@@ -210,6 +235,12 @@
 #define IMX_ENDPOINT_TRANSFER_DESCRIPTOR_BUFFER_POINTERS	5
 #define IMX_ENDPOINT_TRANSFER_DESCRIPTOR_TERMINATOR 		((imx_endpoint_transfer_descriptor *)0x01)
 #define IMX_ENDPOINT_TRANSFER_DESCRIPTOR_STATUS_ACTIVE 	0x80
+
+/*
+	a transfer can do at most 4096 bytes of memory per buffer (due to the way counting is done).
+	See page 7 of "Simplified Device Data Structures for the High-End ColdFire Family USB Modules" 
+*/
+#define IMX_QUEUE_BUFFER_SIZE 4096
 
 /*
 	There are i.MX233 queue heads
@@ -256,26 +287,17 @@
 
 
 
-
 #define USB_DIRECTION_OUT						0x00
 #define USB_DIRECTION_IN						0x01
 
 
-#define USB_REQ_GET_STATUS						0x00
-#define USB_REQ_CLEAR_FEATURE					0x01
-#define USB_REQ_SET_FEATURE					0x03
-#define USB_REQ_SET_ADDRESS					0x05
-#define USB_REQ_GET_DESCRIPTOR					0x06
-#define USB_REQ_SET_DESCRIPTOR					0x07
-#define USB_REQ_GET_CONFIGURATION				0x08
-#define USB_REQ_SET_CONFIGURATION				0x09
-#define USB_REQ_GET_FEATURE_DESCRIPTOR			0x0C
+
 
 #define USB_CDC_SET_LINE_CODING				0x20
 #define USB_CDC_GET_LINE_CODING				0x21
 #define USB_CDC_SET_CONTROL_LINE_STATE			0x22
 
-#define USB_REQ_MS_GET_EXTENDED_PROPERTIES		0x05
+#define USB_REQUEST_MS_GET_EXTENDED_PROPERTIES		0x05
 
 
 
@@ -1243,41 +1265,52 @@ while ((int32_t) (HW_DIGCTL_MICROSECONDS_RD() - end) < 0)
 }
 
 /*
-	===================================================================
-	Finally the program that actualy does the Virtual COM port loopback
-	===================================================================
+	===============================================
+	i.MX233 management of endpoints and queue heads
+	===============================================
 */
 
 /*
 	USB_QUEUE_TD_IN()
 	-----------------
-	IN towards the host
-	Queue up a transfer descriptor on the given endpoint which sends data inwards to the host.
-
-	endpoint - Endpoint index
-	direction - One of USB_DIRECTION_OUT, USB_DIRECTION_IN
-	ioc - Interrupt on completion
+	Queue up a transfer IN from the device to the host.  When the transfer has completed and interrupt
+	will be issued.  This method converts from endpoint numbers to queue head numbers as queueheads
+	appear to be Freescale specific
 */
-void usb_queue_td_in(int endpoint, const char *buffer, unsigned int length, int ioc)
+void usb_queue_td_in(uint32_t endpoint, const uint8_t *buffer, uint32_t length)
 {
 uint32_t mask = 0;
+imx_endpoint_transfer_descriptor *dTD;
+imx_endpoint_queuehead *dQH;
 
-imx_endpoint_transfer_descriptor *dTD = &global_dTD[endpoint];
+
+/*
+	Set up the transfer descriptor
+*/
+dTD = &global_dTD[endpoint * 2 + 1];
 memset(dTD, 0, sizeof(*dTD));
-
-imx_endpoint_queuehead *dQH = &global_queuehead[endpoint];
-
-dTD->buffer_pointer[0] = (char *)buffer;
 dTD->next_link_pointer = IMX_ENDPOINT_TRANSFER_DESCRIPTOR_TERMINATOR;
 dTD->token.all = 0;
 dTD->token.bit.total_bytes = length;
 dTD->token.bit.ioc = 1;
 dTD->token.bit.status = IMX_ENDPOINT_TRANSFER_DESCRIPTOR_STATUS_ACTIVE;
+dTD->buffer_pointer[0] = (char *)buffer;
+
+/*
+	Set up the queue head
+*/
+dQH = &global_queuehead[endpoint * 2 + 1];
 dQH->dtd_overlay_area.next_link_pointer = dTD;
 
-mask = BF_USBCTRL_ENDPTPRIME_PETB(1 << (endpoint >> 1));
+/*
+	Prime the i.MX USB hardware
+*/
+mask = BF_USBCTRL_ENDPTPRIME_PETB(1 << endpoint);
 HW_USBCTRL_ENDPTPRIME_SET(mask);
 
+/*
+	Wait until the prime has completed
+*/
 while ((HW_USBCTRL_ENDPTPRIME_RD() & mask) != 0)
 	; /* do nothing */
 }
@@ -1285,152 +1318,294 @@ while ((HW_USBCTRL_ENDPTPRIME_RD() & mask) != 0)
 /*
 	USB_QUEUE_TD_OUT()
 	------------------
-	OUT from the host
-	Queue up a transfer descriptor on the given endpoint which receives data sent out from the host.
-
-	endpoint - Endpoint index
-	direction - One of USB_DIRECTION_OUT, USB_DIRECTION_IN							    
-	ioc - Interrupt on completion
+	Queue up a transfer OUT from the host to the device.  When the message has arrived from the host we
+	get an interrupt. This method converts from endpoint numbers to queue head numbers as queueheads
+	appear to be Freescale specific
 */
-void usb_queue_td_out(int endpoint, unsigned int length, int ioc)
+void usb_queue_td_out(uint32_t endpoint)
 {
 uint32_t mask = 0;
+imx_endpoint_transfer_descriptor *dTD;
+imx_endpoint_queuehead *dQH;
 
-length = 64;		// this is the size of the rec buffer (the parameter is ignored)
-imx_endpoint_transfer_descriptor *dTD =  &global_dTD[endpoint];
+/*
+	Set up the transfer descriptor
+
+	As we can't know how big the transfer is going to be we'll use the same size we allocate
+	for the transfer buffer (below).  If the packet is short that'll be OK as the protocol allows
+	for short packets. If it is longer the hardware will NAK (I think)
+*/
+dTD =  &global_dTD[endpoint * 2];
 memset(dTD, 0, sizeof(*dTD));
-
-imx_endpoint_queuehead *dQH = &global_queuehead[endpoint];
-
-dTD->buffer_pointer[0] = (char *)global_transfer_buffer[endpoint][0];
-dTD->next_link_pointer = (imx_endpoint_transfer_descriptor *) 0x01; //No TD follow this one
+dTD->next_link_pointer = IMX_ENDPOINT_TRANSFER_DESCRIPTOR_TERMINATOR;
 dTD->token.all = 0;
-dTD->token.bit.total_bytes = length;
+dTD->token.bit.total_bytes = IMX_QUEUE_BUFFER_SIZE;
 dTD->token.bit.ioc = 1;
 dTD->token.bit.status = IMX_ENDPOINT_TRANSFER_DESCRIPTOR_STATUS_ACTIVE;
-dQH->dtd_overlay_area.next_link_pointer = dTD; //Activate this TD by clearing the 'T' bit in the queue head next ptr
+dTD->buffer_pointer[0] = (char *)global_transfer_buffer[endpoint * 2][0];		// the recieve buffer
 
-mask = BF_USBCTRL_ENDPTPRIME_PERB(1 << (endpoint >> 1));
+/*
+	Set up the queue head
+*/
+dQH = &global_queuehead[endpoint * 2];
+dQH->dtd_overlay_area.next_link_pointer = dTD;
+
+/*
+	Prime the i.MX USB hardware
+*/
+mask = BF_USBCTRL_ENDPTPRIME_PERB(1 << endpoint);
 HW_USBCTRL_ENDPTPRIME_SET(mask);
 
+/*
+	Wait until the prime has completed
+*/
 while ((HW_USBCTRL_ENDPTPRIME_RD() & mask) != 0)
 	; /* do nothing */
 }
 
+/*
+	USB_REQUEST_ERROR()
+	-------------------
+	If the host issues a command and we are unable to respond to it we are supposed to return a STALL.  I doubt this will
+	ever happen, but just in case it does.
+	See page 247 of "Universal Serial Bus Specification Revision 2.0 April 27, 2000".
+*/
+void usb_request_error(uint32_t endpoint)
+{
+HW_USBCTRL_ENDPTCTRLn_WR(endpoint, HW_USBCTRL_ENDPTCTRLn_RD(endpoint) & BM_USBCTRL_ENDPTCTRLn_TXS);
+}
 
+/*
+	USB_ACK()
+	---------
+	Send a software ACK to acknowledge the processing of a command
 
+	The harware ACK is taken care of by the i.MX233.
+	See table 64-69 page 5349 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012"
 
+	The sofware response ACK is a zero-length packet.
+	See page 227 of "Universal Serial Bus Specification Revision 2.0 April 27, 2000".
+*/
+void usb_ack(uint32_t endpoint)
+{
+usb_queue_td_in(endpoint, 0, 0);		// send a 0-length packet
+}
 
+/*
+	====================
+	Generic USB routines
+	====================
+*/
 
 /*
 	PRINT_SETUP_PACKET()
 	--------------------
 */
-void print_setup_packet(usb_setup_data req)
+void print_setup_packet(usb_setup_data *packet)
 {
 debug_print_string("SETUP PACKET\r\n");
-debug_print_this("bmRequestType:", req.bmRequestType, "");
-debug_print_this("bRequest:", req.bRequest, "");
-debug_print_this("wValue:", req.wValue, "");
-debug_print_this("wIndex:", req.wIndex, "");
-debug_print_this("wLength:", req.wLength, "");
+debug_print_this("bmRequestType:", packet->bmRequestType, "");
+debug_print_this("bRequest:", packet->bRequest, "");
+debug_print_this("wValue:", packet->wValue, "");
+debug_print_this("wIndex:", packet->wIndex, "");
+debug_print_this("wLength:", packet->wLength, "");
 }
 
 /*
-	HANDLE_USB_GET_DESCRIPTOR()
-	---------------------------
+	USB_GET_DESCRIPTOR()
+	--------------------
+	"The standard request to a device supports three types of descriptors: device (also device_qualifier),
+	configuration (also other_speed_configuration), and string. A high-speed capable device supports the
+	device_qualifier descriptor to return information about the device for the speed at which it is not operating
+	(including wMaxPacketSize for the default endpoint and the number of configurations for the other speed).
+	The other_speed_configuration returns information in the same structure as a configuration descriptor, but
+	for a configuration if the device were operating at the other speed."
+	See page 253-254 of "Universal Serial Bus Specification Revision 2.0 April 27, 2000"
+
+	bmRequestType = 0x80
+	bRequest = USB_REQUEST_GET_DESCRIPTOR
+	wValue = one of the USB_DESCRIPTOR_TYPE_ constants in the high byte. Descriptor index in the low byte (e.g. which string)
+	wIndex = 0; or language ID for string descriptors
+	wLength = length of the descriptor
+	Data = <nothing>
+
+	Valid in states:DEFAULT, ADDRESS, CONFIGURED
 */
-void handle_usb_get_descriptor(usb_setup_data req)
+void usb_get_descriptor(usb_setup_data *packet)
 {
-int descriptor_type = req.wValue >> 8;
-int descriptor_index = req.wValue & 0xFF;
-int descriptor_length = req.wLength;
-uint32_t len;
+uint32_t descriptor_index;
+uint32_t descriptor_type = packet->wValue >> 8;
 
 switch (descriptor_type)
 	{
 	case USB_DESCRIPTOR_TYPE_DEVICE:
 		debug_print_string("USB_DESCRIPTOR_TYPE_DEVICE\r\n");
+		/*
+			There's some weird hand-shaking going on here.  When we first connect we are required to only send the first 8 bytes
+			of the device descriptor.  The host then responds by asking again, we then respond by sending the whole descriptor.
+			Now, the first 8 bytes include the length of the descriptor so this appears to be a hand-shaking done so that the
+			host can allocate space for the descriptor before asking for it.  If we don't honor this hand-shake then Windows
+			appears to consider us to be a badly behaving device and rejects us!
 
-		if (req.wLength != sizeof(our_device_descriptor))		// should probably be sizeof(our_device_descriptor), not 0x40
-			len = 8;
-		else
-			len = sizeof(our_device_descriptor);
 
-		usb_queue_td_in(IMX_USB_CDC_QUEUEHEAD_CONTROL_IN, (char*)&our_device_descriptor, len, 0);
+			Although, according to page 39 of "Universal Serial Bus Specification Revision 2.0 April 27, 2000", 
+			"In order to determine the maximum packet size for the Default Control Pipe, the USB System Software
+			reads the device descriptor. The host will read the first eight bytes of the device descriptor. The device
+			always responds with at least these initial bytes in a single packet. After the host reads the initial part of the
+			device descriptor, it is guaranteed to have read this default pipe's wMaxPacketSize field (byte 7 of the
+			device descriptor). It will then allow the correct size for all subsequent transactions. For all other control
+			endpoints, the maximum data payload size is known after configuration so that the USB System Software
+			can ensure that no data payload will be sent to the endpoint that is larger than the supported size."
 
-		//We expect to receive a zero-byte confirmation from the host, and we'll ask for an interrupt when that occurs
-		usb_queue_td_out(IMX_USB_CDC_QUEUEHEAD_CONTROL_OUT, 0, 1);
-
+			For more information on the device descriptor see page 261-263 of "Universal Serial Bus Specification Revision 2.0 April 27, 2000"
+		*/
+		usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (char*)&our_device_descriptor, packet->wLength != sizeof(our_device_descriptor) ? 8 : sizeof(our_device_descriptor));
+		usb_queue_td_out(USB_CDC_ENDPOINT_CONTROL);
 		break;
 	case USB_DESCRIPTOR_TYPE_CONFIGURATION:
 		debug_print_string("USB_DESCRIPTOR_TYPE_CONFIGURATION\r\n");
+		/*
+			This descriptor is shared with USB_DESCRIPTOR_TYPE_OTHER_SPEED_CONFIGURATION, so we set its type before sending
 
-		usb_queue_td_in(IMX_USB_CDC_QUEUEHEAD_CONTROL_IN, (char *)&our_com_descriptor, sizeof(our_com_descriptor), 0);
-
-		//We expect to receive a zero-byte confirmation from the host, and we'll ask for an interrupt when that occurs
-		usb_queue_td_out(IMX_USB_CDC_QUEUEHEAD_CONTROL_OUT, 0, 1);
+			For more information on the configuration descriptor see page 264-266 of "Universal Serial Bus Specification Revision 2.0 April 27, 2000"
+		*/
+		our_com_descriptor.cd.bDescriptorType = USB_DESCRIPTOR_TYPE_CONFIGURATION;
+		usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (char *)&our_com_descriptor, sizeof(our_com_descriptor));
+		usb_queue_td_out(USB_CDC_ENDPOINT_CONTROL);
 		break;
+
+
+	case USB_DESCRIPTOR_TYPE_OTHER_SPEED_CONFIGURATION:
+		debug_print_string("USB_DESCRIPTOR_TYPE_OTHER_SPEED_CONFIGURATION\r\n");
+		/*
+			The OTHER_SPEED_CONFIGURATION request is the same as a configurataion request but allows us to have a device that
+			works differently at different speeds.  We ignore this and make the device work the same way regardless of speed.
+			To do this we just change the descriptor type.
+
+			For more information on the other speed configuration descriptor see page 266-267 of "Universal Serial Bus Specification Revision 2.0 April 27, 2000"
+		*/
+		our_com_descriptor.cd.bDescriptorType = USB_DESCRIPTOR_TYPE_OTHER_SPEED_CONFIGURATION;
+		usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (char *)&our_com_descriptor, sizeof(our_com_descriptor));
+		usb_queue_td_out(USB_CDC_ENDPOINT_CONTROL);
+		break;
+
 	case USB_DESCRIPTOR_TYPE_STRING:
+		descriptor_index = packet->wValue & 0xFF;
+
+		/*
+			For more information on string descriptors see page 273-274 of "Universal Serial Bus Specification Revision 2.0 April 27, 2000"
+		*/
 		switch (descriptor_index)
 			{
-			case 0xEE:
+			case USB_STRING_LANGUAGE:
+				debug_print_string("STRING - LANG ID\r\n");
+				/*
+					Here the host is actaully asking for the languages we support rather than a string
+					"String index zero for all languages returns a string descriptor that contains an array
+					of two-byte LANGID codes supported by the device"
+
+					See page 273 of "Universal Serial Bus Specification Revision 2.0 April 27, 2000"
+				*/
+				usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (char *)&our_language, sizeof(our_language));
+				usb_queue_td_out(USB_CDC_ENDPOINT_CONTROL);
+				break;
+			case USB_STRING_MANUFACTURER:
+				debug_print_string("STRING - MANUFACTURER\r\n");
+				usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (char *)&our_manufacturer, sizeof(our_manufacturer));
+				usb_queue_td_out(USB_CDC_ENDPOINT_CONTROL);
+				break;
+			case USB_STRING_PRODUCT:
+				debug_print_string("STRING - PRODUCT\r\n");
+				usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (char *)&our_product, sizeof(our_product));
+				usb_queue_td_out(USB_CDC_ENDPOINT_CONTROL);
+				break;
+			case USB_STRING_SERIAL_NUMBER:
+				debug_print_string("STRING - SERIAL NUMBER\r\n");
+				usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (char *)&our_serial_number, sizeof(our_serial_number));
+				usb_queue_td_out(USB_CDC_ENDPOINT_CONTROL);
+				break;
+			case MS_USB_STRING_OS_DESCRIPTOR:
 				debug_print_string("MS OS STRING DESCRIPTOR\r\n");
 				/*
 					Microsoft OS String Desciptor
 				*/
-				usb_queue_td_in(IMX_USB_CDC_QUEUEHEAD_CONTROL_IN, (char *)&our_ms_os_string_descriptor, sizeof(our_ms_os_string_descriptor), 0);
-				usb_queue_td_out(IMX_USB_CDC_QUEUEHEAD_CONTROL_OUT, 0, 1);
-				break;
-			case 0x00:
-				debug_print_string("STRING - LANG ID\r\n");
-				usb_queue_td_in(IMX_USB_CDC_QUEUEHEAD_CONTROL_IN, (char *)&our_language, sizeof(our_language), 0);
-				usb_queue_td_out(IMX_USB_CDC_QUEUEHEAD_CONTROL_OUT, 0, 1);
-				break;
-			case 0x01:
-				debug_print_string("STRING - MANUFACTURER\r\n");
-				usb_queue_td_in(IMX_USB_CDC_QUEUEHEAD_CONTROL_IN, (char *)&our_manufacturer, sizeof(our_manufacturer), 0);
-				usb_queue_td_out(IMX_USB_CDC_QUEUEHEAD_CONTROL_OUT, 0, 1);
-				break;
-			case 0x02:
-				debug_print_string("STRING - PRODUCT\r\n");
-				usb_queue_td_in(IMX_USB_CDC_QUEUEHEAD_CONTROL_IN, (char *)&our_product, sizeof(our_product), 0);
-				usb_queue_td_out(IMX_USB_CDC_QUEUEHEAD_CONTROL_OUT, 0, 1);
-				break;
-			case 0x03:
-				debug_print_string("STRING - SERIAL NUMBER\r\n");
-				usb_queue_td_in(IMX_USB_CDC_QUEUEHEAD_CONTROL_IN, (char *)&our_serial_number, sizeof(our_serial_number), 0);
-				usb_queue_td_out(IMX_USB_CDC_QUEUEHEAD_CONTROL_OUT, 0, 1);
+				usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (char *)&our_ms_os_string_descriptor, sizeof(our_ms_os_string_descriptor));
+				usb_queue_td_out(USB_CDC_ENDPOINT_CONTROL);
 				break;
 			default:
+				/*
+					If the host is behaving correting this cannot happen
+				*/
 				debug_print_this("Unhandled STRING DESCRIPTOR:" , descriptor_index, "");
+				usb_request_error(0);
 				break;
 			}
 		break;
 	case USB_DESCRIPTOR_TYPE_DEVICE_QUALIFIER:
 		debug_print_string("USB_DESCRIPTOR_TYPE_DEVICE_QUALIFIER\r\n");
-
-		usb_queue_td_in(IMX_USB_CDC_QUEUEHEAD_CONTROL_IN, (char *)&our_device_qualifier, sizeof(our_device_qualifier), 0);
-
-		//We expect to receive a zero-byte confirmation from the host, and we'll ask for an interrupt when that occurs
-		usb_queue_td_out(IMX_USB_CDC_QUEUEHEAD_CONTROL_OUT, 0, 1);
+		/*
+			"The device_qualifier descriptor describes information about a high-speed capable device that would
+			change if the device were operating at the other speed".
+			See page 264 of "Universal Serial Bus Specification Revision 2.0 April 27, 2000"
+		*/
+		usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (char *)&our_device_qualifier, sizeof(our_device_qualifier));
+		usb_queue_td_out(USB_CDC_ENDPOINT_CONTROL);
 		break;
 	default:
-		print_setup_packet(req);
-		debug_print_string("  this had lead to\r\n");
-		debug_print_string("Unknown USB descriptor request received:\r\n");
-		debug_print_this("Type:" , descriptor_type, "");
-		debug_print_this("Index:" , descriptor_index, "");
-		debug_print_this("Length:" , descriptor_length, "");
+		/*
+			If the host is behaving correting this cannot happen
+		*/
+		debug_print_string("Unrecognised setup packet (illegal descriptor):\r\n");
+		print_setup_packet(packet);
+		usb_request_error(0);
+		break;
+	}
+}
+
+/*
+	MS_USB_GET_DESCRIPTOR()
+	-----------------------
+	The behaviour of this method is defined in two documents: "Extended Properties OS Feature Descriptor Specification, July 13, 2012"
+	and "Extended Compat ID OS Feature Descriptor Specification, July 13, 2012". 
+*/
+void ms_usb_get_descriptor(usb_setup_data *packet)
+{
+if (packet->bmRequestType == MS_USB_REQUEST_GET_EXTENDED_COMPAT_ID_OS_FEATURE_DESCRIPTOR)
+	{
+	debug_print_string("MS_USB_REQUEST_GET_EXTENDED_COMPAT_ID_OS_FEATURE_DESCRIPTOR\r\n");
+	/*
+		See: "Extended Compat ID OS Feature Descriptor Specification, July 13, 2012". 
+	*/
+	usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (char *)&our_ms_compatible_id_feature_descriptor, sizeof(our_ms_compatible_id_feature_descriptor));
+	usb_queue_td_out(USB_CDC_ENDPOINT_CONTROL);
+	}
+else if (packet->bmRequestType == MS_USB_REQUEST_GET_EXTENDED_PROPERTIES_OS_DESCRIPTOR)
+	{
+	switch (packet->wIndex)
+		{
+		case USB_REQUEST_MS_GET_EXTENDED_PROPERTIES:
+			debug_print_string("USB_REQUEST_MS_GET_EXTENDED_PROPERTIES\r\n");
+			/*
+				See: Extended Properties OS Feature Descriptor Specification, July 13, 2012"
+			*/
+			usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (char *)&our_ms_extended_properties, sizeof(our_ms_extended_properties));
+			usb_queue_td_out(USB_CDC_ENDPOINT_CONTROL);
+			break;
+		default:
+			debug_print_string("Unrecognised Microsoft descriptor request:\r\n");
+			print_setup_packet(packet);
+			usb_request_error(0);
+			break;
+		}
 	}
 }
 
 
 /*
-	HANDLE_USB_INTERRUPT()
-	----------------------
+	USB_INTERRUPT()
+	---------------
 */
-void handle_usb_interrupt(void)
+void usb_interrupt(void)
 {
 int handled = 0;
 uint16_t new_address;
@@ -1466,64 +1641,49 @@ if (HW_USBCTRL_ENDPTSETUPSTAT_RD() & 0x1F)
 			HW_USBCTRL_ENDPTSETUPSTAT_WR(1);
 		while (HW_USBCTRL_ENDPTSETUPSTAT_RD() & 1);
 
-/*
-			debug_print_string("SETUP PACKET\r\n");
-			debug_print_this("bmRequestType:", setup_packet.bmRequestType, "");
-			debug_print_this("bRequest:", setup_packet.bRequest, "");
-			debug_print_this("wValue:", setup_packet.wValue, "");
-			debug_print_this("wIndex:", setup_packet.wIndex, "");
-			debug_print_this("wLength:", setup_packet.wLength, "");
-*/
 
 		if (setup_packet.bmRequestType & 0x80)
 			{
 			//Packets with a device-to-host data phase direction
 
-			if (setup_packet.bmRequestType == 0xC0)		//USB_REQ_GET_FEATURE_DESCRIPTOR:
+			
+			if (setup_packet.bmRequestType == MS_USB_REQUEST_GET_EXTENDED_COMPAT_ID_OS_FEATURE_DESCRIPTOR || setup_packet.bmRequestType == MS_USB_REQUEST_GET_EXTENDED_PROPERTIES_OS_DESCRIPTOR)
 				{
-				debug_print_string("USB_REQ_GET_MS_DESCRIPTOR\r\n");
-				usb_queue_td_in(IMX_USB_CDC_QUEUEHEAD_CONTROL_IN, (char *)&our_ms_compatible_id_feature_descriptor, sizeof(our_ms_compatible_id_feature_descriptor), 0);
-				usb_queue_td_out(IMX_USB_CDC_QUEUEHEAD_CONTROL_OUT, 0, 1);
+				/*
+					Manage the Microsoft Extensions
+				*/
+				ms_usb_get_descriptor(&setup_packet);
 				}
-			else if (setup_packet.bmRequestType == 0xC1)
+			else if (setup_packet.bmRequestType == 0xA1)
 				{
-				switch (setup_packet.wIndex)
-					{
-					case USB_REQ_MS_GET_EXTENDED_PROPERTIES:
-						debug_print_string("USB_REQ_MS_GET_EXTENDED_PROPERTIES\r\n");
-
-						usb_queue_td_in(IMX_USB_CDC_QUEUEHEAD_CONTROL_IN, (char *)&our_ms_extended_properties, sizeof(our_ms_extended_properties), 0);
-						usb_queue_td_out(IMX_USB_CDC_QUEUEHEAD_CONTROL_OUT, 0, 1);
-						break;
-					default:
-						print_setup_packet(setup_packet);
-						debug_print_this("Unhandled GET_MS_DESCRIPTOR  ", setup_packet.wIndex, " was received.");
-					}
-				}
-			else if (setup_packet.bmRequestType == 0xA1)		// CDC commands
-				{
+				/*
+					Manage the CDC commands
+				*/
 				switch (setup_packet.bRequest)
 					{
 					case USB_CDC_GET_LINE_CODING:
 						debug_print_string("USB_CDC_GET_LINE_CODING\r\n");
-						usb_queue_td_in(IMX_USB_CDC_QUEUEHEAD_CONTROL_IN, (char *)&our_cdc_line_coding, sizeof(our_cdc_line_coding), 0);
-						usb_queue_td_out(IMX_USB_CDC_QUEUEHEAD_CONTROL_OUT, 0, 1);
+						usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (char *)&our_cdc_line_coding, sizeof(our_cdc_line_coding));
+						usb_queue_td_out(USB_CDC_ENDPOINT_CONTROL);
 						break;
 					default:
-						print_setup_packet(setup_packet);
+						print_setup_packet(&setup_packet);
 						debug_print_this("Unhandled device-to-host data direction setup request ", setup_packet.bRequest, " was received.");
 					}
 				}
 			else
 				{
+				/*
+					Manage device commands
+				*/
 				switch (setup_packet.bRequest)
 					{
-					case USB_REQ_GET_DESCRIPTOR:
-						handle_usb_get_descriptor(setup_packet);
+					case USB_REQUEST_GET_DESCRIPTOR:
+						usb_get_descriptor(&setup_packet);
 						handled = 1;
 						break;
 					default:
-						print_setup_packet(setup_packet);
+						print_setup_packet(&setup_packet);
 						debug_print_this("Unhandled device-to-host data direction setup request ", setup_packet.bRequest, " was received.");
 					}
 				}
@@ -1536,15 +1696,14 @@ if (HW_USBCTRL_ENDPTSETUPSTAT_RD() & 0x1F)
 					{
 					case USB_CDC_SET_CONTROL_LINE_STATE:								// this means the PC is online
 						debug_print_string("USB_CDC_SET_CONTROL_LINE_STATE\r\n");
-						usb_queue_td_in(IMX_USB_CDC_QUEUEHEAD_CONTROL_IN, 0, 0, 0);				// respond with a 0-byte transfer (ACK)
-						usb_queue_td_out(IMX_USB_CDC_QUEUEHEAD_CONTROL_OUT, 0, 1);
+						usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, 0, 0);				// respond with a 0-byte transfer (ACK)
+						usb_queue_td_out(USB_CDC_ENDPOINT_CONTROL);
 						break;
 					case USB_CDC_SET_LINE_CODING:										// this tells us "9600,n,8,1" stuff (so we ignore)
-//						print_setup_packet(setup_packet);
 						debug_print_string("USB_CDC_SET_LINE_CODING\r\n");
 
-						usb_queue_td_in(IMX_USB_CDC_QUEUEHEAD_CONTROL_IN, 0, 0, 0);				// (ACK)
-						usb_queue_td_out(IMX_USB_CDC_QUEUEHEAD_CONTROL_OUT, 0, 1);
+						usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, 0, 0);				// (ACK)
+						usb_queue_td_out(USB_CDC_ENDPOINT_CONTROL);
 
 						/*
 							Print the packet contents
@@ -1562,7 +1721,7 @@ if (HW_USBCTRL_ENDPTSETUPSTAT_RD() & 0x1F)
 						}
 						break;
 					default:
-						print_setup_packet(setup_packet);
+						print_setup_packet(&setup_packet);
 						debug_print_this("Unhandled device-to-host data direction setup request ", setup_packet.bRequest, " was received.");
 					}
 				}
@@ -1570,18 +1729,18 @@ if (HW_USBCTRL_ENDPTSETUPSTAT_RD() & 0x1F)
 				{
 				switch (setup_packet.bRequest)
 					{
-					case USB_REQ_SET_CONFIGURATION:
-						debug_print_string("USB_REQ_SET_CONFIGURATION\r\n");
-						usb_queue_td_in(IMX_USB_CDC_QUEUEHEAD_CONTROL_IN, 0, 0, 0);		// respond with a 0-byte transfer
+					case USB_REQUEST_SET_CONFIGURATION:
+						debug_print_string("USB_REQUEST_SET_CONFIGURATION\r\n");
+						usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, 0, 0);		// respond with a 0-byte transfer
 						break;
 
-					case USB_REQ_SET_ADDRESS:
-						debug_print_string("USB_REQ_SET_ADDRESS\r\n");
+					case USB_REQUEST_SET_ADDRESS:
+						debug_print_string("USB_REQUEST_SET_ADDRESS\r\n");
 						new_address = setup_packet.wValue;
 
 						HW_USBCTRL_DEVICEADDR_WR(BF_USBCTRL_DEVICEADDR_USBADR(new_address) | BM_USBCTRL_DEVICEADDR_USBADRA);
 
-						usb_queue_td_in(IMX_USB_CDC_QUEUEHEAD_CONTROL_IN, 0, 0, 0);		// respond with a 0-byte transfer
+						usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, 0, 0);		// respond with a 0-byte transfer
 
 						usb_state = USB_DEVICE_STATE_ADDRESS;
 						handled = 1;
@@ -1590,7 +1749,7 @@ if (HW_USBCTRL_ENDPTSETUPSTAT_RD() & 0x1F)
 						break;
 					default:
 						//Packets with a host-to-device data phase direction
-						print_setup_packet(setup_packet);
+						print_setup_packet(&setup_packet);
 						debug_print_this("Unhandled host-to-device data direction setup request ", setup_packet.bRequest, " was received.");
 					}
 				}
@@ -1626,7 +1785,7 @@ else
 				{
 				debug_print_this("  Queue Status:", global_dTD[endpt * 2].token.bit.status, "");
 				debug_print_this("  Listen on ", endpt * 2, "");
-				usb_queue_td_out(endpt * 2, 1024, 1);
+				usb_queue_td_out(endpt);
 				}
 
 			managed = 1;
@@ -1644,7 +1803,7 @@ else
 			debug_print_string("   ");
 			for (byte = 0; byte < 5; byte++)
 				{
-				debug_print_hex((global_transfer_buffer[endpt][0])[byte]);
+				debug_print_hex((global_transfer_buffer[endpt * 2][0])[byte]);
 				debug_print_string(" ");
 				}
 			debug_print_string("\r\n");
@@ -1670,8 +1829,8 @@ else
 			if (endpt != 0)
 				{
 				debug_print_this("  Listen on Queuehead: ", endpt * 2, "");
-				usb_queue_td_out(endpt * 2, 1024, 1);
-				usb_queue_td_in(endpt * 2 + 1, (char  *)global_transfer_buffer[endpt * 2][0], 1, 1);
+				usb_queue_td_out(endpt);
+				usb_queue_td_in(endpt, (char *)&((global_transfer_buffer[endpt * 2][0])[0]), 1);
 				}
 			}
 		}
@@ -1757,7 +1916,7 @@ if (got == VECTOR_IRQ_USB_CTRL)
 		debug_print_string(" [I: USB UI Interrupt ] \r\n");
 		HW_USBCTRL_USBSTS_SET(BM_USBCTRL_USBSTS_UI);
 
-		handle_usb_interrupt();
+		usb_interrupt();
 		} 
 	else if (usb_status.B.PCI)
 		{
@@ -1932,7 +2091,6 @@ void config_endpoint(int which)
 {
 imx_endpoint_transfer_descriptor *td;
 
-//td = main_memory_alloc(sizeof(*td), 32);
 td = &global_dTD[which];
 
 memset(td, 0, sizeof(*td));
@@ -1941,10 +2099,10 @@ td->next_link_pointer = IMX_ENDPOINT_TRANSFER_DESCRIPTOR_TERMINATOR;
 global_queuehead[which].dtd_overlay_area.next_link_pointer = (imx_endpoint_transfer_descriptor *)(((uint32_t)td) + 1);			// end of chain
 global_queuehead[which].dtd_overlay_area.token.all = 0;
 global_queuehead[which].dtd_overlay_area.token.bit.ioc = 1;
-global_transfer_buffer[which][0] = (uint8_t *)main_memory_alloc(1024, 1024);			// should really be 4K aligned though.
+global_transfer_buffer[which][0] = (uint8_t *)main_memory_alloc(IMX_QUEUE_BUFFER_SIZE, IMX_QUEUE_BUFFER_SIZE);
 global_queuehead[which].dtd_overlay_area.buffer_pointer[0] = (void *)global_transfer_buffer[which][0];
 global_queuehead[which].capabilities.all = 0;
-global_queuehead[which].capabilities.bit.maximum_packet_length = 64;
+global_queuehead[which].capabilities.bit.maximum_packet_length = USB_MAX_PACKET_SIZE;
 global_queuehead[which].capabilities.bit.ios = 1;
 }
 
@@ -2046,8 +2204,8 @@ HW_USBCTRL_ENDPOINTLISTADDR_SET((uint32_t)global_queuehead);
 /*
 	Prime the endpoints
 */
-usb_queue_td_out(IMX_USB_CDC_QUEUEHEAD_ACM_OUT, 64, 1);
-usb_queue_td_out(IMX_USB_CDC_QUEUEHEAD_DATA_OUT, 64, 1);
+usb_queue_td_out(USB_CDC_ENDPOINT_ABSTRACT_CONTROL_MANAGEMENT);
+usb_queue_td_out(USB_CDC_ENDPOINT_SERIAL);
 }
 
 
