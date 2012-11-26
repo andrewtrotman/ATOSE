@@ -28,10 +28,26 @@
 	Recall that all directions are RELATIVE TO THE HOST.
 		OUT = from the host (i.e. PC)
 		IN  = to the host (i.e. PC)
+
+		High Speed :480 Mbps
+		Full Speed: 12Mbps
+		Low Speed: 1.5Mbps
 */
 #define USB_BCD_VERSION 						0x0200		/* we're compliant with USB 2.0 */
 #define USB_CDC_BCD_VERSION					0x0110		// version 1.1 of the CDC spec */
 #define MS_USB_VERSION							0x0100
+
+
+/*
+	States that the USB device harware can be in
+	See page 243 of "Universal Serial Bus Specification Revision 2.0 April 27, 2000"
+*/
+#define USB_DEVICE_STATE_ATTACHED				0x00
+#define USB_DEVICE_STATE_POWERED				0x01
+#define USB_DEVICE_STATE_DEFAULT				0x02
+#define USB_DEVICE_STATE_ADDRESS				0x03
+#define USB_DEVICE_STATE_CONFIGURED			0x04
+#define USB_DEVICE_STATE_SUSPENDED				0x05
 
 /*
 	Product and manufacturer IDs (allocated by the USB organisation)
@@ -180,6 +196,7 @@
 #define USB_CDC_PARITY_SPACE					0x04
 
 
+
 /*
 	Microsoft specific
 */
@@ -187,6 +204,48 @@
 
 
 
+/*
+	i.MX specific
+*/
+#define IMX_ENDPOINT_TRANSFER_DESCRIPTOR_BUFFER_POINTERS	5
+#define IMX_ENDPOINT_TRANSFER_DESCRIPTOR_TERMINATOR 		((imx_endpoint_transfer_descriptor *)0x01)
+#define IMX_ENDPOINT_TRANSFER_DESCRIPTOR_STATUS_ACTIVE 	0x80
+
+/*
+	There are i.MX233 queue heads
+*/
+#ifdef IMX233
+	/*
+		The i.MX233 allows 5 endpoints 0..4 (see page 8-1 of "i.MX23 Applications Processor Reference Manual Rev. 1 11/2009"
+	*/
+	#define IMX_USB_MAX_ENDPOINTS 5
+#else
+	/*
+		The i.MX53 and i.MX6Q have 8 endpoints 0..7
+			see page 5449 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012"
+			see page 4956 of "i.MX53 Multimedia Applications Processor Reference Manual Rev. 2.1, 06/2012"
+	*/
+	#define IMX_USB_MAX_ENDPOINTS 8
+#endif
+
+
+/*
+	Queue heads must lie in internal memory for controller speed requirements.
+	Lower 11 bits of address cannot be set so we must have a 2K alignment.
+
+	Queuehead 0: OUT (USB Control from host)
+	Queuehead 1: IN  (USB Control to host)
+	Queuehead 2: OUT (Abstract Control Management from host) 		NOT USED
+	Queuehead 3: IN (Abstract Control Management to host)
+	Queuehead 4: OUT (Data from host)
+	Queuehead 5: IN  (Data to host)
+*/
+#define IMX_USB_CDC_QUEUEHEAD_CONTROL_OUT	0			// even numbers are OUT/SETUP		(see page 5329 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012")
+#define IMX_USB_CDC_QUEUEHEAD_CONTROL_IN 	1			// odd numbers are IN				(see page 5329 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012")
+#define IMX_USB_CDC_QUEUEHEAD_ACM_OUT		2	// NOT USED
+#define IMX_USB_CDC_QUEUEHEAD_ACM_IN		3
+#define IMX_USB_CDC_QUEUEHEAD_DATA_OUT		4
+#define IMX_USB_CDC_QUEUEHEAD_DATA_IN		5
 
 
 
@@ -218,9 +277,6 @@
 
 #define USB_REQ_MS_GET_EXTENDED_PROPERTIES		0x05
 
-#define USB_DEVICE_STATE_DEFAULT				0x00
-#define USB_DEVICE_STATE_ADDRESSED				0x01
-#define USB_DEVICE_STATE_CONFIGURED			0x02
 
 
 void usb_setup_endpoint_nonzero(void);
@@ -612,16 +668,10 @@ typedef struct imx_endpoint_transfer_descriptor_
 {
 struct imx_endpoint_transfer_descriptor_ *next_link_pointer;		/* Next TD pointer(31-5), T(0) set indicate invalid */
 imx_endpoint_transfer_descriptor_dtd_token token;
-void *buffer_pointer_0;
-void *buffer_pointer_1;
-void *buffer_pointer_2;
-void *buffer_pointer_3;
-void *buffer_pointer_4;
+void *buffer_pointer[IMX_ENDPOINT_TRANSFER_DESCRIPTOR_BUFFER_POINTERS];
 uint32_t reserved;							/* Reserved */
 } __attribute__ ((packed)) imx_endpoint_transfer_descriptor;
 
-#define IMX_ENDPOINT_TRANSFER_DESCRIPTOR_TERMINATOR ((imx_endpoint_transfer_descriptor *)0x01)
-#define IMX_ENDPOINT_TRANSFER_DESCRIPTOR_STATUS_ACTIVE 0x80
 
 /*
 	union IMX_ENDPOINT_QUEUEHEAD_CAPABILITIES
@@ -893,8 +943,9 @@ usb_cdc_virtual_com_port our_com_descriptor =
 };
 
 /*
-	USB CDC stuff
-	=============
+	===================
+	USB CDC descriptors
+	===================
 */
 
 /*
@@ -911,8 +962,9 @@ usb_cdc_line_coding our_cdc_line_coding =
 } ;
 
 /*
-	Microsoft descriptor extensions
-	===============================
+	================================
+	Microsoft extensions descriptors
+	================================
 */
 /*
 	OUR_MS_OS_STRING_DESCRIPTOR
@@ -975,10 +1027,95 @@ ms_usb_extended_properties our_ms_extended_properties =
 
 
 /*
+	=====================
 	Now on to the i.MX233
 	=====================
 */
 
+/*
+	There are two queue heads for each endpoint, even numbers are OUT going from host, odd numbers are IN coming to host
+	"The Endpoint Queue Head List must be aligned to a 2k boundary"  see page 5329 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012"
+
+	On the i.MX233 the queue heads must be in on-chip RAM (but apparently not on the i.MX6Q)
+		"The i.MX23 has the bandwidth to handle the data buffers in DRAM for both high-speed and full-speed
+		USB transmissions. However, the queue heads (dQH) must be placed in on-chip RAM. A design limitation
+		on burst size does not allow the queue heads to be placed in DRAM."
+		see page 8-3 of "i.MX23 Applications Processor Reference Manual Rev. 1 11/2009"
+*/
+imx_endpoint_queuehead global_queuehead[IMX_USB_MAX_ENDPOINTS * 2] __attribute__ ((aligned (2048)));
+
+/*
+	Each endpoint has a transfer descriptor
+	Endpoint transfer descriptors must be aligned on 32-byte boundaries because the last 5 bits must be zero
+	Also note that the last bit is a termination bit (T), see page 5329 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012"
+*/
+imx_endpoint_transfer_descriptor global_dTD[IMX_USB_MAX_ENDPOINTS * 2] __attribute__ ((aligned (32)));
+
+/*
+	Each transfer descripter has a pointer to 5 seperate transfer buffers. We're only going to use one of these but we'll
+	allocate the space to keep all the pointers in case we need more
+	
+	"Buffer Pointer. Indicates the physical memory address for the data buffer to be used by the
+	dTD. The device controller actually uses the first part of the address (bits 31-12) as a
+	pointer to a 4 KB page, and the lower part of the address (bits 11-0) as an index into the
+	page. The host controller will increment the index internally, but will not increment the page
+	address. This is what determines the 4 KB transfer size limitation used for this application
+	note." see page 7 of "Simplified Device Data Structures for the High-End ColdFire Family USB Modules"
+*/
+uint8_t *global_transfer_buffer[IMX_USB_MAX_ENDPOINTS * 2][IMX_ENDPOINT_TRANSFER_DESCRIPTOR_BUFFER_POINTERS];
+
+/*
+	=======================
+	On to the generic stuff
+	=======================
+*/
+
+/*
+	There are five states a USB device can be in (below) but we really only need to worry about three of these,
+		the DEFAULT, ADDRESS, and CONFIGURED states.  Later we might worry about the SUSPEND state.  The states
+		are:
+
+		ATTACHED, "A USB device may be attached or detached from the USB. The state of a USB device when
+		it is detached from the USB is not defined by this specification. This specification only addresses
+		required operations and attributes once the device is attached." Page 242 of "Universal Serial Bus
+		Specification Revision 2.0 April 27, 2000". We don't need to deal with this state as the hardware
+		does it for us.
+
+		POWERED, "Although self-powered devices may already be powered before they are attached to the USB, 
+		they are not considered to be in the Powered state until they are attached to the USB and VBUS is
+		applied to the device." Page 242 of "Universal Serial Bus Specification Revision 2.0 April 27, 2000".
+		As with the ATTACHED state, I doubt we need to worry about this other than to make sure that on startup
+		the device driver is put into the DEFAULT state (below).
+
+		DEFAULT, in which the device is communicating over port 0 and looking for an address, this is
+		essentially a setup phase in which the device identifies itself but is not permitted to respond
+		to requests to perform actions.  Page 242 of "Universal Serial Bus Specification Revision 2.0 
+		April 27, 2000" describes it as "After the device has been powered, it must not respond to any
+		bus transactions until it has received a reset from the bus. After receiving a reset, the device
+		is then addressable at the default address."  The default address is 0 and the default endpoint
+		is 0.  To move to the next state (ADDRESS), the device must be assigned an address.
+	
+		ADDRESS, in which the device has an address but has not yet been configured. "A USB device responds
+		to requests on its default pipe whether the device is currently assigned a unique address or is
+		using the default address." Page 242 of "Universal Serial Bus Specification Revision 2.0 April 27, 2000"
+		In other words, the device knows its address but an interface has not been configured so it does not
+		know how the host will interact with it. To move to the next state the host must issus a SetConfiguration()
+		call.
+
+		CONFIGURED, in which the device is active.  In this state the host and device can exchange data.
+
+		SUSPENDED, see page 243 of "Universal Serial Bus Specification Revision 2.0 April 27, 2000".  Either the
+		device or the host can put the device into suspend mode.  This must be managed by the device driver. On the
+		i.MX233 and i.MX6Q, and interrupt is (optinally) issued (see page 5339-5340 of "i.MX 6Dual/6Quad Applications
+		Processor Reference Manual Rev. 0, 11/2012").
+*/
+int usb_state = USB_DEVICE_STATE_DEFAULT;
+
+/*
+	==========================
+	Finally the program itself
+	==========================
+*/
 /*
 	Pointers to memory (use for allocators)
 */
@@ -986,39 +1123,10 @@ char *external_memory_head = (char *) 0x40000000;
 char *internal_memory_head;
 
 /*
-	Queue heads must lie in internal memory for controller speed requirements.
-	Lower 11 bits of address cannot be set so we must have a 2K alignment.
-
-	Queuehead 0: OUT (USB Control from host)
-	Queuehead 1: IN  (USB Control to host)
-	Queuehead 2: OUT (Abstract Control Management from host)
-	Queuehead 3: IN (Abstract Control Management to host) 
-	Queuehead 4: OUT (Data from host) 
-	Queuehead 5: IN  (Data to host)
+	==============================================
+	Serial port I/O stuff (for debugging purposes)
+	==============================================
 */
-#define ENDPOINT_CONTROL_OUT	USB_DIRECTION_OUT
-#define ENDPOINT_CONTROL_IN 	USB_DIRECTION_IN
-#define ENDPOINT_ACM_OUT		2 // not used
-#define ENDPOINT_ACM_IN		3
-#define ENDPOINT_DATA_OUT		4
-#define ENDPOINT_DATA_IN		5
-
-imx_endpoint_queuehead endpoint_queueheads[10] __attribute__ ((aligned (2048)));
-imx_endpoint_transfer_descriptor global_dTD[10] __attribute__ ((aligned (32)));
-uint8_t *global_transfer_buffer[10];			// should really be 4K aligned
-
-int usb_state = USB_DEVICE_STATE_DEFAULT;
-
-/*
-	Interrupt Service Routines
-*/
-void __cs3_isr_undef(void) {}
-void __cs3_isr_pabort(void) {}
-void __cs3_isr_dabort(void) {}
-void __cs3_isr_reserved(void) {}
-void __cs3_isr_fiq(void) {}
-void ATOSE_isr_swi(void) {}
-
 /*
 	DEBUG_PUTC()
 	------------
@@ -1031,7 +1139,6 @@ while (HW_UARTDBGFR_RD() & BM_UARTDBGFR_TXFF)
 	if (++loop > 10000)
 		break;
 
-/* if(!(HW_UARTDBGFR_RD() &BM_UARTDBGFR_TXFF)) */
 HW_UARTDBGDR_WR(ch);
 }
 
@@ -1078,29 +1185,6 @@ while (*string != 0)
 }
 
 /*
-	DEBUG_PRINT_BITS()
-	------------------
-*/
-void debug_print_bits(uint32_t i)
-{
-uint32_t bit;
-
-for (bit = 31;; bit--) 
-	{
-	if (i & (1u << bit))
-		debug_putc('1');
-	else
-		debug_putc('0');
-
-	if (bit == 0)
-		break;
-
-	if (bit % 4 == 0)
-		debug_putc(' ');
-	}
-}
-
-/*
 	DEBUG_PRINT_THIS()
 	------------------
 */
@@ -1113,117 +1197,33 @@ debug_print_string("\r\n");
 }
 
 /*
-	DEBUG_PRINT_THIS_BITS()
-	-----------------------
+	==========================
+	General management methods
+	==========================
 */
-void debug_print_this_bits(char *start, uint32_t hex, char *end)
-{
-debug_print_string(start);
-debug_print_bits(hex);
-debug_print_string(end);
-debug_print_string("\r\n");
-}
-
-/*
-	DEBUG_PRINT_BUFFER()
-	--------------------
-*/
-void debug_print_buffer(char * buffer, int length, int abs_addr)
-{
-int i, j;
-int colsize = 32;
-
-debug_print_string("\r\n");
-
-for (i = 0; i < length; i++)
-	{
-	//Print leading address at beginning of line
-	if (i % colsize == 0)
-		{
-		if (abs_addr)
-			debug_print_hex((uint32_t) buffer + i);
-		else
-			debug_print_hex(i);
-		debug_putc(' ');
-		}
-
-	debug_print_hex_byte(buffer[i]);
-
-	/*
-	* Print blanks up til the end of the line if we're finishing up.
-	*/
-	if (i == length - 1 && length % colsize != 0)
-		{
-		for (j = 0; j < colsize - length % colsize; j++)
-			debug_print_string("  ");
-		}
-
-	//Print ASCII representation at end of line
-	if (i % colsize == colsize - 1 || i == length - 1)
-		{
-		debug_print_string("  ");
-
-		for (j = 0; j < colsize; j++)
-			{
-			char c = buffer[i + j - colsize + 1];
-
-			if (c >= 32 && c < 127)
-				debug_putc(c);
-			else
-				debug_putc('?');
-			}
-
-		debug_print_string("\r\n");
-		}
-	}
-}
 
 /*
 	MAIN_MEMORY_ALLOC()
 	-------------------
+	Allocate "size" bytes of memory alliged on an "alignment" boundey
 */
 void* main_memory_alloc(size_t size, unsigned int alignment)
 {
-//Align the beginning to the requested alignment
+void *result;
+
+/*
+	Align the beginning to the requested alignment
+*/
 uint32_t realignment = alignment - ((uint32_t) external_memory_head % alignment);
 
 if (realignment > 0 && realignment < alignment)
 	external_memory_head += realignment;
 
-void *result = external_memory_head;
-external_memory_head += size;
-
-return result;
-}
-
 /*
-	INTERNAL_MEMORY_ALLOC()
-	-----------------------
+	Now return the current pointer and move on
 */
-void* internal_memory_alloc(size_t size, int alignment)
-{
-//Align the beginning to the requested alignment
-uint32_t realignment = alignment - ((uint32_t) internal_memory_head % alignment);
-
-if (realignment > 0 && realignment < alignment)
-	internal_memory_head += realignment;
-
-void * result = internal_memory_head;
-
-internal_memory_head += size;
-
-if (internal_memory_head > (char*) 0x00007fff)
-	{
-	debug_print_string("Failed to allocate internal memory! Asked for ");
-	debug_print_hex(size);
-	debug_print_string(" bytes.\r\n");
-	for (;;);		// hang
-	}
-
-
-debug_print_string("[ALLOC:");
-debug_print_hex((uint32_t)result);
-debug_print_string("]");
+result = external_memory_head;
+external_memory_head += size;
 
 return result;
 }
@@ -1231,6 +1231,7 @@ return result;
 /*
 	DELAY_US()
 	----------
+	wait "us" microseconds.
 */
 void delay_us(unsigned long int us)
 {
@@ -1242,55 +1243,31 @@ while ((int32_t) (HW_DIGCTL_MICROSECONDS_RD() - end) < 0)
 }
 
 /*
-	USB_PRIME_ENDPOINT()
-	--------------------
-	Queue up a transfer descriptor for the given endpoint
+	===================================================================
+	Finally the program that actualy does the Virtual COM port loopback
+	===================================================================
 */
-void usb_prime_endpoint(int endpoint, int direction)
-{
-//Now get controller to activate these new TDs by priming the endpoints
-
-uint32_t endpoint_prime_mask = 0;
-
-switch (endpoint & 0x1)
-	{
-	case USB_DIRECTION_OUT:
-//		debug_print_this("  Prime OUT on EP:", endpoint >> 1, "");
-		endpoint_prime_mask = BF_USBCTRL_ENDPTPRIME_PERB(1 << (endpoint >> 1));
-		break;
-		break;
-	case USB_DIRECTION_IN:
-//		debug_print_this("  Prime IN on EP:", endpoint >> 1, "");
-		endpoint_prime_mask = BF_USBCTRL_ENDPTPRIME_PETB(1 << (endpoint >> 1));
-		break;
-	default:
-		debug_print_string("Bad direction");
-	}
-
-HW_USBCTRL_ENDPTPRIME_SET(endpoint_prime_mask);
-
-while ((HW_USBCTRL_ENDPTPRIME_RD() & endpoint_prime_mask) != 0)
-	; /* do nothing */
-}
 
 /*
 	USB_QUEUE_TD_IN()
 	-----------------
 	IN towards the host
- * Queue up a transfer descriptor on the given endpoint which sends data inwards to the host.
- *
- * endpoint - Endpoint index
- * direction - One of USB_DIRECTION_OUT, USB_DIRECTION_IN
- * ioc - Interrupt on completion
- */
+	Queue up a transfer descriptor on the given endpoint which sends data inwards to the host.
+
+	endpoint - Endpoint index
+	direction - One of USB_DIRECTION_OUT, USB_DIRECTION_IN
+	ioc - Interrupt on completion
+*/
 void usb_queue_td_in(int endpoint, const char *buffer, unsigned int length, int ioc)
 {
+uint32_t mask = 0;
+
 imx_endpoint_transfer_descriptor *dTD = &global_dTD[endpoint];
 memset(dTD, 0, sizeof(*dTD));
 
-imx_endpoint_queuehead *dQH = &endpoint_queueheads[endpoint];
+imx_endpoint_queuehead *dQH = &global_queuehead[endpoint];
 
-dTD->buffer_pointer_0 = (char *)buffer;
+dTD->buffer_pointer[0] = (char *)buffer;
 dTD->next_link_pointer = IMX_ENDPOINT_TRANSFER_DESCRIPTOR_TERMINATOR;
 dTD->token.all = 0;
 dTD->token.bit.total_bytes = length;
@@ -1298,28 +1275,34 @@ dTD->token.bit.ioc = 1;
 dTD->token.bit.status = IMX_ENDPOINT_TRANSFER_DESCRIPTOR_STATUS_ACTIVE;
 dQH->dtd_overlay_area.next_link_pointer = dTD;
 
-usb_prime_endpoint(endpoint, USB_DIRECTION_IN); //Signal the controller to start processing this queuehead
+mask = BF_USBCTRL_ENDPTPRIME_PETB(1 << (endpoint >> 1));
+HW_USBCTRL_ENDPTPRIME_SET(mask);
+
+while ((HW_USBCTRL_ENDPTPRIME_RD() & mask) != 0)
+	; /* do nothing */
 }
 
 /*
 	USB_QUEUE_TD_OUT()
 	------------------
 	OUT from the host
- * Queue up a transfer descriptor on the given endpoint which receives data sent out from the host.
- *
- * endpoint - Endpoint index
- * direction - One of USB_DIRECTION_OUT, USB_DIRECTION_IN							    
- * ioc - Interrupt on completion
+	Queue up a transfer descriptor on the given endpoint which receives data sent out from the host.
+
+	endpoint - Endpoint index
+	direction - One of USB_DIRECTION_OUT, USB_DIRECTION_IN							    
+	ioc - Interrupt on completion
 */
 void usb_queue_td_out(int endpoint, unsigned int length, int ioc)
 {
+uint32_t mask = 0;
+
 length = 64;		// this is the size of the rec buffer (the parameter is ignored)
 imx_endpoint_transfer_descriptor *dTD =  &global_dTD[endpoint];
 memset(dTD, 0, sizeof(*dTD));
 
-imx_endpoint_queuehead *dQH = &endpoint_queueheads[endpoint];
+imx_endpoint_queuehead *dQH = &global_queuehead[endpoint];
 
-dTD->buffer_pointer_0 = (char *)global_transfer_buffer[endpoint];
+dTD->buffer_pointer[0] = (char *)global_transfer_buffer[endpoint][0];
 dTD->next_link_pointer = (imx_endpoint_transfer_descriptor *) 0x01; //No TD follow this one
 dTD->token.all = 0;
 dTD->token.bit.total_bytes = length;
@@ -1327,8 +1310,16 @@ dTD->token.bit.ioc = 1;
 dTD->token.bit.status = IMX_ENDPOINT_TRANSFER_DESCRIPTOR_STATUS_ACTIVE;
 dQH->dtd_overlay_area.next_link_pointer = dTD; //Activate this TD by clearing the 'T' bit in the queue head next ptr
 
-usb_prime_endpoint(endpoint, USB_DIRECTION_OUT); //Signal the controller to start processing this queuehead
+mask = BF_USBCTRL_ENDPTPRIME_PERB(1 << (endpoint >> 1));
+HW_USBCTRL_ENDPTPRIME_SET(mask);
+
+while ((HW_USBCTRL_ENDPTPRIME_RD() & mask) != 0)
+	; /* do nothing */
 }
+
+
+
+
 
 
 /*
@@ -1366,19 +1357,19 @@ switch (descriptor_type)
 		else
 			len = sizeof(our_device_descriptor);
 
-		usb_queue_td_in(ENDPOINT_CONTROL_IN, (char*)&our_device_descriptor, len, 0);
+		usb_queue_td_in(IMX_USB_CDC_QUEUEHEAD_CONTROL_IN, (char*)&our_device_descriptor, len, 0);
 
 		//We expect to receive a zero-byte confirmation from the host, and we'll ask for an interrupt when that occurs
-		usb_queue_td_out(ENDPOINT_CONTROL_OUT, 0, 1);
+		usb_queue_td_out(IMX_USB_CDC_QUEUEHEAD_CONTROL_OUT, 0, 1);
 
 		break;
 	case USB_DESCRIPTOR_TYPE_CONFIGURATION:
 		debug_print_string("USB_DESCRIPTOR_TYPE_CONFIGURATION\r\n");
 
-		usb_queue_td_in(ENDPOINT_CONTROL_IN, (char *)&our_com_descriptor, sizeof(our_com_descriptor), 0);
+		usb_queue_td_in(IMX_USB_CDC_QUEUEHEAD_CONTROL_IN, (char *)&our_com_descriptor, sizeof(our_com_descriptor), 0);
 
 		//We expect to receive a zero-byte confirmation from the host, and we'll ask for an interrupt when that occurs
-		usb_queue_td_out(ENDPOINT_CONTROL_OUT, 0, 1);
+		usb_queue_td_out(IMX_USB_CDC_QUEUEHEAD_CONTROL_OUT, 0, 1);
 		break;
 	case USB_DESCRIPTOR_TYPE_STRING:
 		switch (descriptor_index)
@@ -1388,28 +1379,28 @@ switch (descriptor_type)
 				/*
 					Microsoft OS String Desciptor
 				*/
-				usb_queue_td_in(ENDPOINT_CONTROL_IN, (char *)&our_ms_os_string_descriptor, sizeof(our_ms_os_string_descriptor), 0);
-				usb_queue_td_out(ENDPOINT_CONTROL_OUT, 0, 1);
+				usb_queue_td_in(IMX_USB_CDC_QUEUEHEAD_CONTROL_IN, (char *)&our_ms_os_string_descriptor, sizeof(our_ms_os_string_descriptor), 0);
+				usb_queue_td_out(IMX_USB_CDC_QUEUEHEAD_CONTROL_OUT, 0, 1);
 				break;
 			case 0x00:
 				debug_print_string("STRING - LANG ID\r\n");
-				usb_queue_td_in(ENDPOINT_CONTROL_IN, (char *)&our_language, sizeof(our_language), 0);
-				usb_queue_td_out(ENDPOINT_CONTROL_OUT, 0, 1);
+				usb_queue_td_in(IMX_USB_CDC_QUEUEHEAD_CONTROL_IN, (char *)&our_language, sizeof(our_language), 0);
+				usb_queue_td_out(IMX_USB_CDC_QUEUEHEAD_CONTROL_OUT, 0, 1);
 				break;
 			case 0x01:
 				debug_print_string("STRING - MANUFACTURER\r\n");
-				usb_queue_td_in(ENDPOINT_CONTROL_IN, (char *)&our_manufacturer, sizeof(our_manufacturer), 0);
-				usb_queue_td_out(ENDPOINT_CONTROL_OUT, 0, 1);
+				usb_queue_td_in(IMX_USB_CDC_QUEUEHEAD_CONTROL_IN, (char *)&our_manufacturer, sizeof(our_manufacturer), 0);
+				usb_queue_td_out(IMX_USB_CDC_QUEUEHEAD_CONTROL_OUT, 0, 1);
 				break;
 			case 0x02:
 				debug_print_string("STRING - PRODUCT\r\n");
-				usb_queue_td_in(ENDPOINT_CONTROL_IN, (char *)&our_product, sizeof(our_product), 0);
-				usb_queue_td_out(ENDPOINT_CONTROL_OUT, 0, 1);
+				usb_queue_td_in(IMX_USB_CDC_QUEUEHEAD_CONTROL_IN, (char *)&our_product, sizeof(our_product), 0);
+				usb_queue_td_out(IMX_USB_CDC_QUEUEHEAD_CONTROL_OUT, 0, 1);
 				break;
 			case 0x03:
 				debug_print_string("STRING - SERIAL NUMBER\r\n");
-				usb_queue_td_in(ENDPOINT_CONTROL_IN, (char *)&our_serial_number, sizeof(our_serial_number), 0);
-				usb_queue_td_out(ENDPOINT_CONTROL_OUT, 0, 1);
+				usb_queue_td_in(IMX_USB_CDC_QUEUEHEAD_CONTROL_IN, (char *)&our_serial_number, sizeof(our_serial_number), 0);
+				usb_queue_td_out(IMX_USB_CDC_QUEUEHEAD_CONTROL_OUT, 0, 1);
 				break;
 			default:
 				debug_print_this("Unhandled STRING DESCRIPTOR:" , descriptor_index, "");
@@ -1419,10 +1410,10 @@ switch (descriptor_type)
 	case USB_DESCRIPTOR_TYPE_DEVICE_QUALIFIER:
 		debug_print_string("USB_DESCRIPTOR_TYPE_DEVICE_QUALIFIER\r\n");
 
-		usb_queue_td_in(ENDPOINT_CONTROL_IN, (char *)&our_device_qualifier, sizeof(our_device_qualifier), 0);
+		usb_queue_td_in(IMX_USB_CDC_QUEUEHEAD_CONTROL_IN, (char *)&our_device_qualifier, sizeof(our_device_qualifier), 0);
 
 		//We expect to receive a zero-byte confirmation from the host, and we'll ask for an interrupt when that occurs
-		usb_queue_td_out(ENDPOINT_CONTROL_OUT, 0, 1);
+		usb_queue_td_out(IMX_USB_CDC_QUEUEHEAD_CONTROL_OUT, 0, 1);
 		break;
 	default:
 		print_setup_packet(req);
@@ -1464,7 +1455,7 @@ if (HW_USBCTRL_ENDPTSETUPSTAT_RD() & 0x1F)
 		do
 			{
 			HW_USBCTRL_USBCMD.B.SUTW = 1;
-			setup_packet = endpoint_queueheads[USB_DIRECTION_OUT].setup_buffer;
+			setup_packet = global_queuehead[USB_DIRECTION_OUT].setup_buffer;
 			}
 		while (HW_USBCTRL_USBCMD.B.SUTW == 0); //Keep looping until we succeed
 
@@ -1491,8 +1482,8 @@ if (HW_USBCTRL_ENDPTSETUPSTAT_RD() & 0x1F)
 			if (setup_packet.bmRequestType == 0xC0)		//USB_REQ_GET_FEATURE_DESCRIPTOR:
 				{
 				debug_print_string("USB_REQ_GET_MS_DESCRIPTOR\r\n");
-				usb_queue_td_in(ENDPOINT_CONTROL_IN, (char *)&our_ms_compatible_id_feature_descriptor, sizeof(our_ms_compatible_id_feature_descriptor), 0);
-				usb_queue_td_out(ENDPOINT_CONTROL_OUT, 0, 1);
+				usb_queue_td_in(IMX_USB_CDC_QUEUEHEAD_CONTROL_IN, (char *)&our_ms_compatible_id_feature_descriptor, sizeof(our_ms_compatible_id_feature_descriptor), 0);
+				usb_queue_td_out(IMX_USB_CDC_QUEUEHEAD_CONTROL_OUT, 0, 1);
 				}
 			else if (setup_packet.bmRequestType == 0xC1)
 				{
@@ -1501,8 +1492,8 @@ if (HW_USBCTRL_ENDPTSETUPSTAT_RD() & 0x1F)
 					case USB_REQ_MS_GET_EXTENDED_PROPERTIES:
 						debug_print_string("USB_REQ_MS_GET_EXTENDED_PROPERTIES\r\n");
 
-						usb_queue_td_in(ENDPOINT_CONTROL_IN, (char *)&our_ms_extended_properties, sizeof(our_ms_extended_properties), 0);
-						usb_queue_td_out(ENDPOINT_CONTROL_OUT, 0, 1);
+						usb_queue_td_in(IMX_USB_CDC_QUEUEHEAD_CONTROL_IN, (char *)&our_ms_extended_properties, sizeof(our_ms_extended_properties), 0);
+						usb_queue_td_out(IMX_USB_CDC_QUEUEHEAD_CONTROL_OUT, 0, 1);
 						break;
 					default:
 						print_setup_packet(setup_packet);
@@ -1515,8 +1506,8 @@ if (HW_USBCTRL_ENDPTSETUPSTAT_RD() & 0x1F)
 					{
 					case USB_CDC_GET_LINE_CODING:
 						debug_print_string("USB_CDC_GET_LINE_CODING\r\n");
-						usb_queue_td_in(ENDPOINT_CONTROL_IN, (char *)&our_cdc_line_coding, sizeof(our_cdc_line_coding), 0);
-						usb_queue_td_out(ENDPOINT_CONTROL_OUT, 0, 1);
+						usb_queue_td_in(IMX_USB_CDC_QUEUEHEAD_CONTROL_IN, (char *)&our_cdc_line_coding, sizeof(our_cdc_line_coding), 0);
+						usb_queue_td_out(IMX_USB_CDC_QUEUEHEAD_CONTROL_OUT, 0, 1);
 						break;
 					default:
 						print_setup_packet(setup_packet);
@@ -1545,15 +1536,15 @@ if (HW_USBCTRL_ENDPTSETUPSTAT_RD() & 0x1F)
 					{
 					case USB_CDC_SET_CONTROL_LINE_STATE:								// this means the PC is online
 						debug_print_string("USB_CDC_SET_CONTROL_LINE_STATE\r\n");
-						usb_queue_td_in(ENDPOINT_CONTROL_IN, 0, 0, 0);				// respond with a 0-byte transfer (ACK)
-						usb_queue_td_out(ENDPOINT_CONTROL_OUT, 0, 1);
+						usb_queue_td_in(IMX_USB_CDC_QUEUEHEAD_CONTROL_IN, 0, 0, 0);				// respond with a 0-byte transfer (ACK)
+						usb_queue_td_out(IMX_USB_CDC_QUEUEHEAD_CONTROL_OUT, 0, 1);
 						break;
 					case USB_CDC_SET_LINE_CODING:										// this tells us "9600,n,8,1" stuff (so we ignore)
 //						print_setup_packet(setup_packet);
 						debug_print_string("USB_CDC_SET_LINE_CODING\r\n");
 
-						usb_queue_td_in(ENDPOINT_CONTROL_IN, 0, 0, 0);				// (ACK)
-						usb_queue_td_out(ENDPOINT_CONTROL_OUT, 0, 1);
+						usb_queue_td_in(IMX_USB_CDC_QUEUEHEAD_CONTROL_IN, 0, 0, 0);				// (ACK)
+						usb_queue_td_out(IMX_USB_CDC_QUEUEHEAD_CONTROL_OUT, 0, 1);
 
 						/*
 							Print the packet contents
@@ -1563,8 +1554,8 @@ if (HW_USBCTRL_ENDPTSETUPSTAT_RD() & 0x1F)
 						uint8_t *into = (uint8_t *)&our_cdc_line_coding;
 						for (ch = 0; ch < setup_packet.wLength; ch++)
 							{
-							debug_print_hex((global_transfer_buffer[ENDPOINT_CONTROL_OUT])[ch]);
-							*into++ = (global_transfer_buffer[ENDPOINT_CONTROL_OUT])[ch];
+							debug_print_hex((global_transfer_buffer[IMX_USB_CDC_QUEUEHEAD_CONTROL_OUT][0])[ch]);
+							*into++ = (global_transfer_buffer[IMX_USB_CDC_QUEUEHEAD_CONTROL_OUT][0])[ch];
 							debug_putc(' ');
 							}
 						debug_print_string("\r\n");
@@ -1581,7 +1572,7 @@ if (HW_USBCTRL_ENDPTSETUPSTAT_RD() & 0x1F)
 					{
 					case USB_REQ_SET_CONFIGURATION:
 						debug_print_string("USB_REQ_SET_CONFIGURATION\r\n");
-						usb_queue_td_in(ENDPOINT_CONTROL_IN, 0, 0, 0);		// respond with a 0-byte transfer
+						usb_queue_td_in(IMX_USB_CDC_QUEUEHEAD_CONTROL_IN, 0, 0, 0);		// respond with a 0-byte transfer
 						break;
 
 					case USB_REQ_SET_ADDRESS:
@@ -1590,9 +1581,9 @@ if (HW_USBCTRL_ENDPTSETUPSTAT_RD() & 0x1F)
 
 						HW_USBCTRL_DEVICEADDR_WR(BF_USBCTRL_DEVICEADDR_USBADR(new_address) | BM_USBCTRL_DEVICEADDR_USBADRA);
 
-						usb_queue_td_in(ENDPOINT_CONTROL_IN, 0, 0, 0);		// respond with a 0-byte transfer
+						usb_queue_td_in(IMX_USB_CDC_QUEUEHEAD_CONTROL_IN, 0, 0, 0);		// respond with a 0-byte transfer
 
-						usb_state = USB_DEVICE_STATE_ADDRESSED;
+						usb_state = USB_DEVICE_STATE_ADDRESS;
 						handled = 1;
 						debug_print_this("                       Host has set our address to ", new_address, ".");
 						usb_setup_endpoint_nonzero();
@@ -1653,7 +1644,7 @@ else
 			debug_print_string("   ");
 			for (byte = 0; byte < 5; byte++)
 				{
-				debug_print_hex((global_transfer_buffer[endpt])[byte]);
+				debug_print_hex((global_transfer_buffer[endpt][0])[byte]);
 				debug_print_string(" ");
 				}
 			debug_print_string("\r\n");
@@ -1669,7 +1660,7 @@ else
 			debug_print_string("   ");
 			for (byte = 0; byte < 5; byte++)
 				{
-				debug_print_hex((global_transfer_buffer[endpt * 2])[byte]);
+				debug_print_hex((global_transfer_buffer[endpt * 2][0])[byte]);
 				debug_print_string(" ");
 				}
 			debug_print_string("\r\n");
@@ -1680,7 +1671,7 @@ else
 				{
 				debug_print_this("  Listen on Queuehead: ", endpt * 2, "");
 				usb_queue_td_out(endpt * 2, 1024, 1);
-				usb_queue_td_in(endpt * 2 + 1, (char  *)global_transfer_buffer[endpt * 2], 1, 1);
+				usb_queue_td_in(endpt * 2 + 1, (char  *)global_transfer_buffer[endpt * 2][0], 1, 1);
 				}
 			}
 		}
@@ -1947,14 +1938,14 @@ td = &global_dTD[which];
 memset(td, 0, sizeof(*td));
 td->next_link_pointer = IMX_ENDPOINT_TRANSFER_DESCRIPTOR_TERMINATOR;
 
-endpoint_queueheads[which].dtd_overlay_area.next_link_pointer = (imx_endpoint_transfer_descriptor *)(((uint32_t)td) + 1);			// end of chain
-endpoint_queueheads[which].dtd_overlay_area.token.all = 0;
-endpoint_queueheads[which].dtd_overlay_area.token.bit.ioc = 1;
-global_transfer_buffer[which] = (uint8_t *)main_memory_alloc(1024, 1024);			// should really be 4K aligned though.
-endpoint_queueheads[which].dtd_overlay_area.buffer_pointer_0 = (void *)global_transfer_buffer[which];
-endpoint_queueheads[which].capabilities.all = 0;
-endpoint_queueheads[which].capabilities.bit.maximum_packet_length = 64;
-endpoint_queueheads[which].capabilities.bit.ios = 1;
+global_queuehead[which].dtd_overlay_area.next_link_pointer = (imx_endpoint_transfer_descriptor *)(((uint32_t)td) + 1);			// end of chain
+global_queuehead[which].dtd_overlay_area.token.all = 0;
+global_queuehead[which].dtd_overlay_area.token.bit.ioc = 1;
+global_transfer_buffer[which][0] = (uint8_t *)main_memory_alloc(1024, 1024);			// should really be 4K aligned though.
+global_queuehead[which].dtd_overlay_area.buffer_pointer[0] = (void *)global_transfer_buffer[which][0];
+global_queuehead[which].capabilities.all = 0;
+global_queuehead[which].capabilities.bit.maximum_packet_length = 64;
+global_queuehead[which].capabilities.bit.ios = 1;
 }
 
 
@@ -1967,18 +1958,18 @@ void usb_setup_endpoint_zero()
 /*
 	Zero everything
 */
-memset(endpoint_queueheads, 0, (sizeof *endpoint_queueheads));
+memset(global_queuehead, 0, (sizeof *global_queuehead));
 
 /*
 	Queue 0 and 1 : USB Control
 */
-config_endpoint(ENDPOINT_CONTROL_OUT);
-config_endpoint(ENDPOINT_CONTROL_IN);				// EP 0
+config_endpoint(IMX_USB_CDC_QUEUEHEAD_CONTROL_OUT);
+config_endpoint(IMX_USB_CDC_QUEUEHEAD_CONTROL_IN);				// EP 0
 
 /*
 	Hand off to the i.MX233
 */
-HW_USBCTRL_ENDPOINTLISTADDR_SET((uint32_t)endpoint_queueheads);
+HW_USBCTRL_ENDPOINTLISTADDR_SET((uint32_t)global_queuehead);
 }
 
 /*
@@ -1995,8 +1986,8 @@ hw_usbctrl_endptctrln_t endpointcfg;
 /*
 	Queue 0 and 1 : USB Control
 */
-config_endpoint(ENDPOINT_CONTROL_OUT);
-config_endpoint(ENDPOINT_CONTROL_IN);				// EP 0
+config_endpoint(IMX_USB_CDC_QUEUEHEAD_CONTROL_OUT);
+config_endpoint(IMX_USB_CDC_QUEUEHEAD_CONTROL_IN);				// EP 0
 
 /*
 	Queue 2 and 3: Abstract Control Management Interface
@@ -2015,8 +2006,8 @@ endpointcfg.B.RXT = BV_USBCTRL_ENDPTCTRLn_RXT__INT;
 endpointcfg.B.RXD = 0;
 endpointcfg.B.RXS = 0;
 
-config_endpoint(ENDPOINT_ACM_OUT);
-config_endpoint(ENDPOINT_ACM_IN);
+config_endpoint(IMX_USB_CDC_QUEUEHEAD_ACM_OUT);
+config_endpoint(IMX_USB_CDC_QUEUEHEAD_ACM_IN);
 HW_USBCTRL_ENDPTCTRLn_WR(USB_CDC_ENDPOINT_ABSTRACT_CONTROL_MANAGEMENT, endpointcfg.U);		// EP 1
 
 /*
@@ -2037,8 +2028,8 @@ endpointcfg.B.RXT = BV_USBCTRL_ENDPTCTRLn_RXT__BULK;
 endpointcfg.B.RXD = 0;
 endpointcfg.B.RXS = 0;
 
-config_endpoint(ENDPOINT_DATA_OUT);
-config_endpoint(ENDPOINT_DATA_IN);
+config_endpoint(IMX_USB_CDC_QUEUEHEAD_DATA_OUT);
+config_endpoint(IMX_USB_CDC_QUEUEHEAD_DATA_IN);
 HW_USBCTRL_ENDPTCTRLn_WR(USB_CDC_ENDPOINT_SERIAL, endpointcfg.U);		// EP 2
 
 
@@ -2050,13 +2041,13 @@ HW_USBCTRL_ENDPTCTRLn_WR(4, endpointcfg.U);		// disable EP 4
 /*
 	Hand off to the i.MX233
 */
-HW_USBCTRL_ENDPOINTLISTADDR_SET((uint32_t)endpoint_queueheads);
+HW_USBCTRL_ENDPOINTLISTADDR_SET((uint32_t)global_queuehead);
 
 /*
 	Prime the endpoints
 */
-usb_queue_td_out(ENDPOINT_ACM_OUT, 64, 1);
-usb_queue_td_out(ENDPOINT_DATA_OUT, 64, 1);
+usb_queue_td_out(IMX_USB_CDC_QUEUEHEAD_ACM_OUT, 64, 1);
+usb_queue_td_out(IMX_USB_CDC_QUEUEHEAD_DATA_OUT, 64, 1);
 }
 
 
