@@ -1567,8 +1567,10 @@ switch (descriptor_type)
 	-----------------------
 	The behaviour of this method is defined in two documents: "Extended Properties OS Feature Descriptor Specification, July 13, 2012"
 	and "Extended Compat ID OS Feature Descriptor Specification, July 13, 2012". 
+
+	returns 1 if the message was processes, 0 if it was not
 */
-void ms_usb_get_descriptor(usb_setup_data *packet)
+uint32_t ms_usb_get_descriptor(usb_setup_data *packet)
 {
 if (packet->bmRequestType == MS_USB_REQUEST_GET_EXTENDED_COMPAT_ID_OS_FEATURE_DESCRIPTOR)
 	{
@@ -1578,6 +1580,7 @@ if (packet->bmRequestType == MS_USB_REQUEST_GET_EXTENDED_COMPAT_ID_OS_FEATURE_DE
 	*/
 	usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (char *)&our_ms_compatible_id_feature_descriptor, sizeof(our_ms_compatible_id_feature_descriptor));
 	usb_queue_td_out(USB_CDC_ENDPOINT_CONTROL);
+	return 1;
 	}
 else if (packet->bmRequestType == MS_USB_REQUEST_GET_EXTENDED_PROPERTIES_OS_DESCRIPTOR)
 	{
@@ -1590,16 +1593,96 @@ else if (packet->bmRequestType == MS_USB_REQUEST_GET_EXTENDED_PROPERTIES_OS_DESC
 			*/
 			usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (char *)&our_ms_extended_properties, sizeof(our_ms_extended_properties));
 			usb_queue_td_out(USB_CDC_ENDPOINT_CONTROL);
-			break;
+			return 1;
 		default:
 			debug_print_string("Unrecognised Microsoft descriptor request:\r\n");
 			print_setup_packet(packet);
 			usb_request_error(0);
+			return 1;
+		}
+	}
+return 0;
+}
+
+/*
+	USB_COMMAND()
+	-------------
+	returns 1 if the message was processes, 0 if it was not
+*/
+uint32_t usb_command(usb_setup_data *packet)
+{
+if (packet->bmRequestType == 0x80)
+	{
+	switch (packet->bRequest)
+		{
+		case USB_REQUEST_GET_DESCRIPTOR:
+			usb_get_descriptor(packet);
+			return 1;
+		}
+	}
+else if (packet->bmRequestType == 0x00)
+	{
+	switch (packet->bRequest)
+		{
+		case USB_REQUEST_SET_CONFIGURATION:
+			debug_print_string("USB_REQUEST_SET_CONFIGURATION\r\n");
+			usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, 0, 0);		// respond with a 0-byte transfer
+			return 1;
+		case USB_REQUEST_SET_ADDRESS:
+			debug_print_this("USB_REQUEST_SET_ADDRESS(", packet->wValue, ")");
+
+			HW_USBCTRL_DEVICEADDR_WR(BF_USBCTRL_DEVICEADDR_USBADR(packet->wValue) | BM_USBCTRL_DEVICEADDR_USBADRA);
+			usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, 0, 0);		// respond with a 0-byte transfer
+
+			usb_state = USB_DEVICE_STATE_ADDRESS;
+
+			usb_setup_endpoint_nonzero();
+			return 1;
 			break;
 		}
 	}
+return 0;
 }
 
+/*
+	USB_CDC_COMMAND()
+	-----------------
+	Manage the CDC commands (of which there aren't many).
+	returns 1 if the message was processes, 0 if it was not
+*/
+uint32_t usb_cdc_command(usb_setup_data *packet)
+{
+if (packet->bmRequestType == 0xA1)
+	{
+	switch (packet->bRequest)
+		{
+		case USB_CDC_GET_LINE_CODING:
+			debug_print_string("USB_CDC_GET_LINE_CODING\r\n");
+			usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (char *)&our_cdc_line_coding, sizeof(our_cdc_line_coding));
+			usb_queue_td_out(USB_CDC_ENDPOINT_CONTROL);
+			return 1;
+		}
+	}
+else if (packet->bmRequestType == 0x21)
+	{
+	switch (packet->bRequest)
+		{
+		case USB_CDC_SET_CONTROL_LINE_STATE:								// this means the PC is online
+			debug_print_string("USB_CDC_SET_CONTROL_LINE_STATE\r\n");
+			usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, 0, 0);				// respond with a 0-byte transfer (ACK)
+			usb_queue_td_out(USB_CDC_ENDPOINT_CONTROL);
+			return 1;
+		case USB_CDC_SET_LINE_CODING:										// this tells us "9600,n,8,1" stuff (so we ignore)
+			debug_print_string("USB_CDC_SET_LINE_CODING\r\n");
+
+			usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, 0, 0);				// (ACK)
+			usb_queue_td_out(USB_CDC_ENDPOINT_CONTROL);
+			return 1;
+		}
+	}
+
+return 0;
+}
 
 /*
 	USB_INTERRUPT()
@@ -1607,18 +1690,18 @@ else if (packet->bmRequestType == MS_USB_REQUEST_GET_EXTENDED_PROPERTIES_OS_DESC
 */
 void usb_interrupt(void)
 {
-int handled = 0;
-uint16_t new_address;
+usb_setup_data setup_packet;
+uint32_t handled = 0;
 
 //Do we have a pending endpoint setup event to handle?
 if (HW_USBCTRL_ENDPTSETUPSTAT_RD() & 0x1F)
 	{
+	/*
+		In the CDC model setup packets can only occur on Endpoint 1. If we get a setup packet anywhere else
+		then its an error.
+	*/
 	if (HW_USBCTRL_ENDPTSETUPSTAT_RD() & 1)
 		{
-//		debug_print_string("USB SETUP request.\r\n");
-	
-		usb_setup_data setup_packet;
-
 		/* We'll be slowly copying the setup packet from the endpoint descriptor.
 		*
 		* While we are doing that, another setup packet might arrive, and we'd
@@ -1627,135 +1710,32 @@ if (HW_USBCTRL_ENDPTSETUPSTAT_RD() & 0x1F)
 		* So we set the tripwire and the hardware will clear it for us if another
 		* packet arrives while we're busy:
 		*/
+
+		/*
+			Page 5347-5348 of i.MX6Q manual
+			SLOM is already set to 1
+		*/
+		HW_USBCTRL_ENDPTSETUPSTAT_WR(1);
+
 		do
 			{
 			HW_USBCTRL_USBCMD.B.SUTW = 1;
 			setup_packet = global_queuehead[USB_DIRECTION_OUT].setup_buffer;
 			}
-		while (HW_USBCTRL_USBCMD.B.SUTW == 0); //Keep looping until we succeed
+		while (HW_USBCTRL_USBCMD.B.SUTW == 0);
 
 		HW_USBCTRL_USBCMD.B.SUTW = 0;
 
-		// Clear the bit in the setup status register by writing a 1 there:
-		do
-			HW_USBCTRL_ENDPTSETUPSTAT_WR(1);
-		while (HW_USBCTRL_ENDPTSETUPSTAT_RD() & 1);
 
 
-		if (setup_packet.bmRequestType & 0x80)
-			{
-			//Packets with a device-to-host data phase direction
-
-			
-			if (setup_packet.bmRequestType == MS_USB_REQUEST_GET_EXTENDED_COMPAT_ID_OS_FEATURE_DESCRIPTOR || setup_packet.bmRequestType == MS_USB_REQUEST_GET_EXTENDED_PROPERTIES_OS_DESCRIPTOR)
-				{
-				/*
-					Manage the Microsoft Extensions
-				*/
-				ms_usb_get_descriptor(&setup_packet);
-				}
-			else if (setup_packet.bmRequestType == 0xA1)
-				{
-				/*
-					Manage the CDC commands
-				*/
-				switch (setup_packet.bRequest)
+		if (usb_command(&setup_packet) == 0)
+			if (usb_cdc_command(&setup_packet) == 0)
+				if (ms_usb_get_descriptor(&setup_packet) == 0)
 					{
-					case USB_CDC_GET_LINE_CODING:
-						debug_print_string("USB_CDC_GET_LINE_CODING\r\n");
-						usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (char *)&our_cdc_line_coding, sizeof(our_cdc_line_coding));
-						usb_queue_td_out(USB_CDC_ENDPOINT_CONTROL);
-						break;
-					default:
-						print_setup_packet(&setup_packet);
-						debug_print_this("Unhandled device-to-host data direction setup request ", setup_packet.bRequest, " was received.");
+					debug_print_string("Unknown setup packet recieved on Endpoint 0:\r\n");
+					print_setup_packet(&setup_packet);
 					}
-				}
-			else
-				{
-				/*
-					Manage device commands
-				*/
-				switch (setup_packet.bRequest)
-					{
-					case USB_REQUEST_GET_DESCRIPTOR:
-						usb_get_descriptor(&setup_packet);
-						handled = 1;
-						break;
-					default:
-						print_setup_packet(&setup_packet);
-						debug_print_this("Unhandled device-to-host data direction setup request ", setup_packet.bRequest, " was received.");
-					}
-				}
-			}
-		else
-			{
-			if (setup_packet.bmRequestType == 0x21)		// CDC commands (Abstract Control Model)	
-				{
-				switch (setup_packet.bRequest)
-					{
-					case USB_CDC_SET_CONTROL_LINE_STATE:								// this means the PC is online
-						debug_print_string("USB_CDC_SET_CONTROL_LINE_STATE\r\n");
-						usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, 0, 0);				// respond with a 0-byte transfer (ACK)
-						usb_queue_td_out(USB_CDC_ENDPOINT_CONTROL);
-						break;
-					case USB_CDC_SET_LINE_CODING:										// this tells us "9600,n,8,1" stuff (so we ignore)
-						debug_print_string("USB_CDC_SET_LINE_CODING\r\n");
 
-						usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, 0, 0);				// (ACK)
-						usb_queue_td_out(USB_CDC_ENDPOINT_CONTROL);
-
-						/*
-							Print the packet contents
-						*/
-						{
-						int ch;
-						uint8_t *into = (uint8_t *)&our_cdc_line_coding;
-						for (ch = 0; ch < setup_packet.wLength; ch++)
-							{
-							debug_print_hex((global_transfer_buffer[IMX_USB_CDC_QUEUEHEAD_CONTROL_OUT][0])[ch]);
-							*into++ = (global_transfer_buffer[IMX_USB_CDC_QUEUEHEAD_CONTROL_OUT][0])[ch];
-							debug_putc(' ');
-							}
-						debug_print_string("\r\n");
-						}
-						break;
-					default:
-						print_setup_packet(&setup_packet);
-						debug_print_this("Unhandled device-to-host data direction setup request ", setup_packet.bRequest, " was received.");
-					}
-				}
-			else
-				{
-				switch (setup_packet.bRequest)
-					{
-					case USB_REQUEST_SET_CONFIGURATION:
-						debug_print_string("USB_REQUEST_SET_CONFIGURATION\r\n");
-						usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, 0, 0);		// respond with a 0-byte transfer
-						break;
-
-					case USB_REQUEST_SET_ADDRESS:
-						debug_print_string("USB_REQUEST_SET_ADDRESS\r\n");
-						new_address = setup_packet.wValue;
-
-						HW_USBCTRL_DEVICEADDR_WR(BF_USBCTRL_DEVICEADDR_USBADR(new_address) | BM_USBCTRL_DEVICEADDR_USBADRA);
-
-						usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, 0, 0);		// respond with a 0-byte transfer
-
-						usb_state = USB_DEVICE_STATE_ADDRESS;
-						handled = 1;
-						debug_print_this("                       Host has set our address to ", new_address, ".");
-						usb_setup_endpoint_nonzero();
-						break;
-					default:
-						//Packets with a host-to-device data phase direction
-						print_setup_packet(&setup_packet);
-						debug_print_this("Unhandled host-to-device data direction setup request ", setup_packet.bRequest, " was received.");
-					}
-				}
-			}
-	
-		handled = 1;
 		}
 	else
 		debug_print_this("SETUP PACKET arrived on endpoint other than 0 (HW_USBCTRL_ENDPTSETUPSTAT = ", HW_USBCTRL_ENDPTSETUPSTAT_RD(), ")");
