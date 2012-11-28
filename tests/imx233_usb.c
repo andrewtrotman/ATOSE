@@ -308,8 +308,6 @@
 
 
 
-#define USB_DIRECTION_OUT						0x00
-#define USB_DIRECTION_IN						0x01
 
 #define USB_CDC_SET_LINE_CODING				0x20
 #define USB_CDC_GET_LINE_CODING				0x21
@@ -1513,7 +1511,6 @@ switch (descriptor_type)
 			For more information on the device descriptor see page 261-263 of "Universal Serial Bus Specification Revision 2.0 April 27, 2000"
 		*/
 		usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (uint8_t *)&our_device_descriptor, packet->wLength != sizeof(our_device_descriptor) ? 8 : sizeof(our_device_descriptor));
-		usb_queue_td_out(USB_CDC_ENDPOINT_CONTROL);
 		break;
 	case USB_DESCRIPTOR_TYPE_CONFIGURATION:
 		debug_print_string("USB_DESCRIPTOR_TYPE_CONFIGURATION\r\n");
@@ -1524,7 +1521,6 @@ switch (descriptor_type)
 		*/
 		our_com_descriptor.cd.bDescriptorType = USB_DESCRIPTOR_TYPE_CONFIGURATION;
 		usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (uint8_t *)&our_com_descriptor, sizeof(our_com_descriptor));
-		usb_queue_td_out(USB_CDC_ENDPOINT_CONTROL);
 		break;
 
 
@@ -1539,7 +1535,6 @@ switch (descriptor_type)
 		*/
 		our_com_descriptor.cd.bDescriptorType = USB_DESCRIPTOR_TYPE_OTHER_SPEED_CONFIGURATION;
 		usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (uint8_t *)&our_com_descriptor, sizeof(our_com_descriptor));
-		usb_queue_td_out(USB_CDC_ENDPOINT_CONTROL);
 		break;
 
 	case USB_DESCRIPTOR_TYPE_STRING:
@@ -1560,22 +1555,18 @@ switch (descriptor_type)
 					See page 273 of "Universal Serial Bus Specification Revision 2.0 April 27, 2000"
 				*/
 				usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (uint8_t *)&our_language, sizeof(our_language));
-				usb_queue_td_out(USB_CDC_ENDPOINT_CONTROL);
 				break;
 			case USB_STRING_MANUFACTURER:
 				debug_print_string("STRING - MANUFACTURER\r\n");
 				usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (uint8_t *)&our_manufacturer, sizeof(our_manufacturer));
-				usb_queue_td_out(USB_CDC_ENDPOINT_CONTROL);
 				break;
 			case USB_STRING_PRODUCT:
 				debug_print_string("STRING - PRODUCT\r\n");
 				usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (uint8_t *)&our_product, sizeof(our_product));
-				usb_queue_td_out(USB_CDC_ENDPOINT_CONTROL);
 				break;
 			case USB_STRING_SERIAL_NUMBER:
 				debug_print_string("STRING - SERIAL NUMBER\r\n");
 				usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (uint8_t *)&our_serial_number, sizeof(our_serial_number));
-				usb_queue_td_out(USB_CDC_ENDPOINT_CONTROL);
 				break;
 			case MS_USB_STRING_OS_DESCRIPTOR:
 				debug_print_string("MS OS STRING DESCRIPTOR\r\n");
@@ -1583,7 +1574,6 @@ switch (descriptor_type)
 					Microsoft OS String Desciptor
 				*/
 				usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (uint8_t *)&our_ms_os_string_descriptor, sizeof(our_ms_os_string_descriptor));
-				usb_queue_td_out(USB_CDC_ENDPOINT_CONTROL);
 				break;
 			default:
 				/*
@@ -1602,7 +1592,6 @@ switch (descriptor_type)
 			See page 264 of "Universal Serial Bus Specification Revision 2.0 April 27, 2000"
 		*/
 		usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (uint8_t *)&our_device_qualifier, sizeof(our_device_qualifier));
-		usb_queue_td_out(USB_CDC_ENDPOINT_CONTROL);
 		break;
 	default:
 		/*
@@ -1637,7 +1626,6 @@ switch (packet->wIndex)
 			See: "Extended Compat ID OS Feature Descriptor Specification, July 13, 2012". 
 		*/
 		usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (uint8_t *)&our_ms_compatible_id_feature_descriptor, sizeof(our_ms_compatible_id_feature_descriptor));
-		usb_queue_td_out(USB_CDC_ENDPOINT_CONTROL);
 		return 1;
 	case MS_USB_DESCRIPTOR_TYPE_EXTENDED_PROPERTIES:
 		debug_print_string("MS_USB_DESCRIPTOR_TYPE_EXTENDED_PROPERTIES\r\n");
@@ -1645,7 +1633,6 @@ switch (packet->wIndex)
 			See: Extended Properties OS Feature Descriptor Specification, July 13, 2012"
 		*/
 		usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (uint8_t *)&our_ms_extended_properties, sizeof(our_ms_extended_properties));
-		usb_queue_td_out(USB_CDC_ENDPOINT_CONTROL);
 		return 1;
 	default:
 		debug_print_string("Unrecognised Microsoft descriptor request:\r\n");
@@ -1704,13 +1691,11 @@ switch (packet->bRequest)
 		HW_USBCTRL_DEVICEADDR_WR(BF_USBCTRL_DEVICEADDR_USBADR(packet->wValue) | BM_USBCTRL_DEVICEADDR_USBADRA);
 		usb_ack(0);
 
-		usb_state = USB_DEVICE_STATE_ADDRESS;
-
 		usb_setup_endpoint_nonzero();
 		return 1;
 
 	case USB_REQUEST_GET_DESCRIPTOR:
-		debug_print_string("USB_REQUEST_GET_DESCRIPTOR\r\n");
+		debug_print_string("USB_REQUEST_GET_DESCRIPTOR: ");
 		/*
 			See page 253 of "Universal Serial Bus Specification Revision 2.0 April 27, 2000".
 		*/
@@ -1767,6 +1752,7 @@ switch (packet->bRequest)
 		usb_request_error(0);
 		return 1;
 	}
+
 return 0;
 }
 
@@ -1782,21 +1768,15 @@ switch (packet->bRequest)
 	{
 	case USB_CDC_GET_LINE_CODING:
 		debug_print_string("USB_CDC_GET_LINE_CODING\r\n");
-
 		usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (uint8_t *)&our_cdc_line_coding, sizeof(our_cdc_line_coding));
-		usb_queue_td_out(USB_CDC_ENDPOINT_CONTROL);
 		return 1;
 	case USB_CDC_SET_CONTROL_LINE_STATE:
 		debug_print_string("USB_CDC_SET_CONTROL_LINE_STATE\r\n");
-
 		usb_ack(0);
-		usb_queue_td_out(USB_CDC_ENDPOINT_CONTROL);
 		return 1;
 	case USB_CDC_SET_LINE_CODING:
 		debug_print_string("USB_CDC_SET_LINE_CODING\r\n");
-
 		usb_ack(0);
-		usb_queue_td_out(USB_CDC_ENDPOINT_CONTROL);
 		return 1;
 	}
 
@@ -1809,8 +1789,27 @@ return 0;
 */
 void usb_interrupt(void)
 {
+uint32_t endpoint;
+uint32_t endpoint_setup_status;
+uint32_t endpoint_status;
+uint32_t endpoint_complete;
 usb_setup_data setup_packet;
 uint32_t handled = 0;
+
+/*
+	Grab the value of the various status registers as their values can change while this routine is running
+*/
+endpoint_setup_status = HW_USBCTRL_ENDPTSETUPSTAT_RD();
+endpoint_status = HW_USBCTRL_ENDPTSTAT_RD();
+endpoint_complete = HW_USBCTRL_ENDPTCOMPLETE_RD(); 
+
+/*
+	Tell the i.MX that we've serviced those requests
+*/
+HW_USBCTRL_ENDPTSETUPSTAT_WR(endpoint_setup_status);
+HW_USBCTRL_ENDPTCOMPLETE_WR(endpoint_complete);
+HW_USBCTRL_ENDPTSTAT.U = endpoint_status;
+
 
 /*
 	The i.MX series has special handeling of a setup message - it puts it directly into the
@@ -1818,13 +1817,13 @@ uint32_t handled = 0;
 	which endpoint just got the setup message and then generates an interupt.  We check for
 	that flag here.
 */
-if (HW_USBCTRL_ENDPTSETUPSTAT_RD() & 0x1F)
+if (endpoint_setup_status & 0x1F)
 	{
 	/*
 		In the CDC model setup packets can only occur on Endpoint 1. If we get a setup packet
 		anywhere else then its an error.
 	*/
-	if (HW_USBCTRL_ENDPTSETUPSTAT_RD() & 1)
+	if (endpoint_setup_status & 0x01)
 		{
 		/*
 			The way we handle a setup event is explicity stated on page 5347-5348 of "i.MX 6Dual/6Quad 
@@ -1860,7 +1859,7 @@ if (HW_USBCTRL_ENDPTSETUPSTAT_RD() & 0x1F)
 		do
 			{
 			HW_USBCTRL_USBCMD.B.SUTW = 1;										// bullet-point "b": set tripwire
-			setup_packet = global_queuehead[USB_DIRECTION_OUT].setup_buffer;	// bullet-point "c": copy packet
+			setup_packet = global_queuehead[0].setup_buffer;					// bullet-point "c": copy packet
 			}
 		while (HW_USBCTRL_USBCMD.B.SUTW == 0);									// bullet-point "d": check tripwire
 		HW_USBCTRL_USBCMD.B.SUTW = 0;											// bullet-point "e": clear tripwire
@@ -1902,91 +1901,53 @@ if (HW_USBCTRL_ENDPTSETUPSTAT_RD() & 0x1F)
 	else
 		debug_print_this("SETUP PACKET recieved on an endpoint other than endpoint 0 (HW_USBCTRL_ENDPTSETUPSTAT = ", HW_USBCTRL_ENDPTSETUPSTAT_RD(), ")");
 	}
-else
+
+/*
+*/
+for (endpoint = 0; endpoint < IMX_USB_MAX_ENDPOINTS; endpoint++)
 	{
-	int managed = 0;
-	int endpt;
-
-	uint32_t endpoint_status = HW_USBCTRL_ENDPTSTAT_RD();
-	uint32_t endpoint_setup_status = HW_USBCTRL_ENDPTSETUPSTAT_RD();
-	uint32_t endpoint_complete = HW_USBCTRL_ENDPTCOMPLETE_RD(); 
-
-	debug_print_this("  HW_USBCTRL_ENDPTSTAT      = ", endpoint_status, "");
-	debug_print_this("  HW_USBCTRL_ENDPTSETUPSTAT = ", endpoint_setup_status, "");
-	debug_print_this("  HW_USBCTRL_ENDPTCOMPLETE  = ", endpoint_complete, "");
-
-	HW_USBCTRL_ENDPTSETUPSTAT_WR(endpoint_setup_status);
-	HW_USBCTRL_ENDPTCOMPLETE_WR(endpoint_complete);
-
-	for (endpt = 0; endpt < 5; endpt++)
+	/*
+		Recieve on and endpoint has completed
+	*/
+	if (endpoint_complete & BF_USBCTRL_ENDPTCOMPLETE_ERCE(1 << endpoint))
 		{
-		if (endpoint_status & BF_USBCTRL_ENDPTSTAT_ERBR(1 << endpt))
-			{
-			debug_print_this("Recieve Endpoint Ready (", endpt, ")");
-			if (endpt != 0)
-				{
-				debug_print_this("  Queue Status:", global_dTD[endpt * 2].token.bit.status, "");
-				debug_print_this("  Listen on ", endpt * 2, "");
-				usb_queue_td_out(endpt);
-				}
-
-			managed = 1;
-			}
-		if (endpoint_status & BF_USBCTRL_ENDPTSTAT_ETBR(1 << endpt))
-			{
-			debug_print_this("Transmit Endpoint Ready (", endpt, ")");
-			managed = 1;
-			}
-		if (endpoint_complete & BF_USBCTRL_ENDPTCOMPLETE_ETCE(1 << endpt))
-			{
-			int byte;
-
-			debug_print_this("Transmit Endpoint Complete (", endpt, ")");
-			debug_print_string("   ");
-			for (byte = 0; byte < 5; byte++)
-				{
-				debug_print_hex((global_transfer_buffer[endpt * 2][0])[byte]);
-				debug_print_string(" ");
-				}
-			debug_print_string("\r\n");
-
-			managed = 1;
-			}
-		if (endpoint_complete & BF_USBCTRL_ENDPTCOMPLETE_ERCE(1 << endpt))
-			{
-			int byte;
-
-			debug_print_this("Recieve Endpoint Complete (", endpt, ")");
-
-			debug_print_string("   ");
-			for (byte = 0; byte < 5; byte++)
-				{
-				debug_print_hex((global_transfer_buffer[endpt * 2][0])[byte]);
-				debug_print_string(" ");
-				}
-			debug_print_string("\r\n");
-
-			managed = 1;
-
-			if (endpt != 0)
-				{
-				debug_print_this("  Listen on Queuehead: ", endpt * 2, "");
-				usb_queue_td_out(endpt);
-				usb_queue_td_in(endpt, (uint8_t *)&((global_transfer_buffer[endpt * 2][0])[0]), 1);
-				}
-			}
-		}
-
-	if (managed)
 		handled = 1;
-	else
-		{
-		debug_print_string("Unknown interrupt source (HW_USBCTRL_ENDPTSTAT = ");
-		debug_print_hex(endpoint_status);
-		debug_print_string(") (HW_USBCTRL_ENDPTSETUPSTAT = ");
-		debug_print_hex(endpoint_setup_status);
-		debug_print_string(")\r\n");
+
+		/*
+			If we're on the data endpoint then echo back and queue up a request to recieve data
+		*/
+		if (endpoint != 0)
+			{
+			usb_queue_td_in(endpoint, (uint8_t *)&((global_transfer_buffer[endpoint * 2][0])[0]), 1);
+			usb_queue_td_out(endpoint);
+			}
 		}
+
+	/*
+		Transmit on an endpoint has completed
+	*/
+	if (endpoint_complete & BF_USBCTRL_ENDPTCOMPLETE_ETCE(1 << endpoint))
+		handled = 1;
+
+	/*
+		We are ready to recieve on the endpoint (i.e. queued up)
+	*/
+	if (!(endpoint_status & BF_USBCTRL_ENDPTSTAT_ERBR(1 << endpoint)))
+		{
+		handled = 1;
+
+		/*
+			If we're on endpoint 0 then we queue up for another setup packet
+		*/
+		if (endpoint == 0)
+			usb_queue_td_out(endpoint);
+		}
+
+	/*
+		We are ready to transmit on the endpoint (i.e. queued up)
+	*/
+	if (endpoint_status & BF_USBCTRL_ENDPTSTAT_ETBR(1 << endpoint))
+		handled = 1;
 	}
 
 if (!handled)
@@ -2029,8 +1990,6 @@ if (got == VECTOR_IRQ_USB_CTRL)
 		{
 		debug_print_string(" [I: USB reset] \r\n");
 
-		usb_state = USB_DEVICE_STATE_DEFAULT;
-
 		//We clear our device address when we're reset:
 		HW_USBCTRL_DEVICEADDR_WR(0);
 
@@ -2055,7 +2014,7 @@ if (got == VECTOR_IRQ_USB_CTRL)
 		}
 	else if (usb_status.B.UI)
 		{
-		debug_print_string(" [I: USB UI Interrupt ] \r\n");
+//		debug_print_string(" [I: USB UI Interrupt ] \r\n");
 		HW_USBCTRL_USBSTS_SET(BM_USBCTRL_USBSTS_UI);
 
 		usb_interrupt();
@@ -2270,6 +2229,8 @@ config_endpoint(IMX_USB_CDC_QUEUEHEAD_CONTROL_IN);				// EP 0
 	Hand off to the i.MX233
 */
 HW_USBCTRL_ENDPOINTLISTADDR_SET((uint32_t)global_queuehead);
+
+usb_queue_td_out(0);
 }
 
 /*
