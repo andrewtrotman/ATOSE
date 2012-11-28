@@ -238,7 +238,25 @@
 #define USB_CDC_PARITY_MARK					0x03
 #define USB_CDC_PARITY_SPACE					0x04
 
+/*
+	Messages from the host to the device
+*/
+#define USB_CDC_REQUEST_SEND_ENCAPSULATED_COMMAND	0x00
+#define USB_CDC_REQUEST_GET_ENCAPSULATED_RESPONSE	0x01
+#define USB_CDC_REQUEST_SET_COMM_FEATURE			0x02
+#define USB_CDC_REQUEST_GET_COMM_FEATURE			0x03
+#define USB_CDC_REQUEST_CLEAR_COMM_FEATURE			0x04
+#define USB_CDC_REQUEST_SET_LINE_CODING			0x20
+#define USB_CDC_REQUEST_GET_LINE_CODING			0x21
+#define USB_CDC_REQUEST_SET_CONTROL_LINE_STATE		0x22
+#define USB_CDC_REQUEST_SEND_BREAK					0x23
 
+/*
+	Messages from the device to the host
+*/
+#define USB_CDC_NOTIFICATION_NETWORK_CONNECTION	0x00
+#define USB_CDC_NOTIFICATION_RESPONSE_AVAILABLE	0x01
+#define USB_CDC_NOTIFICATION_SERIAL_STATE			0x20
 
 /*
 	Microsoft specific
@@ -309,9 +327,9 @@
 
 
 
-#define USB_CDC_SET_LINE_CODING				0x20
-#define USB_CDC_GET_LINE_CODING				0x21
-#define USB_CDC_SET_CONTROL_LINE_STATE			0x22
+
+
+
 
 
 
@@ -1760,22 +1778,43 @@ return 0;
 	USB_CDC_COMMAND()
 	-----------------
 	Manage the CDC commands (of which there aren't many).
+	Here we manage only those requests necessary for a CDC virtual COM port
+
 	returns 1 if the message was processes, 0 if it was not
 */
 uint32_t usb_cdc_command(usb_setup_data *packet)
 {
 switch (packet->bRequest)
 	{
-	case USB_CDC_GET_LINE_CODING:
-		debug_print_string("USB_CDC_GET_LINE_CODING\r\n");
-		usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (uint8_t *)&our_cdc_line_coding, sizeof(our_cdc_line_coding));
-		return 1;
-	case USB_CDC_SET_CONTROL_LINE_STATE:
-		debug_print_string("USB_CDC_SET_CONTROL_LINE_STATE\r\n");
+	case USB_CDC_REQUEST_SET_LINE_CODING:
+		debug_print_string("USB_CDC_REQUEST_SET_LINE_CODING\r\n");
+		/*
+			See page 57 of "Universal Serial Bus Class Definitions for Communication Devices Version 1.1"
+		*/
 		usb_ack(0);
 		return 1;
-	case USB_CDC_SET_LINE_CODING:
-		debug_print_string("USB_CDC_SET_LINE_CODING\r\n");
+
+	case USB_CDC_REQUEST_GET_LINE_CODING:
+		debug_print_string("USB_CDC_REQUEST_GET_LINE_CODING\r\n");
+		/*
+			See page 58 of "Universal Serial Bus Class Definitions for Communication Devices Version 1.1"
+		*/
+		usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (uint8_t *)&our_cdc_line_coding, sizeof(our_cdc_line_coding));
+		return 1;
+
+	case USB_CDC_REQUEST_SET_CONTROL_LINE_STATE:
+		debug_print_string("USB_CDC_REQUEST_SET_CONTROL_LINE_STATE\r\n");
+		/*
+			See page 58 of "Universal Serial Bus Class Definitions for Communication Devices Version 1.1"
+		*/
+		usb_ack(0);
+		return 1;
+
+	case USB_CDC_REQUEST_SEND_BREAK:
+		debug_print_string("USB_CDC_REQUEST_SEND_BREAK\r\n");
+		/*
+			See page 59 of "Universal Serial Bus Class Definitions for Communication Devices Version 1.1"
+		*/
 		usb_ack(0);
 		return 1;
 	}
@@ -1809,7 +1848,6 @@ endpoint_complete = HW_USBCTRL_ENDPTCOMPLETE_RD();
 HW_USBCTRL_ENDPTSETUPSTAT_WR(endpoint_setup_status);
 HW_USBCTRL_ENDPTCOMPLETE_WR(endpoint_complete);
 HW_USBCTRL_ENDPTSTAT.U = endpoint_status;
-
 
 /*
 	The i.MX series has special handeling of a setup message - it puts it directly into the
@@ -1961,82 +1999,129 @@ if (!handled)
 uint32_t ATOSE_isr_irq(ATOSE_registers *registers)
 {
 volatile uint32_t got = 0;
+hw_usbctrl_usbsts_t usb_status;
 
 /*
-	Tell the ICOLL we've entered the ISR.  This is either a side-effect of the read or a write is required
+	Tell the ICOLL we've entered the ISR as a side effect of the read
 */
 got = HW_ICOLL_VECTOR_RD();
 got = HW_ICOLL_STAT_RD();
 
-
 if (got == VECTOR_IRQ_USB_CTRL)
 	{
-	debug_print_string(" [USB] ");
-	hw_usbctrl_usbsts_t usb_status = HW_USBCTRL_USBSTS;
-
-	if (usb_status.B.TI0)
-		{
-		debug_print_string(" [I: USB TI0] \r\n");
-
-		HW_USBCTRL_USBSTS_SET(BM_USBCTRL_USBSTS_TI0);
-		}
-	else if (usb_status.B.TI1)
-		{
-		debug_print_string(" [I: USB TI1] \r\n");
-
-		HW_USBCTRL_USBSTS_SET(BM_USBCTRL_USBSTS_TI1);
-		}
-	else if (usb_status.B.URI)
-		{
-		debug_print_string(" [I: USB reset] \r\n");
-
-		//We clear our device address when we're reset:
-		HW_USBCTRL_DEVICEADDR_WR(0);
-
-		HW_USBCTRL_USBSTS_SET(BM_USBCTRL_USBSTS_URI);
-		}
-	else if (usb_status.B.UEI)
-		{
-		int ep;
-		debug_print_string(" [I: USB error interrupt ]");
-		
-		for (ep = 0; ep < 5; ep++)
-			{
-			debug_print_string("status ");
-			debug_print_hex(ep);
-			debug_print_string(" : ");
-			debug_print_hex(global_dTD[ep].token.bit.status);
-			debug_print_string(")\r\n");
-			}
-
-
-		HW_USBCTRL_USBSTS_SET(BM_USBCTRL_USBSTS_UEI);
-		}
-	else if (usb_status.B.UI)
-		{
-//		debug_print_string(" [I: USB UI Interrupt ] \r\n");
-		HW_USBCTRL_USBSTS_SET(BM_USBCTRL_USBSTS_UI);
-
+	/*
+		Grab the cause of the interrupt and acknowledge it
+	*/
+	usb_status = HW_USBCTRL_USBSTS;
+	HW_USBCTRL_USBSTS = usb_status;
+	
+	/*
+		After initialisation and under normal operation we expect only this case.
+	*/
+	if (usb_status.B.UI)
 		usb_interrupt();
-		} 
-	else if (usb_status.B.PCI)
-		{
-		debug_print_string(" [I: USB Port Change Interrupt ] \r\n");
-		HW_USBCTRL_USBSTS_SET(BM_USBCTRL_USBSTS_PCI);
-		} 
-	else 
-		{
-		debug_print_string(" [I: Unknown USB interrupt ] \r\n");
-		}
-	} 
-else 
-	{
-	debug_print_string("[->");
-	debug_print_hex(got);
-	debug_print_string("<-]\r\n");
-	}
 
-//TODO signal the APBX that we've handled an interrupt
+	/*
+		USB Reset Interrupt
+	*/
+	if (usb_status.B.URI)
+		{
+		debug_print_string("i.MX USB Reset interrupt\r\n");
+
+		/*
+			This happens when the host wants to re-initialise the USB bus
+			which also happens on startup.
+
+			See page 5338-5339 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012"
+			where it states that on this interrupt we must:
+
+			"Clear all setup token semaphores by reading the Endpoint Status
+			 (USBC_n_ENDPTSTAT) register and writing the same value back to the Endpoint
+			 Status (USBC_n_ENDPTSTAT) register.
+
+			 Clear all the endpoint complete status bits by reading the Endpoint Complete
+			 (USBC_n_ENDPTCOMPLETE) register and writing the same value back to the
+			 Endpoint Complete (USBC_n_ENDPTCOMPLETE) register.
+
+			 Cancel all primed status by waiting until all bits in the Endpoint Prime
+			 (USBC_n_ENDPTPRIME) are 0 and then writing 0xFFFFFFFF to Endpoint Flush
+			 (USBC_n_ENDPTFLUSH).
+
+			 Read the reset bit in the Port Status & Control (USBC_n_PORTSC1) register and make
+			 sure that it is still active. A USB reset will occur for a minimum of 3 ms and the DCD
+			 must reach this point in the reset cleanup before end of the reset occurs, otherwise a
+			 hardware reset of the device controller is recommended (rare.)
+
+				A hardware reset can be performed by writing a one to the device controller reset bit
+				in the USBCMD reset. Note: a hardware reset will cause the device to detach from
+				the bus by clearing the Run/Stop bit. Thus, the DCD must completely re-initialize the
+				device controller after a hardware reset.
+
+			 Free all allocated dTDs because they will no longer be executed by the device controller.
+			 If this is the first time the DCD is processing a USB reset event, then it is likely that no
+			 dTDs have been allocated.
+
+			 At this time, the DCD may release control back to the OS because no further changes to
+			 the device controller are permitted until a Port Change Detect is indicated.
+			 After a Port Change Detect, the device has reached the default state and the DCD can
+			 read the Port Status & Control (USBC_n_PORTSC1) to determine if the device is
+			 operating in FS or HS mode. At this time, the device controller has reached normal
+			 operating mode and DCD can begin enumeration according to the USB Chapter 9 -
+			 Device Framework."
+
+		*/
+
+		HW_USBCTRL_ENDPTSTAT.U = HW_USBCTRL_ENDPTSTAT_RD();			// first point
+		HW_USBCTRL_ENDPTCOMPLETE_WR(HW_USBCTRL_ENDPTCOMPLETE_RD());	// second point
+
+		while (HW_USBCTRL_ENDPTPRIME_RD() != 0)						// third point
+			; /* do nothing */
+		HW_USBCTRL_ENDPTFLUSH_WR(0xFFFFFFFF);						// third point
+
+		if (HW_USBCTRL_PORTSC1.B.PR != 1)							// fourth point 
+			{
+			/*
+				Hard reset needed
+			*/
+			}
+		// we can ignore the fifth point because they are already allocated.  We ignore the sixth point as this is normal behaviour
+
+		/*
+			We do not need to change our address back to 0 because that automatically done for us
+		*/
+		}
+	/*
+		USB Error Interrupt
+	*/
+	if (usb_status.B.UEI)
+		{
+		debug_print_string("i.MX USB error interrupt\r\n");
+
+		/*
+			USB Error Interrupt: This error is redundant because it combines USB Interrupt and an error status in the
+								 dTD. The DCD will more aptly handle packet-level errors by checking dTD status field
+								 upon receipt of USB Interrupt (w/ USB.ENDPTCOMPLETE).
+			System Error:		 Unrecoverable error. Immediate Reset of core; free transfers buffers in progress and
+								 restart the DCD.
+		*/
+		}
+	/*
+		USB Port Change Interrupt
+	*/
+	if (usb_status.B.PCI)
+		{
+		debug_print_string("i.MX USB port change interrupt\r\n");
+
+		/*
+			Page 5319 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012"
+			We get this interrupt when the hardware detects:
+				Connect Status Change
+				Port Enable/Disable Change
+				Over-current Change
+				Force Port Resume
+		*/
+		} 
+	}
 
 /*
 	Tell the interrupt controller that we've finished processing the Interrupt
@@ -2076,46 +2161,6 @@ void enable_IRQ(void)
 set_cpsr(get_cpsr() & ~0x80);
 }
 
-/*
-	APBX_RESET()
-	------------
-*/
-void apbx_reset()
-{
-//Clear SFTRST
-HW_APBX_CTRL0_CLR(BM_APBX_CTRL0_SFTRST);
-
-//Wait for SFTRST to fall
-do
-	delay_us(1);
-while (HW_APBX_CTRL0.B.SFTRST);
-
-//Clear CLKGATE to wait for SFTRST to assert it
-HW_APBX_CTRL0_CLR(BM_APBX_CTRL0_CLKGATE);
-
-//Soft reset
-HW_APBX_CTRL0_SET(BM_APBX_CTRL0_SFTRST);
-
-//Wait for CLKGATE to be brought high by the reset process
-while (!HW_APBX_CTRL0.B.CLKGATE)
-	; //Nothing
-
-//Bring out of reset
-HW_APBX_CTRL0_CLR(BM_APBX_CTRL0_SFTRST);
-
-//Wait for that to complete
-do
-	delay_us(1);
-while (HW_APBX_CTRL0.B.SFTRST);
-
-//Enable clock again
-HW_APBX_CTRL0_CLR(BM_APBX_CTRL0_CLKGATE);
-
-//Wait for that to complete
-do
-	delay_us(1);
-while (HW_APBX_CTRL0.B.CLKGATE);
-}
 
 /*
 	USB_PHY_STARTUP()
@@ -2473,7 +2518,6 @@ enable_IRQ();
 */
 debug_print_string("\r\n\r\n-------------------\r\n\r\n");
 debug_print_string("APBX reset...");
-apbx_reset();
 debug_print_string(" done!\r\n");
 
 /*
@@ -2498,4 +2542,3 @@ debug_print_string("\r\n");
 
 for (;;);				// loop forever
 }
-
