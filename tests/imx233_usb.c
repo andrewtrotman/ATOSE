@@ -845,7 +845,7 @@ usb_string_descriptor_language our_language =
 */
 usb_string_descriptor our_serial_number =
 {
-.bLength = sizeof(our_serial_number),
+.bLength = 14,
 .bDescriptorType = USB_DESCRIPTOR_TYPE_STRING,
 .wString = {'S', 0x00, 'N', 0x00, '#', 0x00, 'D', 0x00, 'E', 0x00, 'V', 0x00}
 } ;
@@ -856,7 +856,7 @@ usb_string_descriptor our_serial_number =
 */
 usb_string_descriptor our_manufacturer =
 {
-.bLength = sizeof(our_manufacturer),
+.bLength = 10,
 .bDescriptorType = USB_DESCRIPTOR_TYPE_STRING,
 .wString = {'A', 0x00, 'S', 0x00, 'P', 0x00, 'T', 0x00}
 } ;
@@ -867,7 +867,7 @@ usb_string_descriptor our_manufacturer =
 */
 usb_string_descriptor our_product =
 {
-.bLength = sizeof(our_product),
+.bLength = 16,
 .bDescriptorType = USB_DESCRIPTOR_TYPE_STRING,
 .wString = {'F', 0x00, 'o', 0x00, 'u', 0x00, 'r', 0x00, 'A', 0x00, 'R', 0x00, 'M', 0x00}
 } ;
@@ -1139,11 +1139,12 @@ uint8_t *global_transfer_buffer[IMX_USB_MAX_ENDPOINTS * 2][IMX_ENDPOINT_TRANSFER
 */
 uint32_t global_transfer_buffers_preallocated;
 
+
 /*
 	Forward declaration
 */
 void usb_setup_endpoint_nonzero(void);
-
+uint32_t min(uint32_t a, uint32_t b) { return a < b ? a : b; }
 
 /*
 	=======================
@@ -1528,9 +1529,8 @@ switch (descriptor_type)
 			For more information on the configuration descriptor see page 264-266 of "Universal Serial Bus Specification Revision 2.0 April 27, 2000"
 		*/
 		our_com_descriptor.cd.bDescriptorType = USB_DESCRIPTOR_TYPE_CONFIGURATION;
-		usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (uint8_t *)&our_com_descriptor, sizeof(our_com_descriptor));
+		usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (uint8_t *)&our_com_descriptor, min(packet->wLength, sizeof(our_com_descriptor)));
 		break;
-
 
 	case USB_DESCRIPTOR_TYPE_OTHER_SPEED_CONFIGURATION:
 		debug_print_string("USB_DESCRIPTOR_TYPE_OTHER_SPEED_CONFIGURATION\r\n");
@@ -1542,7 +1542,7 @@ switch (descriptor_type)
 			For more information on the other speed configuration descriptor see page 266-267 of "Universal Serial Bus Specification Revision 2.0 April 27, 2000"
 		*/
 		our_com_descriptor.cd.bDescriptorType = USB_DESCRIPTOR_TYPE_OTHER_SPEED_CONFIGURATION;
-		usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (uint8_t *)&our_com_descriptor, sizeof(our_com_descriptor));
+		usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (uint8_t *)&our_com_descriptor, min(packet->wLength, sizeof(our_com_descriptor)));
 		break;
 
 	case USB_DESCRIPTOR_TYPE_STRING:
@@ -1562,19 +1562,19 @@ switch (descriptor_type)
 
 					See page 273 of "Universal Serial Bus Specification Revision 2.0 April 27, 2000"
 				*/
-				usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (uint8_t *)&our_language, sizeof(our_language));
+				usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (uint8_t *)&our_language, min(packet->wLength, our_language.bLength));
 				break;
 			case USB_STRING_MANUFACTURER:
 				debug_print_string("STRING - MANUFACTURER\r\n");
-				usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (uint8_t *)&our_manufacturer, sizeof(our_manufacturer));
+				usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (uint8_t *)&our_manufacturer, min(packet->wLength, our_manufacturer.bLength));
 				break;
 			case USB_STRING_PRODUCT:
 				debug_print_string("STRING - PRODUCT\r\n");
-				usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (uint8_t *)&our_product, sizeof(our_product));
+				usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (uint8_t *)&our_product, min(packet->wLength, our_product.bLength));
 				break;
 			case USB_STRING_SERIAL_NUMBER:
 				debug_print_string("STRING - SERIAL NUMBER\r\n");
-				usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (uint8_t *)&our_serial_number, sizeof(our_serial_number));
+				usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (uint8_t *)&our_serial_number, min(packet->wLength, our_serial_number.bLength));
 				break;
 			case MS_USB_STRING_OS_DESCRIPTOR:
 				debug_print_string("MS OS STRING DESCRIPTOR\r\n");
@@ -1599,7 +1599,7 @@ switch (descriptor_type)
 			change if the device were operating at the other speed".
 			See page 264 of "Universal Serial Bus Specification Revision 2.0 April 27, 2000"
 		*/
-		usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (uint8_t *)&our_device_qualifier, sizeof(our_device_qualifier));
+		usb_queue_td_in(USB_CDC_ENDPOINT_CONTROL, (uint8_t *)&our_device_qualifier, min(packet->wLength, sizeof(our_device_qualifier)));
 		break;
 	default:
 		/*
