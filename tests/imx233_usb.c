@@ -21,6 +21,7 @@
 #include "../systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsapbx.h"
 #include "../systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsusbctrl.h"
 #include "../systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsusbphy.h"
+#include "../systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsaudioout.h"
 
 
 /*
@@ -266,8 +267,6 @@
 #define MS_USB_REQUEST_GET_EXTENDED_COMPAT_ID_OS_FEATURE_DESCRIPTOR 0xC0
 #define MS_USB_REQUEST_GET_EXTENDED_PROPERTIES_OS_DESCRIPTOR 0xC1
 
-
-
 /*
 	i.MX specific
 */
@@ -316,26 +315,6 @@
 #define IMX_USB_CDC_QUEUEHEAD_ACM_IN		3
 #define IMX_USB_CDC_QUEUEHEAD_DATA_OUT		4
 #define IMX_USB_CDC_QUEUEHEAD_DATA_IN		5
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-void usb_setup_endpoint_nonzero(void);
-void usb_setup_endpoint_zero(void);
-
 
 /*
 	=========
@@ -1156,6 +1135,17 @@ imx_endpoint_transfer_descriptor global_dTD[IMX_USB_MAX_ENDPOINTS * 2] __attribu
 uint8_t *global_transfer_buffer[IMX_USB_MAX_ENDPOINTS * 2][IMX_ENDPOINT_TRANSFER_DESCRIPTOR_BUFFER_POINTERS];
 
 /*
+	This is used to prevent re-allocation of buffers if the device is disconnected and then reconnected
+*/
+uint32_t global_transfer_buffers_preallocated;
+
+/*
+	Forward declaration
+*/
+void usb_setup_endpoint_nonzero(void);
+
+
+/*
 	=======================
 	On to the generic stuff
 	=======================
@@ -1200,7 +1190,7 @@ uint8_t *global_transfer_buffer[IMX_USB_MAX_ENDPOINTS * 2][IMX_ENDPOINT_TRANSFER
 		i.MX233 and i.MX6Q, and interrupt is (optinally) issued (see page 5339-5340 of "i.MX 6Dual/6Quad Applications
 		Processor Reference Manual Rev. 0, 11/2012").
 */
-int usb_state = USB_DEVICE_STATE_DEFAULT;
+int usb_state = USB_DEVICE_STATE_DEFAULT;		// unused
 
 /*
 	==========================
@@ -1833,7 +1823,6 @@ uint32_t endpoint_setup_status;
 uint32_t endpoint_status;
 uint32_t endpoint_complete;
 usb_setup_data setup_packet;
-uint32_t handled = 0;
 
 /*
 	Grab the value of the various status registers as their values can change while this routine is running
@@ -1930,17 +1919,18 @@ if (endpoint_setup_status & 0x1F)
 			C0, C1 (1100 0000b and 1100 0000b) Vendor, Device  : Microsoft Extensions
 		*/
 		if (setup_packet.bmRequestType.bit.type == USB_SETUP_TYPE_STANDARD)
-			handled = usb_command(&setup_packet);
+			usb_command(&setup_packet);
 		else if (setup_packet.bmRequestType.bit.type == USB_SETUP_TYPE_CLASS)
-			handled = usb_cdc_command(&setup_packet);
+			usb_cdc_command(&setup_packet);
 		else if (setup_packet.bmRequestType.bit.type == USB_SETUP_TYPE_VENDOR)
-			handled = ms_usb_get_descriptor(&setup_packet);
+			ms_usb_get_descriptor(&setup_packet);
 		}
 	else
 		debug_print_this("SETUP PACKET recieved on an endpoint other than endpoint 0 (HW_USBCTRL_ENDPTSETUPSTAT = ", HW_USBCTRL_ENDPTSETUPSTAT_RD(), ")");
 	}
 
 /*
+	Manage any send/recieve completion events and any notifications that the endpoints are no longer primed
 */
 for (endpoint = 0; endpoint < IMX_USB_MAX_ENDPOINTS; endpoint++)
 	{
@@ -1948,48 +1938,33 @@ for (endpoint = 0; endpoint < IMX_USB_MAX_ENDPOINTS; endpoint++)
 		Recieve on and endpoint has completed
 	*/
 	if (endpoint_complete & BF_USBCTRL_ENDPTCOMPLETE_ERCE(1 << endpoint))
-		{
-		handled = 1;
-
-		/*
-			If we're on the data endpoint then echo back and queue up a request to recieve data
-		*/
 		if (endpoint != 0)
 			{
+			/*
+				If we're on the data endpoint then echo back and queue up a request to recieve data
+			*/
 			usb_queue_td_in(endpoint, (uint8_t *)&((global_transfer_buffer[endpoint * 2][0])[0]), 1);
 			usb_queue_td_out(endpoint);
 			}
-		}
+
+	/*
+		If we're on endpoint 0 then we make sure we are always ready to recieve
+	*/
+	if (endpoint == 0 && (!(endpoint_status & BF_USBCTRL_ENDPTSTAT_ERBR(1 << endpoint))))
+		usb_queue_td_out(endpoint);
 
 	/*
 		Transmit on an endpoint has completed
 	*/
 	if (endpoint_complete & BF_USBCTRL_ENDPTCOMPLETE_ETCE(1 << endpoint))
-		handled = 1;
-
-	/*
-		We are ready to recieve on the endpoint (i.e. queued up)
-	*/
-	if (!(endpoint_status & BF_USBCTRL_ENDPTSTAT_ERBR(1 << endpoint)))
-		{
-		handled = 1;
-
-		/*
-			If we're on endpoint 0 then we queue up for another setup packet
-		*/
-		if (endpoint == 0)
-			usb_queue_td_out(endpoint);
-		}
+		/* nothing */ ;
 
 	/*
 		We are ready to transmit on the endpoint (i.e. queued up)
 	*/
 	if (endpoint_status & BF_USBCTRL_ENDPTSTAT_ETBR(1 << endpoint))
-		handled = 1;
+		/* nothing */ ;
 	}
-
-if (!handled)
-	debug_print_string("We got a USB interrupt, but we didn't do anything in response.\r\n");
 }
 
 /*
@@ -2075,7 +2050,7 @@ if (got == VECTOR_IRQ_USB_CTRL)
 		HW_USBCTRL_ENDPTCOMPLETE_WR(HW_USBCTRL_ENDPTCOMPLETE_RD());	// second point
 
 		while (HW_USBCTRL_ENDPTPRIME_RD() != 0)						// third point
-			; /* do nothing */
+			 /* do nothing */ ;
 		HW_USBCTRL_ENDPTFLUSH_WR(0xFFFFFFFF);						// third point
 
 		if (HW_USBCTRL_PORTSC1.B.PR != 1)							// fourth point 
@@ -2091,22 +2066,8 @@ if (got == VECTOR_IRQ_USB_CTRL)
 		*/
 		}
 	/*
-		USB Error Interrupt
-	*/
-	if (usb_status.B.UEI)
-		{
-		debug_print_string("i.MX USB error interrupt\r\n");
-
-		/*
-			USB Error Interrupt: This error is redundant because it combines USB Interrupt and an error status in the
-								 dTD. The DCD will more aptly handle packet-level errors by checking dTD status field
-								 upon receipt of USB Interrupt (w/ USB.ENDPTCOMPLETE).
-			System Error:		 Unrecoverable error. Immediate Reset of core; free transfers buffers in progress and
-								 restart the DCD.
-		*/
-		}
-	/*
 		USB Port Change Interrupt
+		If we disable this then when the user disconnects and reconnects then we don't get a reset message!!!
 	*/
 	if (usb_status.B.PCI)
 		{
@@ -2131,6 +2092,11 @@ HW_ICOLL_LEVELACK_WR(BV_ICOLL_LEVELACK_IRQLEVELACK__LEVEL0);
 return 0;
 }
 
+/*
+	===================
+	Generic ARM methods
+	===================
+*/
 /*
 	GET_CPSR()
 	----------
@@ -2161,6 +2127,11 @@ void enable_IRQ(void)
 set_cpsr(get_cpsr() & ~0x80);
 }
 
+/*
+	===============================================
+	Setup the i.MX System on Chip (SoC) sub-systems
+	===============================================
+*/
 
 /*
 	USB_PHY_STARTUP()
@@ -2168,67 +2139,200 @@ set_cpsr(get_cpsr() & ~0x80);
 */
 void usb_phy_startup()
 {
-//	HW_CLKCTRL_XBUS.B.DIV = 20; // "make sure XBUS is lower than HBUS"
+/*
+	Set the PRBX clock to 24MHZ
+*/
 HW_CLKCTRL_XBUS.B.DIV = 1;
 
+/*
+	Turn on the clock to the USB PHY
+*/
 HW_CLKCTRL_PLLCTRL0_SET(BM_CLKCTRL_PLLCTRL0_EN_USB_CLKS);
 
-//First do a soft-reset of the PHY
-
-//Clear SFTRST
+/*
+	Soft reset the USB PHY
+	This is explained in
+	The "Correct Way to Soft Reset a Block" is explained on page 39-7 and "" Figure 8.3
+	of "i.MX23 Applications Processor Reference Manual Rev. 1 11/2009"
+*/
+/*
+	Clear the soft reset bit and wait for acknowledge (it goes clear)
+*/
 HW_USBPHY_CTRL_CLR(BM_USBPHY_CTRL_SFTRST);
+while (HW_USBPHY_CTRL.B.SFTRST)
+	/* nothing */;
 
-//Wait for SFTRST to fall
-do
-	delay_us(1);
-while (HW_USBPHY_CTRL.B.SFTRST);
-
-//Clear CLKGATE to wait for SFTRST to assert it
+/*
+	Get the clock into the USB PHY
+*/
 HW_USBPHY_CTRL_CLR(BM_USBPHY_CTRL_CLKGATE);
 
-//Soft reset
+/*
+	Soft reset the PHY and wait for acknowledge (it goes high)
+*/
 HW_USBPHY_CTRL_SET(BM_USBPHY_CTRL_SFTRST);
-
-//Wait for CLKGATE to be brought high by the reset process
 while (!HW_USBPHY_CTRL.B.CLKGATE)
-	; //Nothing
+	/* do nothing */ ;
 
-//Bring out of reset
+/*
+	Come out of reset
+*/
 HW_USBPHY_CTRL_CLR(BM_USBPHY_CTRL_SFTRST);
+delay_us(1);
+while (HW_USBPHY_CTRL.B.SFTRST)
+	/* do nothing */ ;
 
-//Wait for that to complete
-do
-	delay_us(1);
-while (HW_USBPHY_CTRL.B.SFTRST);
-
-//Enable clock again
+/*
+	Turn on the clock
+*/
 HW_USBPHY_CTRL_CLR(BM_USBPHY_CTRL_CLKGATE);
+while (HW_USBPHY_CTRL.B.CLKGATE)
+	/* do nothing */ ;
 
-//Wait for that to complete
-do
-	delay_us(1);
-while (HW_USBPHY_CTRL.B.CLKGATE);
+/*
+	Power up the PHY
+*/
+HW_USBPHY_PWD_WR(0);
 
-HW_USBPHY_PWD_WR(0); //Bring USB PHY components out of powerdown state
+/*
+	Apparently we need to this to bring up the PHY correctly (but it isn't clear why),
+	see Figure 8.3 of "i.MX23 Applications Processor Reference Manual Rev. 1 11/2009"
+*/
+HW_POWER_DEBUG_SET(BM_POWER_DEBUG_VBUSVALIDPIOLOCK | BM_POWER_DEBUG_AVALIDPIOLOCK | BM_POWER_DEBUG_BVALIDPIOLOCK);
 
-//Clear HW_POWER_CTRL_CLKGATE (we will assume this already happened in powerprep)
+/*
+	This has something to do with identifying that a device has been plugged into the USB port
+*/
+HW_POWER_STS_SET(BM_POWER_STS_VBUSVALID | BM_POWER_STS_AVALID | BM_POWER_STS_BVALID);
 
-//For some unexplained reason we should:
-HW_POWER_DEBUG_SET
-	(
-	BM_POWER_DEBUG_VBUSVALIDPIOLOCK |
-	BM_POWER_DEBUG_AVALIDPIOLOCK |
-	BM_POWER_DEBUG_BVALIDPIOLOCK
-	);
+/*
+	We (apparently) need to do this for USB Certification
+	See page 9-7 of "i.MX23 Applications Processor Reference Manual Rev. 1 11/2009"
+	See page 5461 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012"
+*/
+HW_USBPHY_TX.B.TXCAL45DP = 0x00;
+HW_USBPHY_TX.B.TXCAL45DN = 0x00;
+HW_USBPHY_TX.B.D_CAL = 0x07;
 
-HW_POWER_STS_SET
-	(
-	BM_POWER_STS_VBUSVALID |
-	BM_POWER_STS_AVALID |
-	BM_POWER_STS_BVALID
-	);
+/*
+	On the i.MX233 we're also expected to do this (I guess someone knows why!):
+	See page 9-7 of "i.MX23 Applications Processor Reference Manual Rev. 1 11/2009"
+*/
+HW_AUDIOOUT_REFCTRL.B.VDDXTAL_TO_VDDD = 0x01;
+HW_CLKCTRL_PLLCTRL0.B.CP_SEL = 0x02;
 }
 
+/*
+	USB_CONTROLLER_STARTUP()
+	------------------------
+*/
+void usb_controller_startup()
+{
+/*
+	Turn on the clock to the USB Controller
+*/
+HW_DIGCTL_CTRL_CLR(BM_DIGCTL_CTRL_USB_CLKGATE);
+
+/*
+	Flush any transactions (shouldn't be happening anyway) and make sure all transactions are over
+	See page 5357 - 5358 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012"
+	where is says:
+
+	"1. Write a '1' to the corresponding bit(s) in Endpoint Flush (USBC_n_ENDPTFLUSH).
+	 2. Wait until all bits in Endpoint Flush (USBC_n_ENDPTFLUSH) are '0'.
+	 3. Read Endpoint Status (USBC_n_ENDPTSTAT) to ensure that for all endpoints
+	    commanded to be flushed, that the corresponding bits are now '0'. If the
+	    corresponding bits are '1' after step #2 has finished, then the flush failed as described
+	    in the following:
+			*Explanation: In very rare cases, a packet is in progress to the particular endpoint
+			 when commanded flush using Endpoint Flush (USBC_n_ENDPTFLUSH). A
+			 safeguard is in place to refuse the flush to ensure that the packet in progress
+			 completes successfully. The DCD may need to repeatedly flush any endpoints
+			 that fail to flush be repeating steps 1-3 until each endpoint is successfully
+			 flushed."
+*/
+
+do
+	{
+	HW_USBCTRL_ENDPTFLUSH_WR(0xFFFFFFFF);						// first point
+	while (HW_USBCTRL_ENDPTFLUSH_RD() != 0)						// second point
+		/* do nothing */ ;
+	}
+while (HW_USBCTRL_ENDPTSTAT_RD() != 0);						// third point
+
+/*
+	Turn off the USB controller (and disconnect)
+*/
+HW_USBCTRL_USBCMD.B.RS = 0;
+
+/*
+	While we still think we are attached we wait
+	I can't work out how to detect that the host thinks we are disconnected so we follow the prior work of
+	others (in this case Rockbox) and wait a while (in this case 1/20 second).
+*/
+delay_us(50000);
+
+/*
+	Reset the USB subsystem
+*/
+HW_USBCTRL_USBCMD_SET(BM_USBCTRL_USBCMD_RST);
+while (HW_USBCTRL_USBCMD.B.RST)
+	/* do nothing */ ;
+
+/*
+	Tell the controller we're a device
+*/
+HW_USBCTRL_USBMODE.B.CM = BV_USBCTRL_USBMODE_CM__DEVICE;
+
+/*
+	Clear all the status bits
+*/
+HW_USBCTRL_ENDPTSETUPSTAT = HW_USBCTRL_ENDPTSETUPSTAT;
+HW_USBCTRL_ENDPTCOMPLETE = HW_USBCTRL_ENDPTCOMPLETE;
+HW_USBCTRL_ENDPTSTAT.U = HW_USBCTRL_ENDPTSTAT.U;
+HW_USBCTRL_USBSTS_SET
+	(
+	BM_USBCTRL_USBSTS_URI | // USB USB Reset Received
+	BM_USBCTRL_USBSTS_PCI | // USB Port Change Detect
+	BM_USBCTRL_USBSTS_UI	// USB Interrupt (USBINT)
+	);
+
+/*
+	Enable interrupts
+	The Port Change Detect interrupt is essential for a disconnect and reconnect while we're powered up.  If
+	we don't enable the port connect then we don't get the reset interrupt to tell us we've just connected to
+	a host.
+*/
+HW_USBCTRL_USBINTR_WR(
+	BM_USBCTRL_USBINTR_URE | 	// USB Reset Enable
+	BM_USBCTRL_USBINTR_PCE |	// USB Port Change Detect
+	BM_USBCTRL_USBINTR_UE 	 	// USB Interrupt Enable.
+	);
+
+/*
+	Set the port speed, options are:
+		BV_USBCTRL_PORTSC1_PSPD__FULL  0		// 12Mb/s
+		BV_USBCTRL_PORTSC1_PSPD__LOW   1		// 1.5Mb/s
+		BV_USBCTRL_PORTSC1_PSPD__HIGH  2		// 480Mb/s
+*/
+HW_USBCTRL_PORTSC1.B.PSPD = BV_USBCTRL_PORTSC1_PSPD__HIGH;
+
+/*
+	Turn on the trip-wire mechanism for Setup packets
+*/
+HW_USBCTRL_USBMODE.B.SLOM = 1;
+
+/*
+	now start the USB sub-system
+*/
+HW_USBCTRL_USBCMD.B.RS = 1;
+}
+
+/*
+	==================================================
+	Program specific set up of the i.MX USB sub-system
+	==================================================
+*/
 /*
 	CONFIG_ENDPOINT()
 	-----------------
@@ -2237,21 +2341,33 @@ void config_endpoint(int which)
 {
 imx_endpoint_transfer_descriptor *td;
 
+/*
+	Get the correct transfer descriptor
+*/
 td = &global_dTD[which];
 
-memset(td, 0, sizeof(*td));
+/*
+	Terminate the linked list
+*/
 td->next_link_pointer = IMX_ENDPOINT_TRANSFER_DESCRIPTOR_TERMINATOR;
 
+/*
+	Set up the queuehead
+*/
 global_queuehead[which].dtd_overlay_area.next_link_pointer = (imx_endpoint_transfer_descriptor *)(((uint32_t)td) + 1);			// end of chain
 global_queuehead[which].dtd_overlay_area.token.all = 0;
 global_queuehead[which].dtd_overlay_area.token.bit.ioc = 1;
-global_transfer_buffer[which][0] = (uint8_t *)main_memory_alloc(IMX_QUEUE_BUFFER_SIZE, IMX_QUEUE_BUFFER_SIZE);
-global_queuehead[which].dtd_overlay_area.buffer_pointer[0] = (void *)global_transfer_buffer[which][0];
 global_queuehead[which].capabilities.all = 0;
 global_queuehead[which].capabilities.bit.maximum_packet_length = USB_MAX_PACKET_SIZE;
 global_queuehead[which].capabilities.bit.ios = 1;
-}
 
+/*
+	Allocate a transfer buffer and put that in the queuehead too
+*/
+if (global_transfer_buffers_preallocated == 0)
+	global_transfer_buffer[which][0] = (uint8_t *)main_memory_alloc(IMX_QUEUE_BUFFER_SIZE, IMX_QUEUE_BUFFER_SIZE);
+global_queuehead[which].dtd_overlay_area.buffer_pointer[0] = (void *)global_transfer_buffer[which][0];
+}
 
 /*
 	USB_SETUP_ENDPOINT_ZERO()
@@ -2260,21 +2376,25 @@ global_queuehead[which].capabilities.bit.ios = 1;
 void usb_setup_endpoint_zero()
 {
 /*
-	Zero everything
+	Zero everything (queheads then transder descriptors)
 */
-memset(global_queuehead, 0, (sizeof *global_queuehead));
+memset(global_queuehead, 0, sizeof (global_queuehead));
+memset(global_dTD, 0, sizeof (global_dTD));
 
 /*
-	Queue 0 and 1 : USB Control
+	Queue 0 and 1 (Endpoint 0): USB Control
 */
 config_endpoint(IMX_USB_CDC_QUEUEHEAD_CONTROL_OUT);
-config_endpoint(IMX_USB_CDC_QUEUEHEAD_CONTROL_IN);				// EP 0
+config_endpoint(IMX_USB_CDC_QUEUEHEAD_CONTROL_IN);
 
 /*
 	Hand off to the i.MX233
 */
 HW_USBCTRL_ENDPOINTLISTADDR_SET((uint32_t)global_queuehead);
 
+/*
+	Start listening
+*/
 usb_queue_td_out(0);
 }
 
@@ -2287,65 +2407,43 @@ void usb_setup_endpoint_nonzero()
 hw_usbctrl_endptctrln_t endpointcfg;
 
 /*
-	Configure the i.MX233 structures
+	Queue 2 and 3 (Endpoint 1): Abstract Control Management Interface
 */
-/*
-	Queue 0 and 1 : USB Control
-*/
-config_endpoint(IMX_USB_CDC_QUEUEHEAD_CONTROL_OUT);
-config_endpoint(IMX_USB_CDC_QUEUEHEAD_CONTROL_IN);				// EP 0
+endpointcfg.U = 0;										// Initialise
+endpointcfg.B.TXE = 1; 								// Transmit enable
+endpointcfg.B.TXR = 1; 								// Reset the PID
+endpointcfg.B.TXT = BV_USBCTRL_ENDPTCTRLn_TXT__INT;	// We're a USB "interrupt" endpoint
+endpointcfg.B.RXE = 1;									// Recieve enable
+endpointcfg.B.RXR = 1;									// Reset the PID
+endpointcfg.B.RXT = BV_USBCTRL_ENDPTCTRLn_RXT__INT;	// We're a USB "interrupt" endpoint
 
 /*
-	Queue 2 and 3: Abstract Control Management Interface
+	Allocate transfer buffers and enable the endpoint
 */
-endpointcfg.B.TXE = 1; //TX endpoint enable
-endpointcfg.B.TXR = 1; 	// reset the PID
-endpointcfg.B.TXI = 0;
-endpointcfg.B.TXT = BV_USBCTRL_ENDPTCTRLn_TXT__INT;
-endpointcfg.B.TXD = 0;
-endpointcfg.B.TXS = 0;
-
-endpointcfg.B.RXE = 1; //RX endpoint enable
-endpointcfg.B.RXR = 1;		// reset the PID
-endpointcfg.B.RXI = 0;
-endpointcfg.B.RXT = BV_USBCTRL_ENDPTCTRLn_RXT__INT;
-endpointcfg.B.RXD = 0;
-endpointcfg.B.RXS = 0;
-
 config_endpoint(IMX_USB_CDC_QUEUEHEAD_ACM_OUT);
 config_endpoint(IMX_USB_CDC_QUEUEHEAD_ACM_IN);
-HW_USBCTRL_ENDPTCTRLn_WR(USB_CDC_ENDPOINT_ABSTRACT_CONTROL_MANAGEMENT, endpointcfg.U);		// EP 1
+HW_USBCTRL_ENDPTCTRLn_WR(USB_CDC_ENDPOINT_ABSTRACT_CONTROL_MANAGEMENT, endpointcfg.U);		// Endpoint 1
 
 /*
-	Queue 4 and 5: Data from host
+	Queue 4 and 5 (Endpoint 2): Data from host
 */
-endpointcfg.U = 0;
-endpointcfg.B.TXE = 1; //TX endpoint enable
-endpointcfg.B.TXR = 1; 	// reset the PID
-endpointcfg.B.TXI = 0;
-endpointcfg.B.TXT = BV_USBCTRL_ENDPTCTRLn_TXT__BULK;
-endpointcfg.B.TXD = 0;
-endpointcfg.B.TXS = 0;
+endpointcfg.U = 0;										// Initialise
+endpointcfg.B.TXE = 1; 								// Transmit enable
+endpointcfg.B.TXR = 1; 								// Reset the PID
+endpointcfg.B.TXT = BV_USBCTRL_ENDPTCTRLn_TXT__BULK;	// We're a USB "bulk" endpoint
+endpointcfg.B.RXE = 1;									// Recieve enable
+endpointcfg.B.RXR = 1;									// Reset the PID
+endpointcfg.B.RXT = BV_USBCTRL_ENDPTCTRLn_RXT__BULK;	// We're a USB "bulk" endpoint
 
-endpointcfg.B.RXE = 1; //RX endpoint enable
-endpointcfg.B.RXR = 1;		// reset the PID
-endpointcfg.B.RXI = 0;
-endpointcfg.B.RXT = BV_USBCTRL_ENDPTCTRLn_RXT__BULK;
-endpointcfg.B.RXD = 0;
-endpointcfg.B.RXS = 0;
-
+/*
+	Allocate transfer buffers and enable the endpoint
+*/
 config_endpoint(IMX_USB_CDC_QUEUEHEAD_DATA_OUT);
 config_endpoint(IMX_USB_CDC_QUEUEHEAD_DATA_IN);
 HW_USBCTRL_ENDPTCTRLn_WR(USB_CDC_ENDPOINT_SERIAL, endpointcfg.U);		// EP 2
 
-
-endpointcfg.U = 0;
-HW_USBCTRL_ENDPTCTRLn_WR(3, endpointcfg.U);		// disable EP 3
-endpointcfg.U = 0;
-HW_USBCTRL_ENDPTCTRLn_WR(4, endpointcfg.U);		// disable EP 4
-
 /*
-	Hand off to the i.MX233
+	Update the i.MX233's pointer to the queueheads (actually, not necessary as the address hasn't changed)
 */
 HW_USBCTRL_ENDPOINTLISTADDR_SET((uint32_t)global_queuehead);
 
@@ -2354,79 +2452,19 @@ HW_USBCTRL_ENDPOINTLISTADDR_SET((uint32_t)global_queuehead);
 */
 usb_queue_td_out(USB_CDC_ENDPOINT_ABSTRACT_CONTROL_MANAGEMENT);
 usb_queue_td_out(USB_CDC_ENDPOINT_SERIAL);
-}
-
 
 /*
-	USB_CONTROLLER_STARTUP()
-	------------------------
+	Make a note of the fact that we have already allocated the buffers once
+	this is done to prevent re-allocation on disconnect and reconnect
 */
-void usb_controller_startup()
-{
-//Turn on clocks to the USB block
-HW_DIGCTL_CTRL_CLR(BM_DIGCTL_CTRL_USB_CLKGATE);
-
-//USB shouldn't be running but let's just verify
-if (HW_USBCTRL_USBCMD.B.RS)
-	{
-	//Stop USB
-	HW_USBCTRL_USBCMD_CLR(BM_USBCTRL_USBCMD_RS);
-
-	//We should be waiting for detach to complete here...
-	delay_us(20000);
-	}
-
-//Reset USB
-HW_USBCTRL_USBCMD_SET(BM_USBCTRL_USBCMD_RST);
-
-while (HW_USBCTRL_USBCMD.B.RST)
-	; //Wait for reset to complete
-
-//Clear interrupt status bits that can apply to us as a Device
-
-//These ones are actually cleared by setting them:
-HW_USBCTRL_USBSTS_SET
-	(
-	BM_USBCTRL_USBSTS_URI | // USB Reset Enable 			(ASPT)
-	BM_USBCTRL_USBSTS_PCI | // USB Port Change Detect Enable	(ASPT)
-	BM_USBCTRL_USBSTS_TI0 |
-	BM_USBCTRL_USBSTS_TI1 |
-	BM_USBCTRL_USBSTS_SRI |
-	BM_USBCTRL_USBSTS_URI
-	);
-
-//This one has unspecified clear behaviour so I'm going to assume I can just CLR
-HW_USBCTRL_USBSTS_CLR(BM_USBCTRL_USBSTS_UI);
-
-//We're a USB device not a USB host
-HW_USBCTRL_USBMODE.B.CM = BV_USBCTRL_USBMODE_CM__DEVICE;
-
-HW_USBCTRL_USBINTR_WR
-	(
-	//		BM_USBCTRL_USBINTR_SRE | //Interrupt me on Start-Of-Frame
-	BM_USBCTRL_USBINTR_URE | // USB Reset Enable 			(ASPT)
-	BM_USBCTRL_USBINTR_PCE | // USB Port Change Detect Enable	(ASPT)
-
-	BM_USBCTRL_USBINTR_UE | //USBINT
-	BM_USBCTRL_USBINTR_SEE | //System error
-	BM_USBCTRL_USBINTR_TIE0 | //Interrupt on general purpose timer 0
-	BM_USBCTRL_USBINTR_TIE1 //Interrupt on general purpose timer 1
-	);
-
-HW_USBCTRL_DEVICEADDR_WR(0); //This should be the reset default but let's make sure
-
-HW_USBCTRL_ENDPTSETUPSTAT_WR(0);
-
-usb_setup_endpoint_zero();
-
-HW_USBCTRL_PORTSC1.B.PSPD = 0; //Full speed (12Mbps) (default)
-
-//Disable setup lockout mode
-HW_USBCTRL_USBMODE.B.SLOM = 1;
-
-HW_USBCTRL_USBCMD.B.RS = 1; //Run
+global_transfer_buffers_preallocated = 1;
 }
 
+/*
+	=========================
+	MAIN() under another name
+	=========================
+*/
 /*
 	C_ENTRY()
 	---------
@@ -2477,7 +2515,7 @@ asm volatile
 	);
 
 /*
-	Move the interrupt vector table to 0x00000000
+	Move the interrupt vector table to 0x00000000 (it should already be there though)
 */
 asm volatile
 	(
@@ -2514,11 +2552,9 @@ HW_ICOLL_CTRL_SET(
 enable_IRQ();
 
 /*
-	Reset the APBX
+	Now we're up and running...
 */
-debug_print_string("\r\n\r\n-------------------\r\n\r\n");
-debug_print_string("APBX reset...");
-debug_print_string(" done!\r\n");
+debug_print_string("\r\ni.MX233 USB CDC Loopback\r\nby Andrew Trotman and Nick Sherlock\r\nCopyright (c) 2012 University of Otago\r\n\r\n");
 
 /*
 	Enable the PHY (physical interface)
@@ -2531,14 +2567,10 @@ debug_print_string(" done!\r\n");
 	Start the USB Controller
 */
 debug_print_string("USB controller startup... ");
+global_transfer_buffers_preallocated = 0;
 usb_controller_startup();
+usb_setup_endpoint_zero();
 debug_print_string(" done!\r\n");
-
-debug_print_string("\r\nSystem online.\r\n");
-
-debug_print_string("USB status register: ");
-debug_print_hex(HW_USBCTRL_USBSTS_RD());
-debug_print_string("\r\n");
 
 for (;;);				// loop forever
 }
