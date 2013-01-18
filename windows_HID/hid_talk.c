@@ -1,6 +1,14 @@
 #include <Windows.h>
-#include "c:\WinDDK\7600.16385.1\inc\api\hidsdi.h"
+#include "hidsdi.h"
+#include "hidpi.h"
 #include <SetupAPI.h>
+
+typedef unsigned char uint8_t;
+typedef unsigned short uint16_t;
+
+
+#define IMX_VID 5538		// Freescale
+#define IMX_PID 84		// i.MX6Q 
 
 /*
 	HID_PRINT_GUID()
@@ -20,6 +28,8 @@ SP_DEVICE_INTERFACE_DATA devInfoData;
 long MemberIndex;
 DWORD Required;
 SP_DEVICE_INTERFACE_DETAIL_DATA *detailData;
+HANDLE hDevice;
+HIDD_ATTRIBUTES Attributes;
 
 /*
 	get the GUID of the Windows HID class so that we can identify HID devices
@@ -53,11 +63,34 @@ for (MemberIndex = 0; SetupDiEnumDeviceInterfaces(hDevInfo, 0, &guid, MemberInde
 	detailData->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);	// should be 5
 	
 	/*
-		Get the name of the HID device
+		Get the name and details of the HID device
 	*/
 	if (SetupDiGetDeviceInterfaceDetail(hDevInfo, &devInfoData, detailData, Required, NULL, NULL))
 		{
+		char buffer[1024];
 		printf("%s\n", detailData->DevicePath);
+		
+		hDevice = CreateFile(detailData->DevicePath, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+		Attributes.Size = sizeof(Attributes);
+		HidD_GetAttributes(hDevice, &Attributes);
+		printf("\tVID:%d PID:%d Version:%d (", Attributes.VendorID, Attributes.ProductID, Attributes.VersionNumber);
+		HidD_GetManufacturerString(hDevice, buffer, sizeof(buffer));
+		wprintf(L"%s", buffer);
+		HidD_GetProductString(hDevice, buffer, sizeof(buffer));
+		wprintf(L"%s)", buffer);
+		puts("");
+		if (Attributes.VendorID == IMX_VID && Attributes.ProductID == IMX_PID)
+			{
+			struct _HIDP_PREPARSED_DATA  *preparsed;
+			HIDP_CAPS capabilities;
+			
+			HidD_GetPreparsedData(hDevice, &preparsed);
+			HidP_GetCaps(preparsed, &capabilities);
+			
+			puts("");
+			HidD_FreePreparsedData(&preparsed)
+			}
+		CloseHandle(hDevice);
 		}
 	/*
 		Clean up the memory allocated to get the HID device name
