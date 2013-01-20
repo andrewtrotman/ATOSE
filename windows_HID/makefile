@@ -10,8 +10,7 @@ DDK_LIB = c:\WinDDK\7600.16385.1\lib\wxp\i386\setupapi.lib c:\WinDDK\7600.16385.
 !ENDIF
 
 hid_talk.exe : hid_talk.c
-	echo $(WINDOWSSDKDIR)
-	cl /Zi hid_talk.c /X -I$(DDK_INCLUDE) $(DDK_LIB)
+	@cl /nologo /W3 /Zi hid_talk.c /X -I$(DDK_INCLUDE) $(DDK_LIB)
 
 clean:
 	del *.obj *.exe *.bak *.pdb *.sln *.ilk
