@@ -1,5 +1,5 @@
 /*
-	HID_TALK.C
+	IMX_RUN.C
 	----------
 	Copyright (c) 2013 Andrew Trotman, University of Otago
 	Open Source under the BSD License.
