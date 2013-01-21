@@ -22,8 +22,8 @@ typedef unsigned short uint16_t;
 typedef unsigned long uint32_t;
 typedef unsigned long long uint64_t;
 
-#define IMX_VID 5538		// Freescale
-#define IMX_PID 84		// i.MX6Q 
+#define IMX_VID 5538		// 0x15A2:Freescale 
+#define IMX_PID 84			// 0x0054 i.MX6Q 
 
 /*
 	IMX_SERIAL_MESSAGE
@@ -61,11 +61,25 @@ uint8_t reserved;
 #define BITS_16 0x10
 #define BITS_32 0x20
 
+/*
+	The recieve and transmit buffers are allocated at runtime based on the
+	capabilities information returned by the USB HID device
+*/
 unsigned char *recieve_buffer, *transmit_buffer;
 uint32_t recieve_buffer_length, transmit_buffer_length;
 
+/*
+	Due to a bug in the i.MX6Q ROMs we need a buffer the same size as the transmit buffer
+	to hold the contents of the last one kilobyte of RAM we're going to write into when
+	we do a write_file.
+*/
+unsigned char *transmit_double_buffer;
 
+/*
+	Verbose mode is a bit more explicit about the communications thats going on
+*/
 long verbose;
+
 /*
 	In Windows there are two ways to communicate with a HID device, one is using HidD_SetOutputReport() and HidD_GetInputReport()
 	while the other is to use WriteFile() and ReadFile().  It turns out they are not equivelant.  the HidD methods send the
@@ -246,8 +260,8 @@ return 0;
 }
 
 /*
-	IMX_WRITE_FILE()
-	----------------
+	IMX_BLOCK_WRITE()
+	-----------------
 	See page 453-454 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012"
 
 	I send a Report 1
@@ -265,9 +279,8 @@ return 0;
 	To get around this as much as possible its necessary to read the last kilobyte of memory into the transmit
 	buffer before writing the contents of the file into it and sending it back to the i.MX6Q!
 */
-uint32_t imx_write_file(HANDLE hDevice, uint32_t address, uint32_t bytes, unsigned char *data)
+uint32_t imx_block_write(HANDLE hDevice, uint32_t address, uint32_t bytes, unsigned char *data, uint16_t method, unsigned char *success)
 {
-unsigned char success[] = {0x04, 0x88, 0x88, 0x88, 0x88};
 imx_serial_message message;
 DWORD dwBytes = 0;
 unsigned char *from;
@@ -279,50 +292,45 @@ uint32_t current_buffer_length;
 */
 memset(&message, 0, sizeof(message));
 message.report_id = 1;
-message.command_type = WRITE_FILE;
+message.command_type = method;
 message.address = intel_to_arm(address);
 message.format = BITS_8;
 message.data_count = intel_to_arm(bytes);
 message.data = 0;
 
-printf("write %llX bytes of data to %llX\n", (long long)bytes, (long long)address);
+/*
+	Due to a bug in the i.MX6Q ROM we need to read the last kilobyte from the i.MX6Q into the transmit
+	buffer, then write our final packet over it and send that packet back.
+*/
+imx_read_register(hDevice, address + (bytes - (bytes % transmit_buffer_length)), (transmit_buffer_length - 1), transmit_double_buffer);
 
 /*
 	Transmit to the board and get the response back
 */
-if (HidD_SetOutputReport(hDevice, &message, sizeof(message)))								// transmit Report 1 (WRITE FILE)
+if (HidD_SetOutputReport(hDevice, &message, sizeof(message)))								// transmit Report 1
 	{
 	/*
 		Send the data
 	*/
 	remaining = bytes;
-	for (from = data; from < data + bytes; from += transmit_buffer_length -1)
+	from = data;
+	while (from < data + bytes)
 		{
 		/*
-			Clear the transmit buffer (so any extra data is 0x00)
-		*/
-		memset(transmit_buffer, 0, transmit_buffer_length);
-
-		/*
 			The first byte to send is the Report ID (in this case 0x02)
-		*/
-		*transmit_buffer = 0x02;
-		/*
 			The remainder of the buffer is bytes to send
 		*/
+		*transmit_buffer = 0x02;
 		current_buffer_length = remaining > transmit_buffer_length - 1 ? transmit_buffer_length - 1 : remaining;
+		if (current_buffer_length < transmit_buffer_length - 1)
+			memcpy(transmit_buffer + 1, transmit_double_buffer, transmit_buffer_length - 1);	// final packet (hack for i.MX6Q ROM bug)
 		memcpy(transmit_buffer + 1, from, current_buffer_length);
 
 		/*
 			Always transmit a full buffer worth of data (even if it is short)
 		*/
 		if (!WriteFile(hDevice, transmit_buffer, transmit_buffer_length, &dwBytes, NULL))
-			{
-			printf("WriteFile failure (%lld bytes): %lld\n", (long long)current_buffer_length, (long long)GetLastError());
 			return 0;
-			}
-
-		printf("%lld bytes written\n", (long long)current_buffer_length);
 
 		remaining -= current_buffer_length;
 		from += current_buffer_length;
@@ -339,6 +347,82 @@ if (HidD_SetOutputReport(hDevice, &message, sizeof(message)))								// transmit
 				printf("Load File Error:%02X%02X%02X%02X\n", recieve_buffer[1], recieve_buffer[2], recieve_buffer[3], recieve_buffer[4]);
 	}
 
+return 0;
+}
+
+/*
+	IMX_WRITE_FILE()
+	----------------
+	See pages 453-454 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012"
+	This method is a stub that just sets the message type to WRITE_FILE and then calls imx_block_write
+*/
+uint32_t imx_write_file(HANDLE hDevice, uint32_t address, uint32_t bytes, unsigned char *data)
+{
+unsigned char success[] = {0x04, 0x88, 0x88, 0x88, 0x88};
+
+return imx_block_write(hDevice, address, bytes, data, WRITE_FILE, success);
+}
+
+/*
+	IMX_DCD_WRITE()
+	---------------
+	See pages 455-456 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012"
+	This method is a stub that just sets the message type to DCD_WRITE and then calls imx_block_write
+
+	See pages 442-447 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012" for
+	informaton on the format of a DCD file
+*/
+uint32_t imx_dcd_write(HANDLE hDevice, uint32_t address, uint32_t bytes, unsigned char *data)
+{
+unsigned char success[] = {0x04, 0x12, 0x8A, 0x8A, 0x12};
+
+return imx_block_write(hDevice, address, bytes, data, DCD_WRITE, success);
+}
+
+/*
+	IMX_JUMP_ADDRESS()
+	------------------
+	See page 456 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012"
+
+	I send a Report 1
+	i.MX6Q sends a Report 3 (security descriptor: 0x12343412 in closed mode or 0x56787856 in open mode)
+	i.MX6Q, optionally (on error), sends a Report 4 (4 byte HAB error status)
+
+	return 1 on success 0 on failure
+*/
+uint32_t imx_jump_address(HANDLE hDevice, uint32_t address)
+{
+imx_serial_message message;
+DWORD dwBytes = 0;
+
+/*
+	Set up the message block (Report 1)
+*/
+memset(&message, 0, sizeof(message));
+message.report_id = 1;
+message.command_type = JUMP_ADDRESS;
+message.address = intel_to_arm(address);
+message.format = BITS_8;
+message.data_count = 0;
+message.data = 0;
+
+/*
+	Transmit to the board and get the response back
+*/
+if (HidD_SetOutputReport(hDevice, &message, sizeof(message)))								// transmit Report 1
+	if (imx_get_security_descriptor(hDevice))												// recieve Report 3 (security descriptor)
+		{
+		/*
+			We expect this to time out if the device is functioning correctly.  If we get a reply
+			then the result is a 4-byte HAB code.
+		*/
+		memset(recieve_buffer, 0, recieve_buffer_length);
+		if (!ReadFile(hDevice, recieve_buffer, recieve_buffer_length, &dwBytes, NULL))		// recieve Report 4
+			return 1;		// failure to read is a success (because the board is busy)
+
+		printf("Jump Address Error:HIDRepor%02X = %02X%02X%02X%02X\n", recieve_buffer[0], recieve_buffer[1], recieve_buffer[2], recieve_buffer[3], recieve_buffer[4]);
+		return 0;		// but the HAB code is in recieve_buffer[1]..recieve_buffer[4]
+		}
 return 0;
 }
 
@@ -433,18 +517,25 @@ void help(void)
 {
 puts("COMMAND LINE ARGUMENTS");
 puts("----------------------");
-puts("-?                           : display this message");
-puts("-verbose                     : display each command as its performed (helps with debugging)");
+puts("-?                            : display this message");
+puts("-verbose                      : display each command as its performed (helps with debugging)");
 puts("");
 puts("COMMANDS");
 puts("--------");
-puts("<address>: <byte> ... <byte> : write <byte> stream to memory starting at <address>.  Specify in Hex");
-puts("read <address> <bytes>       : read <bytes> from <address>.  Specify in Hex");
-puts("load <address> <filename>    : load the contents of <filename> at <address>. Specify in Hex");
-puts("status                       : fetch and print current (HAD) error status. (0xF0F0F0F0 is success)");
-puts("help                         : display this message");
-puts("quit                         : exit this program");
-puts("verbose                      : toggle (on-> off, off->on) verbose mode (see above)");
+puts("?                             : display this message");
+puts("<address>                     : read <bytes> from <address>.  Specify in Hex");
+puts("<address>: <byte> ... <byte>  : write <byte> stream to memory starting at <address>.  Specify in Hex");
+puts("<address>g                    : branch to <address> (e.g. C600g).  Specify in Hex");
+puts("help                          : display this message");
+puts("info                          : display this message");
+puts("load <address> <filename>     : load the contents of <filename> at <address>. Specify in Hex");
+puts("load_dcd <address> <filename> : load the contents of Device Configuration Data (DCC) <filename> at <address>. Specify in Hex");
+puts("man                           : display this message");
+puts("quit                          : exit this program");
+puts("read <address> <bytes>        : read <bytes> from <address>.  Specify in Hex");
+puts("run <address>                 : branch to <address>.  Specify in Hex");
+puts("status                        : fetch and print current (HAD) error status. (0xF0F0F0F0 is success)");
+puts("verbose                       : toggle (on->off, off->on) verbose mode (see above)");
 }
 
 /*
@@ -512,6 +603,8 @@ if (filename == NULL)
 if (file_length == NULL)
 	file_length = &unused;
 
+*file_length = 0;
+
 if ((fp = CreateFile(true_filename, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN, NULL)) == INVALID_HANDLE_VALUE)
 	return NULL;
 
@@ -538,8 +631,8 @@ return block;
 void go_be_a_monitor(HANDLE hDevice)
 {
 unsigned char command[1024];
-unsigned char into[1024];
-uint64_t address = 0x00000000, bytes_to_read = 0x0F, byte, bytes_to_send = 0;
+static unsigned char into[1024 * 1024];
+uint64_t address = 0x00000000, bytes_to_read = 0x0F, byte, bytes_to_send = 0, write_address;
 char *next, *data;
 uint32_t status;
 
@@ -553,6 +646,10 @@ do
 		break;
 	else if (strcmp(command, "help") == 0)
 		help();
+	else if (strcmp(command, "info") == 0)
+		help();
+	else if (strcmp(command, "man") == 0)
+		help();
 	else if (strcmp(command, "?") == 0)
 		help();
 	else if (strcmp(command, "verbose") == 0)
@@ -564,30 +661,66 @@ do
 		{
 		sscanf(command + 5, "%llX %llX", &address, &bytes_to_read);
 		if (verbose)
-			printf("Read %llX (dec:%lld) bytes from %08llX\n", bytes_to_read, bytes_to_read, address);
+			printf("Read %llX (dec:%lld) bytes from %08llX (dec:%lld)\n", bytes_to_read, bytes_to_read, address, address);
 		if (bytes_to_read <= 0)
 			bytes_to_read = 1;
 		else if (bytes_to_read > sizeof(into))
 			printf("Cannot dump more than %llX (dec:%lld) bytes in one read\n", (long long)sizeof(into), (long long)sizeof(into));
 		else
 			{
-			imx_read_register(hDevice, (uint32_t)address, (uint32_t)bytes_to_read, into);
-			dump_buffer(into, address, bytes_to_read);
+			if (imx_read_register(hDevice, (uint32_t)address, (uint32_t)bytes_to_read, into))
+				dump_buffer(into, address, bytes_to_read);
+			else
+				puts("Read failed");
+			address += bytes_to_read;
 			}
+		}
+	else if (strncmp(command, "run ", 4) == 0)
+		{
+		sscanf(command + 4, "%llX", &address);
+		if (verbose)
+			printf("Run %08llX (dec:%lld)\n", address, address);
+		if (!imx_jump_address(hDevice, (uint32_t)address))
+			puts("Run failed");
 		}
 	else if (isdigit(*command))
 		{
 		address = _strtoui64((char *)command, &next, 16);
-		while (*next != '\0')
+		if (*next == 'g')		// as in C600g (branch to 0xC600)
 			{
-			next++;		// move over the char that caused the last parse to fail (i,e, the space).
-			byte = _strtoui64(next, &next, 16);
-			byte = (unsigned char)byte;
 			if (verbose)
-				printf("%08llX <- %02llX\n", (long long)address, (long long)byte);
-			imx_write_register(hDevice, (uint32_t)address, (uint8_t)byte);
-			address++;
+				printf("Run %08llX (dec:%lld)\n", address, address);
+			if (!imx_jump_address(hDevice, (uint32_t)address))
+				puts("Run failed");
 			}
+		else if (*next == '\0')		// list the next 16 bytes from the given address
+			{
+			bytes_to_read = 0x10;
+			if (verbose)
+				printf("Read %llX (dec:%lld) bytes from %08llX (dec:%lld)\n", bytes_to_read, bytes_to_read, address, address);
+			if (imx_read_register(hDevice, (uint32_t)address, (uint32_t)bytes_to_read, into))
+				dump_buffer(into, address, bytes_to_read);
+			else
+				puts("Read failed");
+			address += bytes_to_read;
+			}
+		else if (*next == ':' || (*next == ' ' && *(next + 1) == ':'))	// else we're a write operation
+			{
+			write_address = address;
+			while (*next != '\0')
+				{
+				next++;		// move over the char that caused the last parse to fail (i,e, the space).
+				byte = _strtoui64(next, &next, 16);
+				byte = (unsigned char)byte;
+				if (verbose)
+					printf("%08llX <- %02llX\n", write_address, byte);
+				if (!imx_write_register(hDevice, (uint32_t)write_address, (uint8_t)byte))
+					puts("Write failed");
+				write_address++;
+				}
+			}
+		else
+			puts("Syntax Error");
 		}
 	else if (strcmp(command, "status") == 0)
 		{
@@ -600,16 +733,46 @@ do
 		{
 		address = _strtoui64((char *)command + 4, &next, 16);
 		strip_space_inplace(next);
+		if ((data = read_entire_file(next, &bytes_to_send)) == NULL)
+			printf("Cannot read contents of file '%s'\n", next);
+		else
+			{
+			if (verbose)
+				{
+				printf("Load the contents of '%s' (%lld bytes) to address %08llX (dec:%lld) ", next, bytes_to_send, address, address);
+				if (bytes_to_send >= 4)
+					printf("(starting: %02X %02X %02X %02X...)", data[0], data[1], data[2], data[3]);
+				puts("");
+				}
+			imx_write_file(hDevice, (uint32_t)address, (uint32_t)bytes_to_send, data);
+			free(data);
+			}
+		}
+	else if (strncmp(command, "load_dcd ", 9) == 0)
+		{
+		address = _strtoui64((char *)command + 8, &next, 16);
+		strip_space_inplace(next);
 		data = read_entire_file(next, &bytes_to_send);
 		if (verbose)
 			{
-			printf("Load the contents of %s (%lld bytes) to address %08llX ", next, bytes_to_send, address);
+			printf("Load the contents of '%s' (%lld bytes) to address %08llX (dec:%lld) ", next, bytes_to_send, address, address);
 			if (bytes_to_send >= 4)
 				printf("(starting: %02X %02X %02X %02X...)", data[0], data[1], data[2], data[3]);
 			puts("");
 			}
-		imx_write_file(hDevice, (uint32_t)address, (uint32_t)bytes_to_send, data);
+		imx_dcd_write(hDevice, (uint32_t)address, (uint32_t)bytes_to_send, data);
 		free(data);
+		}
+	else if (*command == '\0')
+		{
+		bytes_to_read = 0x10;
+		if (verbose)
+			printf("Read %llX (dec:%lld) bytes from %08llX (dec:%lld)\n", bytes_to_read, bytes_to_read, address, address);
+		if (imx_read_register(hDevice, (uint32_t)address, (uint32_t)bytes_to_read, into))
+			dump_buffer(into, address, bytes_to_read);
+		else
+			puts("Read failed");
+		address += bytes_to_read;
 		}
 	else
 		puts("Syntax Error");
@@ -630,12 +793,16 @@ HidD_GetPreparsedData(hDevice, &preparsed);
 HidP_GetCaps(preparsed, &capabilities);
 
 /*
-	Create the recieve buffer.  Unfortunately we don't know how large this is at
+	Create the recieve and transmit buffers.  Unfortunately we don't know how large this is at
 	compile time because its information returned by the HID device.  We, consequently
 	must create it and pass that data around (so we make it global).
+
+	transmit_double_buffer is needed for loading and storing the last "block" of RAM to avoid trashing
+	the contents of the i.MX6Q RAM (due to a bug in its ROM)
 */
 recieve_buffer = (unsigned char *)malloc(recieve_buffer_length = capabilities.InputReportByteLength);
 transmit_buffer = (unsigned char *)malloc(transmit_buffer_length = capabilities.OutputReportByteLength);
+transmit_double_buffer = (unsigned char *)malloc(capabilities.OutputReportByteLength);
 
 /*
 	Flush the internal buffers
@@ -677,7 +844,7 @@ DWORD Required;
 SP_DEVICE_INTERFACE_DETAIL_DATA *detailData;
 HANDLE hDevice;
 HIDD_ATTRIBUTES Attributes;
-long parameter;
+long parameter, found = false;
 
 verbose = false;
 for (parameter = 0; parameter < argc; parameter++)
@@ -695,13 +862,13 @@ for (parameter = 0; parameter < argc; parameter++)
 	get the GUID of the Windows HID class so that we can identify HID devices
 */
 HidD_GetHidGuid(&guid);
-#ifdef NEVER
-	/*
-		Print the GUID
-	*/
+
+if (verbose)
+	{
+	printf("The USB GUID is:");
 	HID_print_guid(&guid);
 	puts("");
-#endif
+	}
 
 /*
 	Get the list of HID devices
@@ -735,18 +902,29 @@ for (MemberIndex = 0; SetupDiEnumDeviceInterfaces(hDevInfo, 0, &guid, MemberInde
 		if ((hDevice = CreateFile(detailData->DevicePath, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL)) != INVALID_HANDLE_VALUE)
 			{
 			char buffer[1024];
-//			printf("%s\n", detailData->DevicePath);
+			COMMTIMEOUTS timeout = {1000, 0, 1000, 0, 1000};		// reads and writes timeout in one second
+			if (verbose)
+				printf("Found USB HID Device: %s\n", detailData->DevicePath);
 
+			SetCommTimeouts(hDevice, &timeout);
 			Attributes.Size = sizeof(Attributes);
 			HidD_GetAttributes(hDevice, &Attributes);
-			printf("Found: VID:%04llx PID:%04llx Version:%lld (", (long long)Attributes.VendorID, (long long)Attributes.ProductID, (long long)Attributes.VersionNumber);
-			HidD_GetManufacturerString(hDevice, buffer, sizeof(buffer));
-			wprintf(L"%s", buffer);
-			HidD_GetProductString(hDevice, buffer, sizeof(buffer));
-			wprintf(L"%s)", buffer);
-			puts("");
+			if (verbose)
+				{
+				printf("      VID:%04llx PID:%04llx Version:%lld (", (long long)Attributes.VendorID, (long long)Attributes.ProductID, (long long)Attributes.VersionNumber);
+				HidD_GetManufacturerString(hDevice, buffer, sizeof(buffer));
+				wprintf(L"%s", buffer);
+				HidD_GetProductString(hDevice, buffer, sizeof(buffer));
+				wprintf(L"%s)", buffer);
+				puts("");
+				}
 			if (Attributes.VendorID == IMX_VID && Attributes.ProductID == IMX_PID)
+				{
+				found = true;
+				if (verbose)
+					puts("i.MX6Q device identified");
 				hid_manage_imx6(hDevice);
+				}
 			CloseHandle(hDevice);
 			}
 		}
@@ -760,6 +938,9 @@ for (MemberIndex = 0; SetupDiEnumDeviceInterfaces(hDevInfo, 0, &guid, MemberInde
 	Clean up the memory allocated when we got the device list
 */
 SetupDiDestroyDeviceInfoList(hDevInfo);
+
+if (!found)
+	puts("Cannot find an i.MX6Q attached");
 
 return 0;
 }
