@@ -20,10 +20,12 @@ int false = (1 == 0);
 typedef unsigned char uint8_t;
 typedef unsigned short uint16_t;
 typedef unsigned long uint32_t;
+typedef long int32_t;
 typedef unsigned long long uint64_t;
 
 #define IMX_VID 5538		// 0x15A2:Freescale 
 #define IMX_PID 84			// 0x0054 i.MX6Q 
+
 
 /*
 	IMX_SERIAL_MESSAGE
@@ -60,6 +62,59 @@ uint8_t reserved;
 #define BITS_8  0x08
 #define BITS_16 0x10
 #define BITS_32 0x20
+
+/*
+	ELF stuff
+	---------
+*/
+typedef uint32_t	Elf32_Addr;
+typedef uint16_t	Elf32_Half;
+typedef uint32_t	Elf32_Off;
+typedef int32_t	Elf32_Sword;
+typedef uint32_t	Elf32_Word;
+typedef uint32_t	Elf32_Size;
+
+#define EI_NIDENT	16	/* Size of e_ident array. */
+
+/*
+	ELF32_EHDR
+	----------
+	ELF file header
+*/
+typedef struct
+{
+unsigned char	e_ident[EI_NIDENT];	/* File identification. */
+Elf32_Half	e_type;
+Elf32_Half	e_machine;
+Elf32_Word	e_version;
+Elf32_Addr	e_entry;
+Elf32_Off	e_phoff;
+Elf32_Off	e_shoff;
+Elf32_Word	e_flags;
+Elf32_Half	e_ehsize;
+Elf32_Half	e_phentsize;
+Elf32_Half	e_phnum;
+Elf32_Half	e_shentsize;
+Elf32_Half	e_shnum;
+Elf32_Half	e_shstrndx;
+} Elf32_Ehdr;
+
+/*
+	ELF32_PHDR
+	----------
+	ELF program header
+*/
+typedef struct
+{
+Elf32_Word	p_type;
+Elf32_Off	p_offset;
+Elf32_Addr	p_vaddr;
+Elf32_Addr	p_paddr;
+Elf32_Size	p_filesz;
+Elf32_Size	p_memsz;
+Elf32_Word	p_flags;
+Elf32_Size	p_align;
+} Elf32_Phdr;
 
 /*
 	The recieve and transmit buffers are allocated at runtime based on the
@@ -829,6 +884,55 @@ void HID_print_guid(GUID *guid)
 printf("%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X", guid->Data1, guid->Data2, guid->Data3, guid->Data4[0], guid->Data4[1], guid->Data4[2], guid->Data4[3], guid->Data4[4], guid->Data4[5], guid->Data4[6], guid->Data4[7]);
 }
 
+
+/*
+	ELF_LOAD()
+	----------
+	Given a pointer to an ELF file, send it to the i.MX6Q board and tell the board to execute it.
+	We don't do any checking here because we already have control over the board pre-boot. and so
+	it really doesn't matter what we download into it. 
+		
+	Return the program entry point on success or -1 (0xFFFFFFFF) on error.
+*/
+uint32_t elf_load(const uint8_t *file, uint32_t length)
+{
+Elf32_Ehdr *header;			// the ELF file header
+uint32_t header_ok;			// used to check the ELf magic number is correct
+uint32_t header_offset;		// location (in the file) of the first header
+uint32_t header_size;			// size of each header
+uint32_t header_num;			// number of headers
+Elf32_Phdr *current_header;	// the current header
+uint32_t which;				// which header we're currenty looking at
+uint32_t permissions;			// permissions on pages in the address space (READ / WRITE / EXECUTE / etc.)
+uint8_t *into;					// pointer to a segment returned by the address space
+
+/*
+	Get a pointer to the elf header
+*/
+header = (Elf32_Ehdr *)file;
+
+/*
+	Now we move on to the ELF program header
+*/
+header_offset = header->e_phoff;
+header_size = header->e_phentsize;
+header_num = header->e_phnum;
+
+/*
+	Find the segments.  There should be at most three, .text, .data and .bss
+*/
+current_header = (Elf32_Phdr *)(file + header_offset);
+for (which = 0; which < header_num; which++)
+	{
+	into = process->address_space.add((void *)(current_header->p_vaddr), current_header->p_memsz, permissions);
+
+	memcpy((void *)current_header->p_vaddr, file + current_header->p_offset, current_header->p_filesz);
+
+	current_header++;
+	}
+
+return header->e_entry;
+}
 
 /*
 	MAIN()
