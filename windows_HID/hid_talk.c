@@ -420,7 +420,7 @@ if (HidD_SetOutputReport(hDevice, &message, sizeof(message)))								// transmit
 		if (!ReadFile(hDevice, recieve_buffer, recieve_buffer_length, &dwBytes, NULL))		// recieve Report 4
 			return 1;		// failure to read is a success (because the board is busy)
 
-		printf("Jump Address Error:HIDRepor%02X = %02X%02X%02X%02X\n", recieve_buffer[0], recieve_buffer[1], recieve_buffer[2], recieve_buffer[3], recieve_buffer[4]);
+		printf("Jump Address Error:HIDReport%02X = %02X%02X%02X%02X\n", recieve_buffer[0], recieve_buffer[1], recieve_buffer[2], recieve_buffer[3], recieve_buffer[4]);
 		return 0;		// but the HAB code is in recieve_buffer[1]..recieve_buffer[4]
 		}
 return 0;
