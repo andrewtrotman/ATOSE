@@ -23,8 +23,8 @@ typedef unsigned long uint32_t;
 typedef long int32_t;
 typedef unsigned long long uint64_t;
 
-#define IMX_VID 5538		// 0x15A2:Freescale 
-#define IMX_PID 84			// 0x0054 i.MX6Q 
+#define IMX_VID 5538		// 0x15A2:Freescale
+#define IMX_PID 84			// 0x0054 i.MX6Q
 
 
 /*
@@ -32,7 +32,7 @@ typedef unsigned long long uint64_t;
 	------------------
 */
 #pragma pack(1)			// Microsoft's way of aligning on 1 byte boundaries
-typedef struct
+typedef struct _imx_serial_message
 {
 uint8_t report_id;
 uint16_t command_type;
@@ -51,9 +51,9 @@ uint8_t reserved;
 #define READ_REGISTER		0x0101
 #define WRITE_REGISTER		0x0202
 #define WRITE_FILE			0x0404
-#define ERROR_STATUS		0x0505
-#define DCD_WRITE			0x0A0A
-#define JUMP_ADDRESS		0x0B0B
+#define ERROR_STATUS		   0x0505
+#define DCD_WRITE			   0x0A0A
+#define JUMP_ADDRESS		   0x0B0B
 
 /*
 	IMX_SERIAL_MESSAGE formats
@@ -81,7 +81,7 @@ typedef uint32_t	Elf32_Size;
 	----------
 	ELF file header
 */
-typedef struct
+typedef struct _Elf32_Ehdr
 {
 unsigned char	e_ident[EI_NIDENT];	/* File identification. */
 Elf32_Half	e_type;
@@ -104,7 +104,7 @@ Elf32_Half	e_shstrndx;
 	----------
 	ELF program header
 */
-typedef struct
+typedef struct _Elf32_Phdr
 {
 Elf32_Word	p_type;
 Elf32_Off	p_offset;
@@ -129,6 +129,15 @@ uint32_t recieve_buffer_length, transmit_buffer_length;
 	we do a write_file.
 */
 unsigned char *transmit_double_buffer;
+
+/*
+   This program can also be used to download an ELF file to the i.MX6Q and execute it. These globals store the file
+   the its length for any file we're going to upload (or NULL on none)
+   and length of the file we'
+*/
+char *elf_file = NULL;
+char *elf_filename = NULL;
+long long elf_file_length = 0;
 
 /*
 	Verbose mode is a bit more explicit about the communications thats going on
@@ -465,8 +474,12 @@ message.data = 0;
 	Transmit to the board and get the response back
 */
 if (HidD_SetOutputReport(hDevice, &message, sizeof(message)))								// transmit Report 1
-	if (imx_get_security_descriptor(hDevice))												// recieve Report 3 (security descriptor)
+	if (imx_get_security_descriptor(hDevice))												      // recieve Report 3 (security descriptor)
 		{
+      /*
+         At present this isn't returning (because the board is running) so we ignore the possible Report 4
+      */
+#ifdef NEVER
 		/*
 			We expect this to time out if the device is functioning correctly.  If we get a reply
 			then the result is a 4-byte HAB code.
@@ -477,6 +490,7 @@ if (HidD_SetOutputReport(hDevice, &message, sizeof(message)))								// transmit
 
 		printf("Jump Address Error:HIDReport%02X = %02X%02X%02X%02X\n", recieve_buffer[0], recieve_buffer[1], recieve_buffer[2], recieve_buffer[3], recieve_buffer[4]);
 		return 0;		// but the HAB code is in recieve_buffer[1]..recieve_buffer[4]
+#endif
 		}
 return 0;
 }
@@ -533,6 +547,57 @@ return 0;
 }
 
 /*
+	ELF_LOAD()
+	----------
+	Given a pointer to an ELF file, send it to the i.MX6Q board and tell the board to execute it.
+	We don't do any checking here because we already have control over the board pre-boot. and so
+	it really doesn't matter what we download into it.
+
+	Return the program entry point on success or -1 (0xFFFFFFFF) on error.
+*/
+uint32_t elf_load(HANDLE hDevice, const uint8_t *file, uint32_t length)
+{
+Elf32_Ehdr *header;			   // the ELF file header
+uint32_t header_offset;		   // location (in the file) of the first header
+uint32_t header_num;			   // number of headers
+Elf32_Phdr *current_header;	// the current header
+uint32_t which;				   // which header we're currenty looking at
+char *buffer;                 // Used to create long string of zeros to clear the various sections of memory
+
+/*
+	Get a pointer to the elf header
+*/
+header = (Elf32_Ehdr *)file;
+
+/*
+	Now we move on to the ELF program header
+*/
+header_offset = header->e_phoff;
+header_num = header->e_phnum;
+
+/*
+	Find the segments.  There should be at most three, .text, .data and .bss
+*/
+current_header = (Elf32_Phdr *)(file + header_offset);
+for (which = 0; which < header_num; which++)
+	{
+   /*
+      For each section we'll first first zero out that memory then we'll copy the contents of the
+      section into it. That way we can guarantee to get zero's into the BSS and DATA sections, and
+      any necessary zeroes into the code section.
+   */
+   buffer = (char *)malloc(current_header->p_memsz);
+   memset(buffer, 0, current_header->p_memsz);
+   imx_write_file(hDevice, current_header->p_vaddr, current_header->p_memsz, buffer);
+   imx_write_file(hDevice, current_header->p_vaddr, current_header->p_filesz, (char *)(file + current_header->p_offset));
+   free(buffer);
+	current_header++;
+	}
+
+return header->e_entry;
+}
+
+/*
 	DUMP_BUFFER()
 	-------------
 */
@@ -549,7 +614,7 @@ while (remaining > 0)
 
 	for (column = 0; column < width; column++)
 		printf("%02X ", buffer[column]);
-	
+
 	for (; column < 0x10; column++)
 		printf("   ");
 
@@ -574,6 +639,8 @@ puts("COMMAND LINE ARGUMENTS");
 puts("----------------------");
 puts("-?                            : display this message");
 puts("-verbose                      : display each command as its performed (helps with debugging)");
+puts("<elf_filename>                : find the first appropriate device, load <elf_filename> onto it, run it, and terminate");
+puts("                              : if no <elf_filename> is given the enter interactive mode and accept COMMANDs from below");
 puts("");
 puts("COMMANDS");
 puts("--------");
@@ -583,7 +650,7 @@ puts("<address>: <byte> ... <byte>  : write <byte> stream to memory starting at 
 puts("<address>g                    : branch to <address> (e.g. C600g).  Specify in Hex");
 puts("help                          : display this message");
 puts("info                          : display this message");
-puts("load <address> <filename>     : load the contents of <filename> at <address>. Specify in Hex");
+puts("load <address> <filename>     : load the contents of <filename> at <address>. Specify in Hex. <filename> is *not* and ELF file");
 puts("load_dcd <address> <filename> : load the contents of Device Configuration Data (DCC) <filename> at <address>. Specify in Hex");
 puts("man                           : display this message");
 puts("quit                          : exit this program");
@@ -843,6 +910,7 @@ void hid_manage_imx6(HANDLE hDevice)
 {
 struct _HIDP_PREPARSED_DATA  *preparsed;
 HIDP_CAPS capabilities;
+uint32_t elf_start_address;
 
 HidD_GetPreparsedData(hDevice, &preparsed);
 HidP_GetCaps(preparsed, &capabilities);
@@ -869,7 +937,20 @@ HidD_FlushQueue(hDevice);
 	and the usage to be 0x01 (i.e. its device type 0x01), but this is mostly meaningless.
 */
 
-go_be_a_monitor(hDevice);
+if (elf_file != NULL)
+   {
+   if (verbose)
+      printf("Load ELF file '%s'\n", elf_filename);
+   elf_start_address = elf_load(hDevice, elf_file, (uint32_t)elf_file_length);
+   if (verbose)
+      printf("Jump to %08llX\n", (long long) elf_start_address);
+   imx_jump_address(hDevice, elf_start_address);
+   if (verbose)
+      puts("Running");
+   return;
+   }
+else
+   go_be_a_monitor(hDevice);
 
 HidD_FreePreparsedData(preparsed);
 }
@@ -882,56 +963,6 @@ HidD_FreePreparsedData(preparsed);
 void HID_print_guid(GUID *guid)
 {
 printf("%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X", guid->Data1, guid->Data2, guid->Data3, guid->Data4[0], guid->Data4[1], guid->Data4[2], guid->Data4[3], guid->Data4[4], guid->Data4[5], guid->Data4[6], guid->Data4[7]);
-}
-
-
-/*
-	ELF_LOAD()
-	----------
-	Given a pointer to an ELF file, send it to the i.MX6Q board and tell the board to execute it.
-	We don't do any checking here because we already have control over the board pre-boot. and so
-	it really doesn't matter what we download into it. 
-		
-	Return the program entry point on success or -1 (0xFFFFFFFF) on error.
-*/
-uint32_t elf_load(const uint8_t *file, uint32_t length)
-{
-Elf32_Ehdr *header;			// the ELF file header
-uint32_t header_ok;			// used to check the ELf magic number is correct
-uint32_t header_offset;		// location (in the file) of the first header
-uint32_t header_size;			// size of each header
-uint32_t header_num;			// number of headers
-Elf32_Phdr *current_header;	// the current header
-uint32_t which;				// which header we're currenty looking at
-uint32_t permissions;			// permissions on pages in the address space (READ / WRITE / EXECUTE / etc.)
-uint8_t *into;					// pointer to a segment returned by the address space
-
-/*
-	Get a pointer to the elf header
-*/
-header = (Elf32_Ehdr *)file;
-
-/*
-	Now we move on to the ELF program header
-*/
-header_offset = header->e_phoff;
-header_size = header->e_phentsize;
-header_num = header->e_phnum;
-
-/*
-	Find the segments.  There should be at most three, .text, .data and .bss
-*/
-current_header = (Elf32_Phdr *)(file + header_offset);
-for (which = 0; which < header_num; which++)
-	{
-	into = process->address_space.add((void *)(current_header->p_vaddr), current_header->p_memsz, permissions);
-
-	memcpy((void *)current_header->p_vaddr, file + current_header->p_offset, current_header->p_filesz);
-
-	current_header++;
-	}
-
-return header->e_entry;
 }
 
 /*
@@ -960,6 +991,8 @@ for (parameter = 0; parameter < argc; parameter++)
 		}
 	else if (strcmp(argv[parameter], "-verbose") == 0)
 		verbose = true;
+   else
+      elf_file = read_entire_file(elf_filename = argv[parameter], &elf_file_length);
 	}
 
 /*
@@ -997,7 +1030,7 @@ for (MemberIndex = 0; SetupDiEnumDeviceInterfaces(hDevInfo, 0, &guid, MemberInde
 	*/
 	detailData = (PSP_DEVICE_INTERFACE_DETAIL_DATA)malloc(Required);
 	detailData->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);	// should be 5
-	
+
 	/*
 		Get the name and details of the HID device
 	*/
