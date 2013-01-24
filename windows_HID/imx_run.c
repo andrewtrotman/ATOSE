@@ -5,14 +5,17 @@
 	Open Source under the BSD License.
 */
 #include <Windows.h>
+extern "C"
+{
 #include <hidsdi.h>
 #include <hidpi.h>
 #include <SetupAPI.h>
+}
 #include <stdio.h>
 #include <stdlib.h>
 
-int true = (1 == 1);
-int false = (1 == 0);
+//int true = (1 == 1);
+//int false = (1 == 0);
 
 /*
 	Standard types
@@ -22,6 +25,7 @@ typedef unsigned short uint16_t;
 typedef unsigned long uint32_t;
 typedef long int32_t;
 typedef unsigned long long uint64_t;
+typedef long long int64_t;
 
 #define IMX_VID 5538		// 0x15A2:Freescale
 #define IMX_PID 84			// 0x0054 i.MX6Q
@@ -116,6 +120,119 @@ Elf32_Word	p_flags;
 Elf32_Size	p_align;
 } Elf32_Phdr;
 
+
+
+#define IMX_IMAGE_VERSION 				0x40
+#define IMX_IMAGE_FILE_HEADER_LENGTH 0x2000
+
+#define IMX_IMAGE_TAG_FILE_HEADER	 	0xD1
+#define IMX_IMAGE_TAG_DCD 				0xD2
+
+#define IMX_IMAGE_DCD_COMMAND_WRITE_DATA	0xCC
+#define IMX_IMAGE_DCD_COMMAND_CHECK_DATA	0xCF
+#define IMX_IMAGE_DCD_COMMAND_NOP			0xC0
+#define IMX_IMAGE_DCD_COMMAND_UNLOCK		0xB2
+
+/*
+	IMX_IMAGE_HEADER
+   ----------------
+*/
+#pragma pack(1)
+typedef struct
+{
+uint8_t tag;					// see IMX_IMAGE_TAG_xxx
+uint16_t length;				// BigEndian format
+uint8_t version;				// for the i.MX6 this should be either 0x40 or 0x41
+} imx_image_header;
+#pragma pack()
+
+/*
+   IMX_IMAGE_IVT
+   -------------
+	See page 441-442 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012"
+*/
+#pragma pack(1)
+typedef struct
+{
+imx_image_header header;		// should be: tag=0xD1, length=0x0020, version=0x40
+uint32_t entry;				// Absolute address of the first instruction to execute from the image
+uint32_t reserved1;
+uint32_t dcd;					// Absolute address of the image DCD. The DCD is optional so this field may be set to NULL if no DCD is required
+uint32_t boot_data;			// Absolute address of the Boot Data
+uint32_t self;					// Absolute address of the IVT
+uint32_t csf;					// Absolute address of Command Sequence File (CSF) used by the HAB library
+uint32_t reserved2;
+} imx_image_ivt;
+#pragma pack()
+
+/*
+	IMX_IMAGE_BOOT_DATA
+	-------------------
+	See page 442 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012"
+*/
+#pragma pack(1)
+typedef struct
+{
+uint32_t start;		// Absolute address of the image
+uint32_t length;		// Size of the program image
+uint32_t plugin;		// Plugin flag
+} imx_image_boot_data;
+#pragma pack()
+
+/*
+   IMX_IMAGE_DCD_HEADER
+   --------------------
+	See page 443-444 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012"
+*/
+#pragma pack(1)
+typedef struct
+{
+uint8_t tag;			// the DCD command  (0xCC for a write)
+uint16_t length;		// BigEndian format
+uint8_t parameter;		// This is command specific, but imximage (in  u-boot) appears to only use 0x02 (i.e. 16-bits) for the write command
+} imx_image_dcd_header;
+#pragma pack()
+
+/*
+   IMX_IMAGE_DCD_WRITE_TUPLE
+   -------------------------
+	See page 443-444 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012"
+*/
+#pragma pack(1)
+typedef struct
+{
+uint32_t address;
+uint32_t value;
+} imx_image_dcd_write_tuple;
+#pragma pack()
+
+
+/*
+	IMX_IMAGE_DCD_WRITE
+	-------------------
+*/
+#pragma pack(1)
+typedef struct
+{
+imx_image_dcd_header header;
+imx_image_dcd_write_tuple action[];
+} imx_image_dcd_write;
+#pragma pack()
+
+/*
+   IMX_IMAGE_DCD
+   -------------
+*/
+#define MAX_HW_CFG_SIZE_V2 121
+#pragma pack(1)
+typedef struct
+{
+imx_image_header header;				// this is the header of the entire DCD
+imx_image_dcd_write command;			// the first command in the DCD (should probably be a union based on the header's tag)
+} imx_image_dcd;
+#pragma pack()
+
+
 /*
 	The recieve and transmit buffers are allocated at runtime based on the
 	capabilities information returned by the USB HID device
@@ -189,6 +306,46 @@ out.byte.one = in.byte.four;
 out.byte.two = in.byte.three;
 out.byte.three = in.byte.two;
 out.byte.four = in.byte.one;
+
+return out.number;
+}
+
+/*
+	ARM_TO_INTEL()
+	--------------
+*/
+uint32_t arm_to_intel(uint32_t value)
+{
+union i_to_b
+{
+uint32_t number;
+struct { unsigned char one, two, three, four; } byte;
+} in, out;
+
+in.number = value;
+out.byte.one = in.byte.four;
+out.byte.two = in.byte.three;
+out.byte.three = in.byte.two;
+out.byte.four = in.byte.one;
+
+return out.number;
+}
+
+/*
+	ARM_TO_INTEL()
+	--------------
+*/
+uint16_t arm_to_intel(uint16_t value)
+{
+union i_to_b
+{
+uint16_t number;
+struct { unsigned char one, two; } byte;
+} in, out;
+
+in.number = value;
+out.byte.one = in.byte.two;
+out.byte.two = in.byte.one;
 
 return out.number;
 }
@@ -292,7 +449,7 @@ return 0;
 
 	This method returns 1 on success or 0 on failure
 */
-uint32_t imx_write_register(HANDLE hDevice, uint32_t address, uint32_t byte)
+uint32_t imx_write_register(HANDLE hDevice, uint32_t address, uint32_t value, uint32_t data_size = BITS_8)
 {
 unsigned char success[] = {0x04, 0x12, 0x8A, 0x8A, 0x12};
 imx_serial_message message;
@@ -307,7 +464,7 @@ message.command_type = WRITE_REGISTER;
 message.address = intel_to_arm(address);
 message.format = BITS_8;
 message.data_count = 1;
-message.data = intel_to_arm(byte);
+message.data = intel_to_arm(value);
 
 /*
 	Communicate with the i.MX6Q
@@ -434,7 +591,10 @@ return imx_block_write(hDevice, address, bytes, data, WRITE_FILE, success);
 	This method is a stub that just sets the message type to DCD_WRITE and then calls imx_block_write
 
 	See pages 442-447 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012" for
-	informaton on the format of a DCD file
+	information on the format of a DCD file
+
+   Note:  the address is the load location of the DCD before it is executed and the bytes is the
+   length of the entire DCD including all headers.
 */
 uint32_t imx_dcd_write(HANDLE hDevice, uint32_t address, uint32_t bytes, unsigned char *data)
 {
@@ -555,7 +715,7 @@ return 0;
 
 	Return the program entry point on success or -1 (0xFFFFFFFF) on error.
 */
-uint32_t elf_load(HANDLE hDevice, const uint8_t *file, uint32_t length)
+uint32_t elf_load(HANDLE hDevice, char *file, uint32_t length)
 {
 Elf32_Ehdr *header;			   // the ELF file header
 uint32_t header_offset;		   // location (in the file) of the first header
@@ -588,13 +748,84 @@ for (which = 0; which < header_num; which++)
    */
    buffer = (char *)malloc(current_header->p_memsz);
    memset(buffer, 0, current_header->p_memsz);
-   imx_write_file(hDevice, current_header->p_vaddr, current_header->p_memsz, buffer);
-   imx_write_file(hDevice, current_header->p_vaddr, current_header->p_filesz, (char *)(file + current_header->p_offset));
+   imx_write_file(hDevice, current_header->p_vaddr, current_header->p_memsz, (unsigned char *)buffer);
+   imx_write_file(hDevice, current_header->p_vaddr, current_header->p_filesz, (unsigned char *)(file + current_header->p_offset));
    free(buffer);
 	current_header++;
 	}
 
 return header->e_entry;
+}
+
+/*
+   IMXIMAGE_LOAD()
+   ---------------
+*/
+uint32_t imximage_load(HANDLE hDevice, char *raw_file, uint32_t raw_file_length)
+{
+imx_image_ivt *file;
+imx_image_dcd *dcd;
+char *command_end, *command_start, *dcd_end, *raw_file_end = raw_file + raw_file_length;
+imx_image_boot_data *boot_data;
+
+/*
+   file header
+*/
+file = (imx_image_ivt *)raw_file;
+
+/*
+   boot_data header
+*/
+if (file->boot_data != 0)
+	boot_data = (imx_image_boot_data *)(raw_file + file->boot_data - file->self);
+
+/*
+   Process the DCD
+*/
+if (file->dcd != 0)
+	{
+	dcd = (imx_image_dcd *)(raw_file + file->dcd - file->self);
+
+	dcd_end = ((char *)dcd) + arm_to_intel(dcd->header.length);
+	command_start = command_end = (char *)&(dcd->command);
+	while(command_start < dcd_end)
+		{
+		switch (((imx_image_dcd_write *)command_start)->header.tag)
+			{
+			case IMX_IMAGE_DCD_COMMAND_WRITE_DATA:
+				{
+				imx_image_dcd_write_tuple *current;
+
+				command_start += sizeof(imx_image_dcd_header);
+				command_end += arm_to_intel(dcd->command.header.length);
+				for (current = (imx_image_dcd_write_tuple *)command_start; (char *)current < command_end; current++)
+               {
+               if (verbose)
+                  printf("   *(0x%08X) = 0x%08X\n", arm_to_intel(current->address), arm_to_intel(current->value));
+               imx_write_register(hDevice, arm_to_intel(current->address), arm_to_intel(current->value), BITS_32);
+               }
+				break;
+				}
+         default:
+            puts("Unrecognised DCD command");
+            break;
+			}
+		command_start = command_end;
+		}
+	puts("");
+	}
+
+/*
+	Now the application data (i.e. the binary we're going to run)
+*/
+if (file->entry != 0)
+	{
+   if (verbose)
+      printf("Transmit the %d byte file (0x%02X 0x%02X 0x%02X 0x%02X...) to the board (address: 0x%08X)\n", raw_file_length, (unsigned char)raw_file[0], (unsigned char)raw_file[1], (unsigned char)raw_file[2], (unsigned char)raw_file[3], file->self);
+   imx_write_file(hDevice, file->self, raw_file_length, (unsigned char *)raw_file);
+	}
+
+return file->self;
 }
 
 /*
@@ -640,6 +871,7 @@ puts("----------------------");
 puts("-?                            : display this message");
 puts("-verbose                      : display each command as its performed (helps with debugging)");
 puts("<elf_filename>                : find the first appropriate device, load <elf_filename> onto it, run it, and terminate");
+puts("<imx_filename>                : find the first appropriate device, load <imx_filename> onto it, run it, and terminate");
 puts("                              : if no <elf_filename> is given the enter interactive mode and accept COMMANDs from below");
 puts("");
 puts("COMMANDS");
@@ -752,9 +984,10 @@ return block;
 */
 void go_be_a_monitor(HANDLE hDevice)
 {
-unsigned char command[1024];
+char command[1024];
 static unsigned char into[1024 * 1024];
-uint64_t address = 0x00000000, bytes_to_read = 0x0F, byte, bytes_to_send = 0, write_address;
+uint64_t address = 0x00000000, bytes_to_read = 0x0F, byte, write_address;
+int64_t bytes_to_send = 0;
 char *next, *data;
 uint32_t status;
 
@@ -866,7 +1099,7 @@ do
 					printf("(starting: %02X %02X %02X %02X...)", data[0], data[1], data[2], data[3]);
 				puts("");
 				}
-			imx_write_file(hDevice, (uint32_t)address, (uint32_t)bytes_to_send, data);
+			imx_write_file(hDevice, (uint32_t)address, (uint32_t)bytes_to_send, (unsigned char *)data);
 			free(data);
 			}
 		}
@@ -882,7 +1115,7 @@ do
 				printf("(starting: %02X %02X %02X %02X...)", data[0], data[1], data[2], data[3]);
 			puts("");
 			}
-		imx_dcd_write(hDevice, (uint32_t)address, (uint32_t)bytes_to_send, data);
+		imx_dcd_write(hDevice, (uint32_t)address, (uint32_t)bytes_to_send, (unsigned char *)data);
 		free(data);
 		}
 	else if (*command == '\0')
@@ -910,7 +1143,7 @@ void hid_manage_imx6(HANDLE hDevice)
 {
 struct _HIDP_PREPARSED_DATA  *preparsed;
 HIDP_CAPS capabilities;
-uint32_t elf_start_address;
+uint32_t start_address;
 
 HidD_GetPreparsedData(hDevice, &preparsed);
 HidP_GetCaps(preparsed, &capabilities);
@@ -939,15 +1172,40 @@ HidD_FlushQueue(hDevice);
 
 if (elf_file != NULL)
    {
-   if (verbose)
-      printf("Load ELF file '%s'\n", elf_filename);
-   elf_start_address = elf_load(hDevice, elf_file, (uint32_t)elf_file_length);
-   if (verbose)
-      printf("Jump to %08llX\n", (long long) elf_start_address);
-   imx_jump_address(hDevice, elf_start_address);
-   if (verbose)
-      puts("Running");
-   return;
+   /*
+      We might be and ELF file or we might be an imximage file
+      The file format of an imximage file is described in section 8.6 (starting on page 440) of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012"
+   */
+   if (elf_file[0] == 0x7F && elf_file[1] == 'E' && elf_file[2] == 'L' && elf_file[3] == 'F')
+      {
+      /*
+         We're an ELF file
+      */
+      if (verbose)
+         printf("Load ELF file '%s'\n", elf_filename);
+      start_address = elf_load(hDevice, elf_file, (uint32_t)elf_file_length);
+      if (verbose)
+         printf("Jump to 0x%08llX\n", (long long)start_address);
+      imx_jump_address(hDevice, start_address);
+      if (verbose)
+         puts("Running");
+      return;
+      }
+   else
+      {
+      /*
+         We're and imximage file
+      */
+      if (verbose)
+         printf("Load IMX file '%s'\n", elf_filename);
+      start_address = imximage_load(hDevice, elf_file, (uint32_t)elf_file_length);
+      if (verbose)
+         printf("Jump to 0x%08llX\n", (long long)start_address);
+      imx_jump_address(hDevice, start_address);
+      if (verbose)
+         puts("Running");
+      return;
+      }
    }
 else
    go_be_a_monitor(hDevice);
