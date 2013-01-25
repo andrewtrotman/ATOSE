@@ -27,6 +27,8 @@ typedef long int32_t;
 typedef unsigned long long uint64_t;
 typedef long long int64_t;
 
+extern void dump_buffer(unsigned char *buffer, uint64_t address, uint64_t bytes);
+
 #define IMX_VID 5538		// 0x15A2:Freescale
 #define IMX_PID 84			// 0x0054 i.MX6Q
 
@@ -400,7 +402,6 @@ message.command_type = READ_REGISTER;
 message.address = intel_to_arm(address);
 message.format = BITS_8;
 message.data_count = intel_to_arm(bytes);
-message.data = 0;
 
 /*
 	Transmit to the board and get the response back
@@ -449,7 +450,7 @@ return 0;
 
 	This method returns 1 on success or 0 on failure
 */
-uint32_t imx_write_register(HANDLE hDevice, uint32_t address, uint32_t value, uint32_t data_size = BITS_8)
+uint32_t imx_write_register(HANDLE hDevice, uint32_t address, uint32_t value, uint8_t data_size = BITS_8)
 {
 unsigned char success[] = {0x04, 0x12, 0x8A, 0x8A, 0x12};
 imx_serial_message message;
@@ -462,13 +463,14 @@ memset(&message, 0, sizeof(message));
 message.report_id = 1;
 message.command_type = WRITE_REGISTER;
 message.address = intel_to_arm(address);
-message.format = BITS_8;
-message.data_count = 1;
+message.format = data_size;
+message.data_count = intel_to_arm((uint32_t)(data_size == BITS_8 ? 1 : data_size == BITS_16 ? 2 : 4));
 message.data = intel_to_arm(value);
 
 /*
 	Communicate with the i.MX6Q
 */
+
 if (HidD_SetOutputReport(hDevice, &message, sizeof(message)))								// transmit Report 1
 	if (imx_get_security_descriptor(hDevice))												// recieve Report 3
 		if (ReadFile(hDevice, recieve_buffer, recieve_buffer_length, &dwBytes, NULL))		// recieve Report 4
@@ -515,9 +517,7 @@ memset(&message, 0, sizeof(message));
 message.report_id = 1;
 message.command_type = method;
 message.address = intel_to_arm(address);
-message.format = BITS_8;
 message.data_count = intel_to_arm(bytes);
-message.data = 0;
 
 /*
 	Due to a bug in the i.MX6Q ROM we need to read the last kilobyte from the i.MX6Q into the transmit
@@ -613,6 +613,14 @@ return imx_block_write(hDevice, address, bytes, data, DCD_WRITE, success);
 	i.MX6Q, optionally (on error), sends a Report 4 (4 byte HAB error status)
 
 	return 1 on success 0 on failure
+
+   After some experimentation, it turns out that the JUMP_ADDRESS command does *not* simply load PC with
+   a memory location to to a branch.  It actually instructs the ROM to find an imximage at the given location
+   and to run that.  This is done by branching to the imximage->entry vector.  Since that vector is 4 bytes
+   after the start of the file its the same as (pc=*(address + 4)). In other words.
+
+   To test this we'll can put the magic sequence 0xD1 0x00 0x20 0x40 before the true branch address and then
+   try calling this method
 */
 uint32_t imx_jump_address(HANDLE hDevice, uint32_t address)
 {
@@ -626,9 +634,6 @@ memset(&message, 0, sizeof(message));
 message.report_id = 1;
 message.command_type = JUMP_ADDRESS;
 message.address = intel_to_arm(address);
-message.format = BITS_8;
-message.data_count = 0;
-message.data = 0;
 
 /*
 	Transmit to the board and get the response back
@@ -690,10 +695,6 @@ DWORD dwBytes = 0;
 memset(&message, 0, sizeof(message));
 message.report_id = 1;
 message.command_type = ERROR_STATUS;
-message.address = 0;
-message.format = BITS_8;
-message.data_count = 0;
-message.data = 0;
 
 /*
 	Communicate with the i.MX6Q
@@ -820,6 +821,8 @@ if (file->dcd != 0)
 */
 if (file->entry != 0)
 	{
+   file->dcd = 0;             // We've already transmitted the DCD to pretend it doesn't exist
+
    if (verbose)
       printf("Transmit the %d byte file (0x%02X 0x%02X 0x%02X 0x%02X...) to the board (address: 0x%08X)\n", raw_file_length, (unsigned char)raw_file[0], (unsigned char)raw_file[1], (unsigned char)raw_file[2], (unsigned char)raw_file[3], file->self);
    imx_write_file(hDevice, file->self, raw_file_length, (unsigned char *)raw_file);
