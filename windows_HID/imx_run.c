@@ -233,6 +233,7 @@ class imx_image_dcd_write
 {
 public:
 	imx_image_dcd_header header;			// header
+#pragma warning(disable:4200)
 	imx_image_dcd_write_tuple action[];		// and the list of actions
 } ;
 #pragma pack()
@@ -650,8 +651,10 @@ return imx_block_write(hDevice, address, bytes, data, DCD_WRITE, success);
 
 	After some experimentation, it turns out that the JUMP_ADDRESS command does *not* simply load PC with
 	a memory location to to a branch.  It actually instructs the ROM to find an imximage at the given location
-	and to run that.  This is done by branching to the imximage->entry vector.  Since that vector is 4 bytes
-	after the start of the file its the same as (pc=*(address + 4)).
+	and to run that.  This eventually results in a branch to the imximage->entry vector.  Since that vector
+	is 4 bytes after the start of the file its the same as (pc = *(address + 4)).  In order to make it possible
+	to run ELF files we put the whole header there rather than just the jump address (because it needs a
+	null DCD and so on).
 */
 uint32_t imx_jump_address(HANDLE hDevice, uint32_t address)
 {
@@ -836,7 +839,7 @@ if (file->dcd != 0)
 				for (current = (imx_image_dcd_write_tuple *)command_start; (char *)current < command_end; current++)
 					{
 					if (verbose)
-						printf("   *(0x%08X) = 0x%08X\n", arm_to_intel(current->address), arm_to_intel(current->value));
+						printf("   *((uint32_t *)0x%08X) = 0x%08X;\n", arm_to_intel(current->address), arm_to_intel(current->value));
 					imx_write_register(hDevice, arm_to_intel(current->address), arm_to_intel(current->value), BITS_32);
 					}
 				break;
@@ -1150,6 +1153,7 @@ void hid_manage_imx6(HANDLE hDevice)
 struct _HIDP_PREPARSED_DATA  *preparsed;
 HIDP_CAPS capabilities;
 uint32_t start_address;
+imx_image_ivt fake;
 
 HidD_GetPreparsedData(hDevice, &preparsed);
 HidP_GetCaps(preparsed, &capabilities);
@@ -1172,24 +1176,44 @@ transmit_double_buffer = (unsigned char *)malloc(capabilities.OutputReportByteLe
 HidD_FlushQueue(hDevice);
 
 /*
-	Here we expect the Usage Page to be 0xFF00 (Vendor-defined, see "Universal Serial Bus (USB) HID Usage Tables 6/27/2001 Version 1.11" page 16)
-	and the usage to be 0x01 (i.e. its device type 0x01), but this is mostly meaningless.
+	Here we expect the Usage Page to be 0xFF00 (Vendor-defined, see "Universal Serial Bus (USB) HID Usage
+	Tables 6/27/2001 Version 1.11" page 16) and the usage to be 0x01 (i.e. its device type 0x01), but this
+	is mostly not useful.
 */
 
 if (elf_file != NULL)
 	{
 	/*
-		We might be and ELF file or we might be an imximage file
-		The file format of an imximage file is described in section 8.6 (starting on page 440) of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012"
+		We might be and ELF file or we might be an imximage file.
 	*/
 	if (elf_file[0] == 0x7F && elf_file[1] == 'E' && elf_file[2] == 'L' && elf_file[3] == 'F')
 		{
 		/*
-			We're an ELF file
+			We're an ELF file to decode it into memory
 		*/
 		if (verbose)
 			printf("Load ELF file '%s'\n", elf_filename);
 		start_address = elf_load(hDevice, elf_file, (uint32_t)elf_file_length);
+
+		/*
+			We now need to "fake" an imximage ivt entry point.  The problem is to find somewhere
+			in memory to put it.  We'll assume the few bytes before the start of the program
+			are free and we'll use those.
+		*/
+		memset(&fake, 0, sizeof(fake));
+		fake.header.tag = IMX_IMAGE_TAG_FILE_HEADER;
+		fake.header.length = IMX_IMAGE_FILE_HEADER_LENGTH;
+		fake.header.version = IMX_IMAGE_VERSION;
+		fake.entry = start_address;
+		fake.self = start_address - sizeof(fake);
+		start_address = fake.self;
+		if (verbose)
+			printf("Send fake header to address: 0x%08X (it says start at:0%08X)\n",start_address, fake.entry);
+		imx_write_file(hDevice, start_address, sizeof(fake), (unsigned char *)&fake);
+
+		/*
+			Finally we can branch to the stat of the imximage ivt header we just faked
+		*/
 		if (verbose)
 			printf("Jump to 0x%08llX\n", (long long)start_address);
 		imx_jump_address(hDevice, start_address);
@@ -1201,6 +1225,8 @@ if (elf_file != NULL)
 		{
 		/*
 			We're and imximage file
+			The file format of an imximage file is described in section 8.6 (starting on page 440) of "i.MX 6Dual/6Quad
+			Applications Processor Reference Manual Rev. 0, 11/2012"
 		*/
 		if (verbose)
 			printf("Load IMX file '%s'\n", elf_filename);

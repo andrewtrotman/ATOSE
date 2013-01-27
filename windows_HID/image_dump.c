@@ -20,11 +20,14 @@ typedef long int32_t;
 typedef unsigned long long uint64_t;
 typedef long long int64_t;
 
-#define IMX_IMAGE_VERSION 				0x40
-#define IMX_IMAGE_FILE_HEADER_LENGTH 0x2000
+/*
+	Constants to do with the IMXIMAGE file foramt
+*/
+#define IMX_IMAGE_VERSION                  0x40
+#define IMX_IMAGE_FILE_HEADER_LENGTH     0x2000
 
-#define IMX_IMAGE_TAG_FILE_HEADER	 	0xD1
-#define IMX_IMAGE_TAG_DCD 				0xD2
+#define IMX_IMAGE_TAG_FILE_HEADER          0xD1
+#define IMX_IMAGE_TAG_DCD                  0xD2
 
 #define IMX_IMAGE_DCD_COMMAND_WRITE_DATA	0xCC
 #define IMX_IMAGE_DCD_COMMAND_CHECK_DATA	0xCF
@@ -32,102 +35,109 @@ typedef long long int64_t;
 #define IMX_IMAGE_DCD_COMMAND_UNLOCK		0xB2
 
 /*
-	IMX_IMAGE_HEADER
-   ----------------
+	class IMX_IMAGE_HEADER
+	----------------------
+	File header for the IMXIMAGE file format
 */
 #pragma pack(1)
-typedef struct
+class imx_image_header
 {
-uint8_t tag;					// see IMX_IMAGE_TAG_xxx 
-uint16_t length;				// BigEndian format
-uint8_t version;				// for the i.MX6 this should be either 0x40 or 0x41
-} imx_image_header;
+public:
+	uint8_t tag;					// see IMX_IMAGE_TAG_xxx
+	uint16_t length;				// BigEndian format
+	uint8_t version;				// for the i.MX6 this should be either 0x40 or 0x41
+} ;
 #pragma pack()
 
 /*
-   IMX_IMAGE_IVT
-   -------------
+	class IMX_IMAGE_IVT
+	-------------------
 	See page 441-442 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012"
 */
 #pragma pack(1)
-typedef struct
+class imx_image_ivt
 {
-imx_image_header header;		// should be: tag=0xD1, length=0x0020, version=0x40
-uint32_t entry;				// Absolute address of the first instruction to execute from the image
-uint32_t reserved1;
-uint32_t dcd;					// Absolute address of the image DCD. The DCD is optional so this field may be set to NULL if no DCD is required
-uint32_t boot_data;			// Absolute address of the Boot Data
-uint32_t self;					// Absolute address of the IVT
-uint32_t csf;					// Absolute address of Command Sequence File (CSF) used by the HAB library
-uint32_t reserved2;
-} imx_image_ivt;
+public:
+	imx_image_header header;		// should be: tag=0xD1, length=0x0020, version=0x40
+	uint32_t entry;					// Absolute address of the first instruction to execute from the image
+	uint32_t reserved1;
+	uint32_t dcd;					// Absolute address of the image DCD. The DCD is optional so this field may be set to NULL if no DCD is required
+	uint32_t boot_data;				// Absolute address of the Boot Data
+	uint32_t self;					// Absolute address of the IVT
+	uint32_t csf;					// Absolute address of Command Sequence File (CSF) used by the HAB library
+	uint32_t reserved2;
+} ;
 #pragma pack()
 
 /*
-	IMX_IMAGE_BOOT_DATA
-	-------------------
+	class IMX_IMAGE_BOOT_DATA
+	-------------------------
 	See page 442 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012"
 */
 #pragma pack(1)
-typedef struct
+class imx_image_boot_data
 {
-uint32_t start;		// Absolute address of the image
-uint32_t length;		// Size of the program image
-uint32_t plugin;		// Plugin flag
-} imx_image_boot_data;
+public:
+	uint32_t start;			// Absolute address of the image
+	uint32_t length;		// Size of the program image
+	uint32_t plugin;		// Plugin flag
+} ;
 #pragma pack()
 
 /*
-   IMX_IMAGE_DCD_HEADER
-   --------------------
+	class IMX_IMAGE_DCD_HEADER
+	--------------------------
 	See page 443-444 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012"
 */
 #pragma pack(1)
-typedef struct
+class imx_image_dcd_header
 {
-uint8_t tag;			// the DCD command  (0xCC for a write)
-uint16_t length;		// BigEndian format
-uint8_t parameter;		// This is command specific, but imximage (in  u-boot) appears to only use 0x02 (i.e. 16-bits) for the write command
-} imx_image_dcd_header;
+public:
+	uint8_t tag;			// the DCD command  (0xCC for a write)
+	uint16_t length;		// BigEndian format
+	uint8_t parameter;		// This is command specific, but imximage (in  u-boot) appears to only use 0x02 (i.e. 16-bits) for the write command
+} ;
 #pragma pack()
 
 /*
-   IMX_IMAGE_DCD_WRITE_TUPLE
-   -------------------------
+	class IMX_IMAGE_DCD_WRITE_TUPLE
+	-------------------------------
 	See page 443-444 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012"
 */
 #pragma pack(1)
-typedef struct
+class imx_image_dcd_write_tuple
 {
-uint32_t address;
-uint32_t value;
-} imx_image_dcd_write_tuple;
+public:
+	uint32_t address;		// write to this address
+	uint32_t value;			// write this value
+} ;
 #pragma pack()
 
+/*
+	class IMX_IMAGE_DCD_WRITE
+	-------------------------
+*/
+#pragma pack(1)
+class imx_image_dcd_write
+{
+public:
+	imx_image_dcd_header header;			// header
+#pragma warning(disable:4200)
+	imx_image_dcd_write_tuple action[];		// and the list of actions
+} ;
+#pragma pack()
 
 /*
-	IMX_IMAGE_DCD_WRITE
+	class IMX_IMAGE_DCD
 	-------------------
 */
 #pragma pack(1)
-typedef struct 
+class imx_image_dcd
 {
-imx_image_dcd_header header;
-imx_image_dcd_write_tuple action[];
-} imx_image_dcd_write;
-#pragma pack()
-
-/*
-   IMX_IMAGE_DCD
-   -------------
-*/
-#define MAX_HW_CFG_SIZE_V2 121
-#pragma pack(1)
-typedef struct
-{
-imx_image_header header;				// this is the header of the entire DCD
-imx_image_dcd_write command;			// the first command in the DCD (should probably be a union based on the header's tag)
-} imx_image_dcd;
+public:
+	imx_image_header header;				// this is the header of the entire DCD
+	imx_image_dcd_write command;			// the first command in the DCD (should probably be a union based on the header's tag)
+} ;
 #pragma pack()
 
 /*
@@ -159,7 +169,7 @@ uint16_t arm_to_intel(uint16_t value)
 {
 union i_to_b
 {
-uint32_t number;
+uint16_t number;
 struct { unsigned char one, two; } byte;
 } in, out;
 
@@ -211,7 +221,6 @@ int imx_image_process(char *raw_file, uint32_t raw_file_length)
 imx_image_ivt *file;
 imx_image_dcd *dcd;
 char *command_end, *command_start, *dcd_end, *raw_file_end = raw_file + raw_file_length;
-char *application_start, *application_end;
 imx_image_boot_data *boot_data;
 
 /*
@@ -271,7 +280,7 @@ if (file->dcd != 0)
 				command_start += sizeof(imx_image_dcd_header);
 				command_end += arm_to_intel(dcd->command.header.length);
 				for (current = (imx_image_dcd_write_tuple *)command_start; (char *)current < command_end; current++)
-					printf("   *(0x%08X) = 0x%08X\n", arm_to_intel(current->address), arm_to_intel(current->value));
+					printf("   *((uint32_t *)0x%08X) = 0x%08X;\n", arm_to_intel(current->address), arm_to_intel(current->value));
 				break;
 				}
 			case IMX_IMAGE_DCD_COMMAND_CHECK_DATA: puts("Check Data"); break;
@@ -284,17 +293,15 @@ if (file->dcd != 0)
 	}
 
 /*
-	Now the application data (i.e. the binary we're going to run)
+	Now the application data (i.e. the binary we're going to run).  After some experimentation and
+	a lot of reading other people's code, it turns out we need to send the entire file and that
+	the i.MX6Q ROM "jump aaddress" (the entry point) is the self pointer.
 */
 if (file->entry != 0)
 	{
 	puts("APPLICATION");
 	puts("-----------");
-	application_start = raw_file + boot_data->start - file->self;
-	application_end = application_start + boot_data->length;
-	if (application_end > raw_file_end)
-		application_end = raw_file_end;
-	dump_buffer((unsigned char *)application_start, boot_data->start, application_end - application_start);
+	dump_buffer((unsigned char *)raw_file, file->self, raw_file_length);
 	}
 
 return 0;
