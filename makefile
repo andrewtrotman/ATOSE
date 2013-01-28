@@ -36,7 +36,7 @@ EXAMPLES_DIR = examples
 #
 #	The core of ATOSE Kernel
 #
-ATOSE_OBJECTS =							\
+ATOSE_OBJECTS =								\
 	$(OBJ_DIR)\address_space.o				\
 	$(OBJ_DIR)\atose.o						\
 	$(OBJ_DIR)\cpu.o 						\
@@ -61,14 +61,12 @@ FourARM_OBJECTS =							\
 #
 #	QEMU (Versatile) specific parts of the ATOSE Kernel
 #
-QEMU_OBJECTS =							\
+QEMU_OBJECTS =								\
 	$(OBJ_DIR)\io_angel.o					\
 	$(OBJ_DIR)\io_serial.o 					\
 	$(OBJ_DIR)\keyboard_mouse_interface.o 	\
 	$(OBJ_DIR)\pic_pl190.o					\
 	$(OBJ_DIR)\timer_sp804.o
-
-
 
 #
 #	Useful stuff written to test various components of various devices
@@ -81,6 +79,8 @@ ATOSE_TOOLS =								\
 	$(BIN_DIR)\imx233_usb.elf				\
 	$(BIN_DIR)\test_ram.elf
 
+IMX6Q_TOOLS =						\
+	$(BIN_DIR)\imx6q_uart.elf
 
 #
 #	Collect the set of objects needed for the Kernel (based on the Target)
@@ -98,14 +98,19 @@ OBJECTS = $(ATOSE_OBJECTS) $(QEMU_OBJECTS)
 
 this : $(EXAMPLES_DIR)\hello.elf.c all
 
-all : 								\
+all : 									\
 	$(BIN_DIR)\atose.elf 				\
 	$(BIN_DIR)\bin_to_c.exe				\
 	$(BIN_DIR)\elf_reader.exe 			\
 	$(BIN_DIR)\hello.elf				\
-	$(ATOSE_TOOLS)
+	$(ATOSE_TOOLS)						\
+	$(IMX6Q_TOOLS)
 
 $(ATOSE_TOOLS) : startup.o $(SOURCE_DIR)\atose.ld
+
+$(IMX6Q_TOOLS) : tests\imx6q.ld tests\imx6q.s
+	@echo $@
+	$(CCC) $(CCCFLAGS) $? $(CLINKFLAGS) -o $@ $(TESTS_DIR)\imx6q.s -T $(TESTS_DIR)\imx6q.ld
 
 #
 # ATOSE
