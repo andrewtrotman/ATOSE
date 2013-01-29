@@ -5,9 +5,7 @@ SECTIONS
 . = 0x910080;
 . = ALIGN(4);
 
-/*.startup . : { startup.o(.text) } */
-
-.text : { *(.text) } 
+.text : { *(.ATOSE_entry_point); *(.text) } 
 .data : { *(.data) } 
 .bss : { *(.bss) } 
 

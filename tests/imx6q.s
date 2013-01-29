@@ -1,3 +1,4 @@
+.section .ATOSE_entry_point
 .global _Reset
 
 .weak __cs3_isr_undef

@@ -108,9 +108,9 @@ all : 									\
 
 $(ATOSE_TOOLS) : startup.o $(SOURCE_DIR)\atose.ld
 
-$(IMX6Q_TOOLS) : tests\imx6q.ld tests\imx6q.s
+$(BIN_DIR)\imx6q_uart.elf : $(TESTS_DIR)\imx6q.ld $(TESTS_DIR)\imx6q.s
 	@echo $@
-	$(CCC) $(CCCFLAGS) $? $(CLINKFLAGS) -o $@ $(TESTS_DIR)\imx6q.s -T $(TESTS_DIR)\imx6q.ld
+	$(CCC) $(CCCFLAGS) $(TESTS_DIR)\imx6q_uart.c $(TESTS_DIR)\imx6q.s $(CLINKFLAGS) -o $@  -T $(TESTS_DIR)\imx6q.ld -I windows_HID\hello\
 
 #
 # ATOSE
