@@ -17,7 +17,26 @@ CPU = IMX233
 CPU = ARM926
 !ENDIF
 
-CCC = arm-none-eabi-gcc
+#
+#	Which version of the Window DDK do we have?
+#
+VER_8 = "C:\Program Files (x86)\Windows Kits\8.0\"
+!IF "$(WINDOWSSDKDIR)" == $(VER_8)
+DDK_DIR = $(WINDOWSSDKDIR)\Include
+DDK_INCLUDE = "$(DDK_DIR)\shared" -I"$(DDK_DIR)\km" -I"$(DDK_DIR)\km\crt" -I"$(DDK_DIR)\um"
+DDK_LIB = "$(WINDOWSSDKDIR)\Lib\win8\um\x64\setupapi.lib" "$(WINDOWSSDKDIR)\Lib\win8\um\x64\hid.lib"
+!ELSE
+DDK_DIR = "c:\WinDDK\7600.16385.1\inc"
+DDK_INCLUDE = $(DDK_DIR)\ddk -I$(DDK_DIR)\api -I$(DDK_DIR)\crt
+DDK_LIB = c:\WinDDK\7600.16385.1\lib\wxp\i386\setupapi.lib c:\WinDDK\7600.16385.1\lib\wxp\i386\hid.lib
+!ENDIF
+
+
+
+#
+#	Now the compilers, etc.
+#
+CCC = @arm-none-eabi-gcc
 CCCFLAGS = -mcpu=arm926ej-s  -D$(CPU) -D$(TARGET) -g3 -Wall -Os
 CC = @arm-none-eabi-g++
 CFLAGS = -fno-exceptions -fno-rtti $(CCCFLAGS) -ffreestanding -nostdlib -nodefaultlibs -nostartfiles
@@ -101,6 +120,8 @@ this : $(EXAMPLES_DIR)\hello.elf.c all
 all : 									\
 	$(BIN_DIR)\atose.elf 				\
 	$(BIN_DIR)\bin_to_c.exe				\
+	$(BIN_DIR)\imx_run.exe              \
+	$(BIN_DIR)\imximage_render.exe      \
 	$(BIN_DIR)\elf_reader.exe 			\
 	$(BIN_DIR)\hello.elf				\
 	$(ATOSE_TOOLS)						\
@@ -118,7 +139,7 @@ $(BIN_DIR)\imx6q_uart.elf : $(TESTS_DIR)\imx6q.ld $(TESTS_DIR)\imx6q.s
 $(BIN_DIR)\atose.elf : startup.o $(OBJ_DIR)\main.o $(OBJECTS) $(SOURCE_DIR)\atose.ld
 	@echo $@
 	$(CC) $(CFLAGS) -o $(BIN_DIR)\atose.elf startup.o $(OBJ_DIR)\main.o $(OBJECTS) -T $(SOURCE_DIR)\atose.ld $(CLINKFLAGS)
-	arm-none-eabi-objdump -S -d bin\atose.elf > ers
+	@arm-none-eabi-objdump -S -d bin\atose.elf > ers
 
 startup.o : $(SOURCE_DIR)\atose_startup.asm
 	@echo $@
@@ -155,6 +176,13 @@ clean:
 	del bin obj startup.o $(EXAMPLES_DIR)\hello.elf.c /q
 
 #
+#	Special rules
+#
+
+$(BIN_DIR)\imx_run.exe : $(TOOLS_DIR)\imx_run.c
+	@cl /nologo /W3 /Zi /Tp $(TOOLS_DIR)\imx_run.c /X -I$(DDK_INCLUDE) $(DDK_LIB) -Fe$(BIN_DIR)\imx_run.exe -Fo$(OBJ_DIR)\$(@B).obj
+
+#
 # Implicit rules
 #
 {$(SOURCE_DIR)\}.c{$(OBJ_DIR)\}.o:
@@ -163,7 +191,7 @@ clean:
 
 {$(TOOLS_DIR)\}.c{$(BIN_DIR)\}.exe:
 	@echo $@
-	@cl /nologo /Tp $< -Fe$@
+	@cl /nologo /Tp $< -Fe$@ -Fo$(OBJ_DIR)\$(@B).obj -D_CRT_SECURE_NO_DEPRECATE
 	
 {$(TESTS_DIR)}.c{$(BIN_DIR)}.elf:
 	@echo $@

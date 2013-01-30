@@ -1,6 +1,6 @@
 /*
-   IMXIMAGE_DUMP
-   -------------
+	IMXIMAGE_RENDER.C
+	-----------------
 	Dump the contents of an IMX image file (see a recent i.MX reference manual for more information)
 */
 #include <stdio.h>
