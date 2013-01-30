@@ -142,6 +142,9 @@ debug_puts("Timer initilised\r\n");
 HW_GPT_OCR1.U = 0x100;     // fun until the GPT gets to 0x100
 HW_GPT_CR.B.FRR = 0;    // restart mode (periodic interrupt mode)
 
+
+
+
 for (x = 0; x < 10; x++)
    {
    count = HW_GPT_CNT_RD();
