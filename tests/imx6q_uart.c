@@ -13,7 +13,7 @@
 	console on the SABRE Lite board
 */
 #define BAUD_RATE 115200
-#define DEFAULT_UART 1		/* can be either 2 (SABRE Lite "console") or 1 (the other UART) */
+#define DEFAULT_UART 2		/* can be either 2 (SABRE Lite "console") or 1 (the other UART) */
 
 /*
 	PLL3 frequency
