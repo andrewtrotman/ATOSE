@@ -36,9 +36,9 @@ DDK_LIB = c:\WinDDK\7600.16385.1\lib\wxp\i386\setupapi.lib c:\WinDDK\7600.16385.
 #
 #	Now the compilers, etc.
 #
-CCC = @arm-none-eabi-gcc
+CCC = arm-none-eabi-gcc
 CCCFLAGS = -mcpu=arm926ej-s  -D$(CPU) -D$(TARGET) -g3 -Wall -Os
-CC = @arm-none-eabi-g++
+CC = arm-none-eabi-g++
 CFLAGS = -fno-exceptions -fno-rtti $(CCCFLAGS) -ffreestanding -nostdlib -nodefaultlibs -nostartfiles
 CLINKFLAGS = -l gcc
 
@@ -90,16 +90,18 @@ QEMU_OBJECTS =								\
 #
 #	Useful stuff written to test various components of various devices
 #
-ATOSE_TOOLS =								\
+ATOSE_TOOLS =									\
 	$(BIN_DIR)\dump_cpu_state.elf			\
 	$(BIN_DIR)\imx233_nand.elf				\
 	$(BIN_DIR)\imx233_mmu.elf				\
-	$(BIN_DIR)\imx233_timer.elf				\
+	$(BIN_DIR)\imx233_timer.elf			\
 	$(BIN_DIR)\imx233_usb.elf				\
 	$(BIN_DIR)\test_ram.elf
 
-IMX6Q_TOOLS =						\
-	$(BIN_DIR)\imx6q_uart.elf
+IMX6Q_TOOLS =						         \
+	$(BIN_DIR)\imx6q_uart.elf	         \
+	$(BIN_DIR)\imx6q_interrupt.elf		\
+	$(BIN_DIR)\imx6q_timer.elf
 
 #
 #	Collect the set of objects needed for the Kernel (based on the Target)
@@ -131,7 +133,18 @@ $(ATOSE_TOOLS) : startup.o $(SOURCE_DIR)\atose.ld
 
 $(BIN_DIR)\imx6q_uart.elf : $(TESTS_DIR)\imx6q.ld $(TESTS_DIR)\imx6q.s
 	@echo $@
-	$(CCC) $(CCCFLAGS) $(TESTS_DIR)\imx6q_uart.c $(TESTS_DIR)\imx6q.s $(CLINKFLAGS) -o $@  -T $(TESTS_DIR)\imx6q.ld -I windows_HID\hello\
+	$(CCC) $(CCCFLAGS) $(TESTS_DIR)\imx6q_uart.c $(TESTS_DIR)\imx6q.s $(CLINKFLAGS) -o $@  -T $(TESTS_DIR)\imx6q.ld
+
+$(BIN_DIR)\imx6q_timer.elf : $(TESTS_DIR)\imx6q.ld $(TESTS_DIR)\imx6q.s
+	@echo $@
+	$(CCC) $(CCCFLAGS) $(TESTS_DIR)\imx6q_timer.c $(TESTS_DIR)\imx6q.s $(CLINKFLAGS) -o $@  -T $(TESTS_DIR)\imx6q.ld
+
+$(BIN_DIR)\imx6q_interrupt.elf : $(TESTS_DIR)\imx6q.ld $(TESTS_DIR)\imx6q.s
+	@echo $@
+	$(CCC) $(CCCFLAGS) $(TESTS_DIR)\imx6q_interrupt.c $(TESTS_DIR)\imx6q.s $(CLINKFLAGS) -o $@  -T $(TESTS_DIR)\imx6q.ld
+
+
+
 
 #
 # ATOSE
@@ -192,7 +205,7 @@ $(BIN_DIR)\imx_run.exe : $(TOOLS_DIR)\imx_run.c
 {$(TOOLS_DIR)\}.c{$(BIN_DIR)\}.exe:
 	@echo $@
 	@cl /nologo /Tp $< -Fe$@ -Fo$(OBJ_DIR)\$(@B).obj -D_CRT_SECURE_NO_DEPRECATE
-	
+
 {$(TESTS_DIR)}.c{$(BIN_DIR)}.elf:
 	@echo $@
 	$(CCC) $(CCCFLAGS) $< $(CLINKFLAGS) -o $@ startup.o -T $(SOURCE_DIR)\atose.ld
