@@ -1272,7 +1272,7 @@ HIDD_ATTRIBUTES Attributes;
 long parameter, found = false;
 
 verbose = false;
-for (parameter = 0; parameter < argc; parameter++)
+for (parameter = 1; parameter < argc; parameter++)
 	{
 	if (strcmp(argv[parameter], "-?") == 0)
 		{

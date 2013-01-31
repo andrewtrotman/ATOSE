@@ -8,6 +8,7 @@
 #include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsccm.h"
 #include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsiomuxc.h"
 #include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsgpt.h"
+#include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/irq_numbers.h"
 
 #define BAUD_RATE 115200
 #define DEFAULT_UART 2		/* can be either 2 (SABRE Lite "console") or 1 (the other UART) */
@@ -121,70 +122,160 @@ HW_GPT_CR.B.ENMOD = 1;
 HW_GPT_CR.B.EN = 1;
 }
 
+
+#define IMX_INT_SPURIOUS 1023
 /*
 	ARM_GENERIC_INTERRUPT_CONTROLLER_DISTRIBUTOR_REGISTER_MAP
 	---------------------------------------------------------
 	See page 4-2 to 4-4 of the "ARM Generic Interrupt Controller Architecture Specification, Architecture version 1.0"
-	There should be one of these per interrupt controller (one per die)
+	There should be one of these per CPU
 */
 typedef struct
 {
-uint32_t distributor_control_register;							// 0x0000
-uint32_t interrupt_controller_type_register;					// 0x0004
+uint32_t distributor_control_register;							      // 0x0000
+uint32_t interrupt_controller_type_register;					      // 0x0004
 uint32_t distributor_implementer_identification_register;		// 0x0008
-uint32_t reserved1[29];										// 0x000C
-uint32_t interrupt_security_registers[32];						// 0x0080
-uint32_t interrupt_set_enable_registers[32];					// 0x0100
-uint32_t interrupt_clear_enable_registers[32];					// 0x0180
-uint32_t interrupt_set_pending_registers[32];					// 0x0200
-uint32_t interrupt_clear_pending_registers[32];				// 0x0280
-uint32_t active_bit_registers[32];								// 0x0300
-uint32_t reserved2[32];										// 0x0380
-uint32_t interrupt_priority_registers[255];					// 0x0400
-uint32_t reserved3;											// 0x07FC
-uint32_t interrupt_processor_targets_registers[8];				// 0x0800
-uint32_t reserved4[247];										// 0x0820
-uint32_t reserved5;											// 0x0BFC
-uint32_t interrupt_configuration_registers[64];				// 0x0C00
-uint32_t implementation_defined_registers[64];					// 0x0D00
-uint32_t reserved6[64];										// 0x0E00
-uint32_t software_generated_interrupt_register;				// 0x0F00
-uint32_t reserved7[51];										// 0x0F04
-uint32_t peripheral_id4;										// 0x0FD0	the next 12 32-bit words are implementation defined identification_registers
-uint32_t peripheral_id5;										// 0x0FD4
-uint32_t peripheral_id6;										// 0x0FD8
-uint32_t peripheral_id7;										// 0x0FDC
-uint32_t peripheral_id0;										// 0x0FE0
-uint32_t peripheral_id1;										// 0x0FE4
-uint32_t peripheral_id2;										// 0x0FE8
-uint32_t peripheral_id3;										// 0x0FEC
-uint32_t component_id0;										// 0x0FF0
-uint32_t component_id1;										// 0x0FF4
-uint32_t component_id2;										// 0x0FF8
-uint32_t component_id3;										// 0x0FFC
+uint32_t reserved1[29];										            // 0x000C
+uint32_t interrupt_security_registers[32];						   // 0x0080
+uint32_t interrupt_set_enable_registers[32];					      // 0x0100
+uint32_t interrupt_clear_enable_registers[32];					   // 0x0180
+uint32_t interrupt_set_pending_registers[32];					   // 0x0200
+uint32_t interrupt_clear_pending_registers[32];				      // 0x0280
+uint32_t active_bit_registers[32];								      // 0x0300
+uint32_t reserved2[32];										            // 0x0380
+uint32_t interrupt_priority_registers[255];					      // 0x0400
+uint32_t reserved3;															// 0x07FC
+uint32_t interrupt_processor_targets_registers[8];					// 0x0800
+uint32_t reserved4[247];													// 0x0820
+uint32_t reserved5;															// 0x0BFC
+uint32_t interrupt_configuration_registers[64];						// 0x0C00
+uint32_t implementation_defined_registers[64];						// 0x0D00
+uint32_t reserved6[64];														// 0x0E00
+uint32_t software_generated_interrupt_register;						// 0x0F00
+uint32_t reserved7[51];														// 0x0F04
+uint32_t peripheral_id4;													// 0x0FD0	the next 12 32-bit words are implementation defined identification_registers
+uint32_t peripheral_id5;													// 0x0FD4
+uint32_t peripheral_id6;													// 0x0FD8
+uint32_t peripheral_id7;													// 0x0FDC
+uint32_t peripheral_id0;													// 0x0FE0
+uint32_t peripheral_id1;													// 0x0FE4
+uint32_t peripheral_id2;													// 0x0FE8
+uint32_t peripheral_id3;													// 0x0FEC
+uint32_t component_id0;														// 0x0FF0
+uint32_t component_id1;														// 0x0FF4
+uint32_t component_id2;														// 0x0FF8
+uint32_t component_id3;														// 0x0FFC
 } ARM_generic_interrupt_controller_distributor_register_map;
 
 /*
 	ARM_GENERIC_INTERRUPT_CONTROLLER_CPU_REGISTER_MAP
 	-------------------------------------------------
 	See page 4-4 to 4-5 of the "ARM Generic Interrupt Controller Architecture Specification, Architecture version 1.0"
-	There should be one of these per core
 */
 typedef struct
 {
-uint32_t cpu_interface_control_register;						// 0x00
+uint32_t cpu_interface_control_register;							// 0x00
 uint32_t interrupt_priority_mask_register;						// 0x04
-uint32_t binary_point_register;								// 0x08
-uint32_t interrupt_acknowledge_register;						// 0x0C
-uint32_t end_of_interrupt_register;							// 0x10
-uint32_t running_priority_register;							// 0x14
-uint32_t highest_pending_interrupt_register;					// 0x18
-uint32_t aliased_binary_point_register;						// 0x1C
-uint32_t reserved1[8];											// 0x20
+uint32_t binary_point_register;										// 0x08
+uint32_t interrupt_acknowledge_register;							// 0x0C
+uint32_t end_of_interrupt_register;									// 0x10
+uint32_t running_priority_register;									// 0x14
+uint32_t highest_pending_interrupt_register;						// 0x18
+uint32_t aliased_binary_point_register;							// 0x1C
+uint32_t reserved1[8];													// 0x20
 uint32_t implementation_defined_registers[36];					// 0x40
-uint32_t reserved2[11];										// 0xD0
+uint32_t reserved2[11];													// 0xD0
 uint32_t cpu_interface_dentification_register;					// 0xFC
 } ARM_generic_interrupt_controller_cpu_register_map;
+
+
+typedef struct
+
+/*
+   ISR_IRW()
+   ---------
+*/
+volatile uint32_t interrupt_count = 0;
+volatile uint32_t interrupt_number;
+volatile ARM_generic_interrupt_controller_cpu_register_map *cpu_registers;
+volatile ARM_generic_interrupt_controller_distributor_register_map *distributor_registers;
+
+
+void isr_IRQ(void) __attribute__((interrupt("IRQ")))
+{
+/*
+   ACK the interrupt and tell the hardware that we're in the interrupt service routine
+*/
+interrupt_number = cpu_registers->interrupt_acknowledge_register;
+
+/*
+   Make sure it wasn't a spurious interrupt
+*/
+if (interrupt_number ==IMX_INT_SPURIOUS)
+   return;
+/*
+   As we don't have a stack, we'll just inc a global
+*/
+interrupt_count++;
+
+/*
+   Tell the hardware that we're done
+*/
+cpu_registers->end_of_interrupt_register = interrupt_number;
+}
+
+/*
+	CPU_INTERRUPT_INIT()
+	--------------------
+	OK, so, here we go...  On the i.MX6Q the interrupt vectors are in ROM. This might not be so bad except that the alternative location (high mem)
+	might not exist because its in external RAM which might not go that high.  To get around this Freescale's ROM vectors point to a location in
+	on-chip RAM (0x0093FFB8). More precisely, when an IRQ happens the CPU jumps to the IRQ vector (0x00000018) which does a branch indirect to the
+	address stored in 0x0000003C which results in a branch to 0x0093FFD0 which is in the on-chip RAM.  What happens there is another branch indirect
+	to the address stored in 0x93FFF4.  That, in turn,  takes the CPU to location 0x0000F7F4.
+
+	To take control of the interrupts its necessary to either change the branch table at 0x0093FFB8, or the vector of addresses at 0x0093FFDC
+
+	93FFDC:
+		2C F8 00 00 RESET
+		F4 F7 00 00 UNDEF
+		F4 F7 00 00 SWI
+		F4 F7 00 00 PREFETCH ABORT
+		F4 F7 00 00 DATA ABORT
+		F4 F7 00 00 RESERVED
+		F4 F7 00 00 IRQ
+		F4 F7 00 00 FIRQ
+		F4 F7 00 00 SW MONITOR	// somekind of watchdog?
+
+	See pages 397, 400 and 401 of "i.MX 6Dual/6Quad Applications Processor Reference Manual, Rev. 0, 11/2012" for a memory map of the on-chip RAM and
+	a somewhat brief explanation of what is going on.
+*/
+void cpu_interrupt_init(void)
+{
+}
+
+/*
+   INTERRUPT_INIT()
+   ----------------
+*/
+void interrupt_init(void)
+{
+/*
+   First we disable the interrupt distributor
+*/
+distributor_registers->distributor_control_register = 0;
+cpu_registers->cpu_interface_control_register = 0;
+
+/*
+   Enable the GPT interrupt
+*/
+distributor_registers->interrupt_set_enable_registers[IMX_INT_GPT / 32] = 1 << IMX_INT_GPT % 32;
+
+/*
+   Finally, enable the distributor
+*/
+distributor_registers->distributor_control_register = 1;
+cpu_registers->cpu_interface_control_register = 1;
+}
 
 /*
    MAIN()
@@ -192,8 +283,6 @@ uint32_t cpu_interface_dentification_register;					// 0xFC
 */
 int main(void)
 {
-ARM_generic_interrupt_controller_cpu_register_map *cpu_registers;
-ARM_generic_interrupt_controller_distributor_register_map *distributor_registers;
 uint32_t base;
 long x;
 uint32_t count, rollover;
@@ -261,6 +350,11 @@ for (x = 0; x < 10; x++)
    debug_puts("GPT_SR:");
    debug_print_hex(rollover);
    debug_puts(" ");
+
+   debug_puts("IRQCount:");
+   debug_print_hex(interrupt_count);
+   debug_puts(" ");
+
    if (rollover != 0)
       HW_GPT_SR.B.OF1 = 1;       // clear the roll_over bit
 
