@@ -6,6 +6,7 @@
 ^test/
 ^libusb/
 ^rockbox/
+^windows_HID/
 \.bak$
 \.o$
 \.elf$
