@@ -136,18 +136,18 @@ uint32_t distributor_control_register;							      // 0x0000
 uint32_t interrupt_controller_type_register;					      // 0x0004
 uint32_t distributor_implementer_identification_register;		// 0x0008
 uint32_t reserved1[29];										            // 0x000C
-uint32_t interrupt_security_registers[32];						   // 0x0080
+uint32_t interrupt_security_registers[8];						   // 0x0080
+uint32_t reserved5[24];
 uint32_t interrupt_set_enable_registers[32];					      // 0x0100
 uint32_t interrupt_clear_enable_registers[32];					   // 0x0180
 uint32_t interrupt_set_pending_registers[32];					   // 0x0200
 uint32_t interrupt_clear_pending_registers[32];				      // 0x0280
 uint32_t active_bit_registers[32];								      // 0x0300
 uint32_t reserved2[32];										            // 0x0380
-uint32_t interrupt_priority_registers[255];					      // 0x0400
+uint8_t interrupt_priority_registers[255 * sizeof(uint32_t)];					      // 0x0400
 uint32_t reserved3;															// 0x07FC
-uint32_t interrupt_processor_targets_registers[8];					// 0x0800
-uint32_t reserved4[247];													// 0x0820
-uint32_t reserved5;															// 0x0BFC
+uint8_t interrupt_processor_targets_registers[255 * sizeof(uint32_t)];					// 0x0800
+uint32_t reserved4;															// 0x0BFC
 uint32_t interrupt_configuration_registers[64];						// 0x0C00
 uint32_t implementation_defined_registers[64];						// 0x0D00
 uint32_t reserved6[64];														// 0x0E00
@@ -189,10 +189,8 @@ uint32_t cpu_interface_dentification_register;					// 0xFC
 } ARM_generic_interrupt_controller_cpu_register_map;
 
 
-typedef struct
-
 /*
-   ISR_IRW()
+   ISR_IRQ()
    ---------
 */
 volatile uint32_t interrupt_count = 0;
@@ -200,8 +198,8 @@ volatile uint32_t interrupt_number;
 volatile ARM_generic_interrupt_controller_cpu_register_map *cpu_registers;
 volatile ARM_generic_interrupt_controller_distributor_register_map *distributor_registers;
 
-
-void isr_IRQ(void) __attribute__((interrupt("IRQ")))
+void isr_IRQ(void) __attribute__((interrupt("IRQ")));
+void isr_IRQ(void)
 {
 /*
    ACK the interrupt and tell the hardware that we're in the interrupt service routine
@@ -210,9 +208,12 @@ interrupt_number = cpu_registers->interrupt_acknowledge_register;
 
 /*
    Make sure it wasn't a spurious interrupt
+	The Cortex A9 MPCore Reference Manual (page 3-3) makes it clear that no semaphore is
+	required to avoid the race condition.  This test for spurious is enough
 */
-if (interrupt_number ==IMX_INT_SPURIOUS)
+if (interrupt_number == IMX_INT_SPURIOUS)
    return;
+
 /*
    As we don't have a stack, we'll just inc a global
 */
@@ -222,6 +223,64 @@ interrupt_count++;
    Tell the hardware that we're done
 */
 cpu_registers->end_of_interrupt_register = interrupt_number;
+
+}
+
+/*
+	ARM_INTERRUPT_VECTORS
+	---------------------
+*/
+typedef struct
+{
+uint32_t reset;
+uint32_t undefined_instruction;
+uint32_t swi;
+uint32_t prefetch_abort;
+uint32_t data_abort;
+uint32_t reserved;
+uint32_t irq;
+uint32_t firq;
+uint32_t sw_monitor;
+} ARM_interrupt_vectors;
+
+/*
+	GET_CPSR()
+	----------
+*/
+uint32_t get_cpsr(void)
+{
+uint32_t answer;
+
+asm volatile
+	(
+	"mrs %0,CPSR"
+	:"=r" (answer)
+	);
+
+return answer;
+}
+
+/*
+	SET_CPSR()
+	----------
+*/
+void set_cpsr(uint32_t save_cpsr)
+{
+asm volatile
+	(
+	"msr CPSR_cxsf, %0"
+	:
+	:"r"(save_cpsr)
+	);
+}
+
+/*
+	ENABLE_IRQ()
+	------------
+*/
+void enable_IRQ(void)
+{
+set_cpsr(get_cpsr() & ~0x80);
 }
 
 /*
@@ -235,7 +294,7 @@ cpu_registers->end_of_interrupt_register = interrupt_number;
 
 	To take control of the interrupts its necessary to either change the branch table at 0x0093FFB8, or the vector of addresses at 0x0093FFDC
 
-	93FFDC:
+	0x0093FFDC:
 		2C F8 00 00 RESET
 		F4 F7 00 00 UNDEF
 		F4 F7 00 00 SWI
@@ -244,13 +303,25 @@ cpu_registers->end_of_interrupt_register = interrupt_number;
 		F4 F7 00 00 RESERVED
 		F4 F7 00 00 IRQ
 		F4 F7 00 00 FIRQ
-		F4 F7 00 00 SW MONITOR	// somekind of watchdog?
+		F4 F7 00 00 SW MONITOR	// Software Watchdog
 
 	See pages 397, 400 and 401 of "i.MX 6Dual/6Quad Applications Processor Reference Manual, Rev. 0, 11/2012" for a memory map of the on-chip RAM and
 	a somewhat brief explanation of what is going on.
 */
 void cpu_interrupt_init(void)
 {
+ARM_interrupt_vectors *vectors = (ARM_interrupt_vectors *)0x0093FFDC;		// top of on-chip RAM
+
+vectors->irq = (uint32_t)isr_IRQ;
+vectors->reset = (uint32_t)isr_IRQ;
+vectors->undefined_instruction = (uint32_t)isr_IRQ;
+vectors->swi = (uint32_t)isr_IRQ;
+vectors->prefetch_abort = (uint32_t)isr_IRQ;
+vectors->data_abort = (uint32_t)isr_IRQ;
+vectors->reserved = (uint32_t)isr_IRQ;
+vectors->irq = (uint32_t)isr_IRQ;
+vectors->firq = (uint32_t)isr_IRQ;
+vectors->sw_monitor = (uint32_t)isr_IRQ;
 }
 
 /*
@@ -260,21 +331,23 @@ void cpu_interrupt_init(void)
 void interrupt_init(void)
 {
 /*
-   First we disable the interrupt distributor
+	Enable all interrupt levels (0 = high, 0xFF = low)
 */
-distributor_registers->distributor_control_register = 0;
-cpu_registers->cpu_interface_control_register = 0;
+cpu_registers->interrupt_priority_mask_register = 0xFF;
+
+/*
+   Enable the GIC
+*/
+cpu_registers->cpu_interface_control_register = 0x03;			// enable everything
+distributor_registers->distributor_control_register = 0x03;	// enable everything
 
 /*
    Enable the GPT interrupt
 */
-distributor_registers->interrupt_set_enable_registers[IMX_INT_GPT / 32] = 1 << IMX_INT_GPT % 32;
-
-/*
-   Finally, enable the distributor
-*/
-distributor_registers->distributor_control_register = 1;
-cpu_registers->cpu_interface_control_register = 1;
+distributor_registers->interrupt_priority_registers[IMX_INT_GPT] = 0;		// highest priority
+distributor_registers->interrupt_security_registers[IMX_INT_GPT / 32] &= ~(1 << (IMX_INT_GPT & 0x1F));// disable securirt
+distributor_registers->interrupt_processor_targets_registers[IMX_INT_GPT] |= 1;	// send to CPU 0
+distributor_registers->interrupt_set_enable_registers[IMX_INT_GPT / 32] = 1 << (IMX_INT_GPT & 0x1F);
 }
 
 /*
@@ -283,16 +356,42 @@ cpu_registers->cpu_interface_control_register = 1;
 */
 int main(void)
 {
+uint32_t irq_stack[256];
+uint32_t *irq_sp = irq_stack + sizeof(irq_stack);
+
 uint32_t base;
-long x;
+long x, y;
 uint32_t count, rollover;
+uint32_t *interrupt_addresses;
 
 serial_init();
 debug_puts("\r\nStart:" __TIME__ "\r\n");
 timer_init();
 debug_puts("Timer initilised\r\n");
 
-HW_GPT_OCR1.U = 0x100;     // fun until the GPT gets to 0x100
+debug_puts("Set up IRQ stack...");
+
+/*
+	Set up the IRQ stack
+*/
+asm volatile
+(
+		"mov r2, %[stack];"		// grab the stack address
+		"mrs r0, cpsr;"			// get the current mode
+		"bic r1, r0, #0x1F;"	// turn off the mode bits
+		"orr r1, r1, #0x12;"	// turn on the IRQ bits
+		"msr cpsr, r1;"			// go into IRQ mode
+		"mov sp, r2;"			// set the stack top
+		"msr cpsr, r0;"			// back to original mode
+		:
+		: [stack]"r"(irq_sp)
+		: "r0", "r1", "r2"
+);
+debug_puts("Done\r\n");
+
+
+
+HW_GPT_OCR1.U = 0x100;     // run until the GPT gets to 0x100
 HW_GPT_CR.B.FRR = 0;    	// restart mode (periodic interrupt mode)
 
 /*
@@ -338,6 +437,69 @@ debug_puts(" ");
 debug_print_hex(distributor_registers->component_id3);
 debug_puts("\r\n");
 
+interrupt_init();
+cpu_interrupt_init();
+
+/*
+	Dump out the ISR vectors
+*/
+
+interrupt_addresses = (uint32_t *)0x0093FFDC;
+debug_puts("\r\nReset         :");
+debug_print_hex(*interrupt_addresses);
+interrupt_addresses++;
+debug_puts("\r\nundef         :");
+debug_print_hex(*interrupt_addresses);
+interrupt_addresses++;
+debug_puts("\r\nswi           :");
+debug_print_hex(*interrupt_addresses);
+interrupt_addresses++;
+debug_puts("\r\nprefetch abort:");
+debug_print_hex(*interrupt_addresses);
+interrupt_addresses++;
+debug_puts("\r\ndata abort    :");
+debug_print_hex(*interrupt_addresses);
+interrupt_addresses++;
+debug_puts("\r\nreserved      :");
+debug_print_hex(*interrupt_addresses);
+interrupt_addresses++;
+debug_puts("\r\nirq           :");
+debug_print_hex(*interrupt_addresses);
+interrupt_addresses++;
+debug_puts("\r\nfirq          :");
+debug_print_hex(*interrupt_addresses);
+interrupt_addresses++;
+debug_puts("\r\n\r\nisr_IRQ       :");
+debug_print_hex((uint32_t)isr_IRQ);
+debug_puts("\r\n\r\n");
+
+/*
+	Tell the GPT to generate an interrupt.
+*/
+
+debug_puts("Force an Interrupt... Before:\r\n");
+for (y = 0; y < 32; y++)
+	debug_print_hex(distributor_registers->interrupt_set_pending_registers[y]);
+
+debug_puts("Enable IRQ\r\n");
+enable_IRQ();
+debug_puts("IRQ enabled\r\nForce Interrupt\r\n");
+distributor_registers->interrupt_set_pending_registers[IMX_INT_GPT / 32] = 1 << (IMX_INT_GPT & 0x1F);
+debug_puts("Forced\r\n");
+
+debug_puts("\r\nAfter:\r\n");
+for (y = 0; y < 32; y++)
+	debug_print_hex(distributor_registers->interrupt_set_pending_registers[y]);
+debug_puts("\r\n");
+debug_puts("\r\n");
+
+debug_puts("Enanle GPT interrupts:");
+HW_GPT_IR.B.OF1IE = 1;
+debug_puts("Done\r\n");
+
+/*
+	On to the program
+*/
 for (x = 0; x < 10; x++)
    {
    count = HW_GPT_CNT_RD();
@@ -353,11 +515,16 @@ for (x = 0; x < 10; x++)
 
    debug_puts("IRQCount:");
    debug_print_hex(interrupt_count);
-   debug_puts(" ");
+   debug_puts("\r\n");
+
+   debug_puts("PENDING:");
+	for (y = 0; y < 32; y++)
+		debug_print_hex(distributor_registers->interrupt_set_pending_registers[y]);
 
    if (rollover != 0)
       HW_GPT_SR.B.OF1 = 1;       // clear the roll_over bit
-
+		
+	
    debug_puts("\r\n");
    }
 

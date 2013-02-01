@@ -36,9 +36,9 @@ DDK_LIB = c:\WinDDK\7600.16385.1\lib\wxp\i386\setupapi.lib c:\WinDDK\7600.16385.
 #
 #	Now the compilers, etc.
 #
-CCC = arm-none-eabi-gcc
+CCC = @arm-none-eabi-gcc
 CCCFLAGS = -mcpu=arm926ej-s  -D$(CPU) -D$(TARGET) -g3 -Wall -Os
-CC = arm-none-eabi-g++
+CC = @arm-none-eabi-g++
 CFLAGS = -fno-exceptions -fno-rtti $(CCCFLAGS) -ffreestanding -nostdlib -nodefaultlibs -nostartfiles
 CLINKFLAGS = -l gcc
 
