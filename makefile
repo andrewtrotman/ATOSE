@@ -99,6 +99,7 @@ ATOSE_TOOLS =									\
 	$(BIN_DIR)\test_ram.elf
 
 IMX6Q_TOOLS =						         \
+	$(BIN_DIR)\imx6q_usb.elf	         \
 	$(BIN_DIR)\imx6q_uart.elf	         \
 	$(BIN_DIR)\imx6q_interrupt.elf		\
 	$(BIN_DIR)\imx6q_timer.elf
@@ -142,6 +143,10 @@ $(BIN_DIR)\imx6q_timer.elf : $(TESTS_DIR)\imx6q.ld $(TESTS_DIR)\imx6q.s
 $(BIN_DIR)\imx6q_interrupt.elf : $(TESTS_DIR)\imx6q.ld $(TESTS_DIR)\imx6q.s
 	@echo $@
 	$(CCC) $(CCCFLAGS) $(TESTS_DIR)\imx6q_interrupt.c $(TESTS_DIR)\imx6q.s $(CLINKFLAGS) -o $@  -T $(TESTS_DIR)\imx6q.ld
+
+$(BIN_DIR)\imx6q_usb.elf : $(TESTS_DIR)\imx6q.ld $(TESTS_DIR)\imx6q.s
+	@echo $@
+	$(CCC) $(CCCFLAGS) $(TESTS_DIR)\imx6q_usb.c $(TESTS_DIR)\imx6q.s $(CLINKFLAGS) -o $@  -T $(TESTS_DIR)\imx6q.ld
 
 
 
