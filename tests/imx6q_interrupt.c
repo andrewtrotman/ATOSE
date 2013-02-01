@@ -113,7 +113,7 @@ HW_GPT_CR.B.EN = 0;
 HW_GPT_IR.U = 0;
 HW_GPT_CR.B.OM1 = HW_GPT_CR.B.OM2 = HW_GPT_CR.B.OM3 = 0;
 HW_GPT_CR.B.IM1 = HW_GPT_CR.B.IM2 = 0;
-HW_GPT_CR.B.CLKSRC = 0x07;      // use the 24MHz crystal
+HW_GPT_CR.B.CLKSRC = 0x07;      						// use the 24MHz crystal
 HW_GPT_CR.B.SWR = 0;
 while (HW_GPT_CR.B.SWR != 0)
    ;/* nothing */
@@ -124,6 +124,7 @@ HW_GPT_CR.B.EN = 1;
 
 
 #define IMX_INT_SPURIOUS 1023
+
 /*
 	ARM_GENERIC_INTERRUPT_CONTROLLER_DISTRIBUTOR_REGISTER_MAP
 	---------------------------------------------------------
@@ -189,17 +190,20 @@ uint32_t cpu_interface_dentification_register;					// 0xFC
 } ARM_generic_interrupt_controller_cpu_register_map;
 
 /*
-   ISR_IRQ()
-   ---------
+	Global stuff
 */
 volatile uint32_t interrupt_count = 0;
-volatile uint32_t interrupt_number;
 volatile ARM_generic_interrupt_controller_cpu_register_map *cpu_registers;
 volatile ARM_generic_interrupt_controller_distributor_register_map *distributor_registers;
 
+/*
+   ISR_IRQ()
+   ---------
+*/
 void isr_IRQ(void) __attribute__((interrupt("IRQ")));
 void isr_IRQ(void)
 {
+uint32_t interrupt_number;
 /*
    ACK the interrupt and tell the hardware that we're in the interrupt service routine
 */
@@ -317,15 +321,7 @@ void cpu_interrupt_init(void)
 ARM_interrupt_vectors *vectors = (ARM_interrupt_vectors *)0x0093FFDC;		// top of on-chip RAM
 
 vectors->irq = (uint32_t)isr_IRQ;
-vectors->reset = (uint32_t)isr_IRQ;
-vectors->undefined_instruction = (uint32_t)isr_IRQ;
-vectors->swi = (uint32_t)isr_IRQ;
-vectors->prefetch_abort = (uint32_t)isr_IRQ;
-vectors->data_abort = (uint32_t)isr_IRQ;
-vectors->reserved = (uint32_t)isr_IRQ;
-vectors->irq = (uint32_t)isr_IRQ;
-vectors->firq = (uint32_t)isr_IRQ;
-vectors->sw_monitor = (uint32_t)isr_IRQ;
+enable_IRQ();
 }
 
 /*
@@ -340,18 +336,18 @@ void interrupt_init(void)
 cpu_registers->interrupt_priority_mask_register = 0xFF;
 
 /*
-   Enable the GIC
+   Enable the GIC (both secure and insecure interrupts)
 */
-cpu_registers->cpu_interface_control_register = 0x03;			// enable everything
-distributor_registers->distributor_control_register = 0x03;	// enable everything
+cpu_registers->cpu_interface_control_register = 0x03;					// enable everything
+distributor_registers->distributor_control_register = 0x03;			// enable everything
 
 /*
    Enable the GPT interrupt
 */
-distributor_registers->interrupt_priority_registers[IMX_INT_GPT] = 0;		// highest priority
-distributor_registers->interrupt_security_registers[IMX_INT_GPT / 32] &= ~(1 << (IMX_INT_GPT & 0x1F));// disable securirt
-distributor_registers->interrupt_processor_targets_registers[IMX_INT_GPT] |= 1;	// send to CPU 0
-distributor_registers->interrupt_set_enable_registers[IMX_INT_GPT / 32] = 1 << (IMX_INT_GPT & 0x1F);
+distributor_registers->interrupt_priority_registers[IMX_INT_GPT] = 0;												// highest priority
+distributor_registers->interrupt_security_registers[IMX_INT_GPT / 32] &= ~(1 << (IMX_INT_GPT & 0x1F));	// disable security
+distributor_registers->interrupt_processor_targets_registers[IMX_INT_GPT] |= 1;									// send to CPU 0
+distributor_registers->interrupt_set_enable_registers[IMX_INT_GPT / 32] = 1 << (IMX_INT_GPT & 0x1F);		// enable the interrupt
 }
 
 /*
@@ -364,16 +360,13 @@ uint32_t irq_stack[256];
 uint32_t *irq_sp = irq_stack + sizeof(irq_stack);
 
 uint32_t base;
-long x, y;
-uint32_t count, rollover;
-uint32_t *interrupt_addresses;
+long x;
+uint32_t count;
+
 
 serial_init();
-debug_puts("\r\nStart:" __TIME__ "\r\n");
+debug_puts("\r\nStart\r\nBuild Time:" __DATE__ ", " __TIME__ "\r\n");
 timer_init();
-debug_puts("Timer initilised\r\n");
-
-debug_puts("Set up IRQ stack...");
 
 /*
 	Set up the IRQ stack
@@ -391,9 +384,6 @@ asm volatile
 		: [stack]"r"(irq_sp)
 		: "r0", "r1", "r2"
 );
-debug_puts("Done\r\n");
-
-
 
 HW_GPT_OCR1.U = 0x100;     // run until the GPT gets to 0x100
 HW_GPT_CR.B.FRR = 0;    	// restart mode (periodic interrupt mode)
@@ -441,90 +431,27 @@ debug_puts(" ");
 debug_print_hex(distributor_registers->component_id3);
 debug_puts("\r\n");
 
+/*
+	Enable interrupts
+*/
 interrupt_init();
 cpu_interrupt_init();
-
-/*
-	Dump out the ISR vectors
-*/
-
-interrupt_addresses = (uint32_t *)0x0093FFDC;
-debug_puts("\r\nReset         :");
-debug_print_hex(*interrupt_addresses);
-interrupt_addresses++;
-debug_puts("\r\nundef         :");
-debug_print_hex(*interrupt_addresses);
-interrupt_addresses++;
-debug_puts("\r\nswi           :");
-debug_print_hex(*interrupt_addresses);
-interrupt_addresses++;
-debug_puts("\r\nprefetch abort:");
-debug_print_hex(*interrupt_addresses);
-interrupt_addresses++;
-debug_puts("\r\ndata abort    :");
-debug_print_hex(*interrupt_addresses);
-interrupt_addresses++;
-debug_puts("\r\nreserved      :");
-debug_print_hex(*interrupt_addresses);
-interrupt_addresses++;
-debug_puts("\r\nirq           :");
-debug_print_hex(*interrupt_addresses);
-interrupt_addresses++;
-debug_puts("\r\nfirq          :");
-debug_print_hex(*interrupt_addresses);
-interrupt_addresses++;
-debug_puts("\r\n\r\nisr_IRQ       :");
-debug_print_hex((uint32_t)isr_IRQ);
-debug_puts("\r\n\r\n");
-
-/*
-	Tell the GPT to generate an interrupt.
-*/
-
-debug_puts("Force an Interrupt... Before:\r\n");
-for (y = 0; y < 32; y++)
-	debug_print_hex(distributor_registers->interrupt_set_pending_registers[y]);
-
-debug_puts("Enable IRQ\r\n");
-enable_IRQ();
-debug_puts("IRQ enabled\r\nForce Interrupt\r\n");
-distributor_registers->interrupt_set_pending_registers[IMX_INT_GPT / 32] = 1 << (IMX_INT_GPT & 0x1F);
-debug_puts("Forced\r\n");
-
-debug_puts("\r\nAfter:\r\n");
-for (y = 0; y < 32; y++)
-	debug_print_hex(distributor_registers->interrupt_set_pending_registers[y]);
-debug_puts("\r\n");
-debug_puts("\r\n");
-
-debug_puts("Enanle GPT interrupts:");
 HW_GPT_IR.B.OF1IE = 1;
-debug_puts("Done\r\n");
 
 /*
-	On to the program
+	On to the program. We just print the value of the counter and the number
+	of times its has wrapped over.
 */
 for (x = 0; x < 10; x++)
    {
    count = HW_GPT_CNT_RD();
-   rollover = HW_GPT_SR_RD();
 
    debug_puts("GPT_CNT:");
    debug_print_hex(count);
    debug_puts(" ");
 
-   debug_puts("GPT_SR:");
-   debug_print_hex(rollover);
-   debug_puts(" ");
-
    debug_puts("IRQCount:");
    debug_print_hex(interrupt_count);
-   debug_puts("\r\n");
-
-   debug_puts("PENDING:");
-	for (y = 0; y < 32; y++)
-		debug_print_hex(distributor_registers->interrupt_set_pending_registers[y]);
-
    debug_puts("\r\n");
    }
 
