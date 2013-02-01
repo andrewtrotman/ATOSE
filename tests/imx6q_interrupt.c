@@ -188,7 +188,6 @@ uint32_t reserved2[11];													// 0xD0
 uint32_t cpu_interface_dentification_register;					// 0xFC
 } ARM_generic_interrupt_controller_cpu_register_map;
 
-
 /*
    ISR_IRQ()
    ---------
@@ -213,6 +212,11 @@ interrupt_number = cpu_registers->interrupt_acknowledge_register;
 */
 if (interrupt_number == IMX_INT_SPURIOUS)
    return;
+
+/*
+	Tell the GPT that we got the interrupt
+*/
+HW_GPT_SR.B.OF1 = 1;       // clear the roll_over bit
 
 /*
    As we don't have a stack, we'll just inc a global
@@ -521,10 +525,6 @@ for (x = 0; x < 10; x++)
 	for (y = 0; y < 32; y++)
 		debug_print_hex(distributor_registers->interrupt_set_pending_registers[y]);
 
-   if (rollover != 0)
-      HW_GPT_SR.B.OF1 = 1;       // clear the roll_over bit
-		
-	
    debug_puts("\r\n");
    }
 
