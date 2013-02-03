@@ -1191,14 +1191,65 @@ int usb_state = USB_DEVICE_STATE_DEFAULT;		// unused
 /*
 	Pointers to memory (use for allocators)
 */
-char *external_memory_head = (char *) 0x00920000;
-char *internal_memory_head;
+char *external_memory_head;
 
 /*
 	==============================================
 	Serial port I/O stuff (for debugging purposes)
 	==============================================
 */
+#define BAUD_RATE 115200
+#define DEFAULT_UART 2		/* can be either 2 (SABRE Lite "console") or 1 (the other UART) */
+#define PLL3_FREQUENCY 80000000
+
+/*
+	SERIAL_INIT()
+	-------------
+*/
+void serial_init(void)
+{
+/*
+   Enable Clocks
+*/
+*((uint32_t *)0x020C407C) = 0x0F0000C3;	// CCM Clock Gating Register 5 (CCM_CCGR5) (inc UART clock)
+
+/*
+   Enable Pads
+*/
+#if (DEFAULT_UART == 1)
+	HW_IOMUXC_SW_MUX_CTL_PAD_SD3_DATA6_WR(BF_IOMUXC_SW_MUX_CTL_PAD_SD3_DATA6_SION_V(DISABLED) | BF_IOMUXC_SW_MUX_CTL_PAD_SD3_DATA6_MUX_MODE_V(ALT1));
+	HW_IOMUXC_SW_PAD_CTL_PAD_SD3_DATA6_WR(BF_IOMUXC_SW_PAD_CTL_PAD_SD3_DATA6_HYS_V(ENABLED) | BF_IOMUXC_SW_PAD_CTL_PAD_SD3_DATA6_PUS_V(100K_OHM_PU) | BF_IOMUXC_SW_PAD_CTL_PAD_SD3_DATA6_PUE_V(PULL) | BF_IOMUXC_SW_PAD_CTL_PAD_SD3_DATA6_PKE_V(ENABLED) | BF_IOMUXC_SW_PAD_CTL_PAD_SD3_DATA6_ODE_V(DISABLED) | BF_IOMUXC_SW_PAD_CTL_PAD_SD3_DATA6_SPEED_V(100MHZ) | BF_IOMUXC_SW_PAD_CTL_PAD_SD3_DATA6_DSE_V(40_OHM) | BF_IOMUXC_SW_PAD_CTL_PAD_SD3_DATA6_SRE_V(SLOW));
+	HW_IOMUXC_UART1_UART_RX_DATA_SELECT_INPUT_WR(BF_IOMUXC_UART1_UART_RX_DATA_SELECT_INPUT_DAISY_V(CSI0_DATA10_ALT3));
+	HW_IOMUXC_SW_MUX_CTL_PAD_SD3_DATA7_WR(BF_IOMUXC_SW_MUX_CTL_PAD_SD3_DATA7_SION_V(DISABLED) | BF_IOMUXC_SW_MUX_CTL_PAD_SD3_DATA7_MUX_MODE_V(ALT1));
+	HW_IOMUXC_SW_PAD_CTL_PAD_SD3_DATA7_WR(BF_IOMUXC_SW_PAD_CTL_PAD_SD3_DATA7_HYS_V(ENABLED) | BF_IOMUXC_SW_PAD_CTL_PAD_SD3_DATA7_PUS_V(100K_OHM_PU) | BF_IOMUXC_SW_PAD_CTL_PAD_SD3_DATA7_PUE_V(PULL) | BF_IOMUXC_SW_PAD_CTL_PAD_SD3_DATA7_PKE_V(ENABLED) | BF_IOMUXC_SW_PAD_CTL_PAD_SD3_DATA7_ODE_V(DISABLED) | BF_IOMUXC_SW_PAD_CTL_PAD_SD3_DATA7_SPEED_V(100MHZ) | BF_IOMUXC_SW_PAD_CTL_PAD_SD3_DATA7_DSE_V(40_OHM) | BF_IOMUXC_SW_PAD_CTL_PAD_SD3_DATA7_SRE_V(SLOW));
+	HW_IOMUXC_UART1_UART_RX_DATA_SELECT_INPUT_WR(BF_IOMUXC_UART1_UART_RX_DATA_SELECT_INPUT_DAISY_V(CSI0_DATA10_ALT3));
+#elif (DEFAULT_UART == 2)
+	HW_IOMUXC_SW_MUX_CTL_PAD_EIM_DATA27_WR(BF_IOMUXC_SW_MUX_CTL_PAD_EIM_DATA27_SION_V(DISABLED) | BF_IOMUXC_SW_MUX_CTL_PAD_EIM_DATA27_MUX_MODE_V(ALT4));
+	HW_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA27_WR(BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA27_HYS_V(ENABLED) | BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA27_PUS_V(100K_OHM_PU) | BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA27_PUE_V(PULL) | BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA27_PKE_V(ENABLED) | BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA27_ODE_V(DISABLED) | BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA27_SPEED_V(100MHZ) | BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA27_DSE_V(40_OHM) | BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA27_SRE_V(SLOW));
+	HW_IOMUXC_UART2_UART_RX_DATA_SELECT_INPUT_WR(BF_IOMUXC_UART2_UART_RX_DATA_SELECT_INPUT_DAISY_V(EIM_DATA26_ALT4));
+	HW_IOMUXC_SW_MUX_CTL_PAD_EIM_DATA26_WR(BF_IOMUXC_SW_MUX_CTL_PAD_EIM_DATA26_SION_V(DISABLED) | BF_IOMUXC_SW_MUX_CTL_PAD_EIM_DATA26_MUX_MODE_V(ALT4));
+	HW_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA26_WR(BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA26_HYS_V(ENABLED) | BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA26_PUS_V(100K_OHM_PU) | BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA26_PUE_V(PULL) | BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA26_PKE_V(ENABLED) | BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA26_ODE_V(DISABLED) | BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA26_SPEED_V(100MHZ) | BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA26_DSE_V(40_OHM) | BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA26_SRE_V(SLOW));
+	HW_IOMUXC_UART2_UART_RX_DATA_SELECT_INPUT_WR(BF_IOMUXC_UART2_UART_RX_DATA_SELECT_INPUT_DAISY_V(EIM_DATA26_ALT4));
+#else
+	#error "Only UART 1 and 2 are supported"
+#endif
+
+/*
+	Now on to the UART 8 bits, 1 stop bit, no parity, software flow control
+*/
+HW_UART_UCR1(DEFAULT_UART).U = 0;
+HW_UART_UCR2(DEFAULT_UART).U = 0;
+while (HW_UART_UCR2(DEFAULT_UART).B.SRST == 0)
+	;	// nothing
+
+HW_UART_UCR1(DEFAULT_UART).B.UARTEN = 1;
+HW_UART_UCR3(DEFAULT_UART).B.RXDMUXSEL = 1;
+HW_UART_UCR2_WR(DEFAULT_UART, BM_UART_UCR2_WS | BM_UART_UCR2_IRTS | BM_UART_UCR2_RXEN | BM_UART_UCR2_TXEN | BM_UART_UCR2_SRST);
+HW_UART_UFCR(DEFAULT_UART).B.RFDIV = 0x04;		/* divide input clock by 2 */
+HW_UART_UBIR(DEFAULT_UART).U = 0x0F;
+HW_UART_UBMR(DEFAULT_UART).U = (PLL3_FREQUENCY / (HW_CCM_CSCDR1.B.UART_CLK_PODF + 1)) / (2 * BAUD_RATE);		// UBMR should be 0x015B once set
+}
+
 /*
 	DEBUG_PUTC()
 	------------
@@ -2011,13 +2062,12 @@ uint32_t reserved2[11];													// 0xD0
 uint32_t cpu_interface_dentification_register;					// 0xFC
 } ARM_generic_interrupt_controller_cpu_register_map;
 
-
 /*
-	ATOSE_ISR_IRQ()
-	---------------
+	ISR_IRQ()
+	---------
 */
 void isr_IRQ(void) __attribute__((interrupt("IRQ")));
-void ATOSE_isr_irq(void)
+void isr_IRQ(void)
 {
 uint32_t base;
 volatile ARM_generic_interrupt_controller_cpu_register_map *cpu_registers;
@@ -2335,16 +2385,21 @@ void usb_setup_endpoint_nonzero()
 {
 hw_usbc_uog_endptctrl1_t endpointcfg;
 
+#define IMX_USB_ENDPTCTRL_CONTROL      0
+#define IMX_USB_ENDPTCTRL_ISOCHRONOUS  1
+#define IMX_USB_ENDPTCTRL_BULK         2
+#define IMX_USB_ENDPTCTRL_INTERRUPT    3
+
 /*
 	Queue 2 and 3 (Endpoint 1): Abstract Control Management Interface
 */
 endpointcfg.U = 0;										// Initialise
 endpointcfg.B.TXE = 1; 								// Transmit enable
 endpointcfg.B.TXR = 1; 								// Reset the PID
-endpointcfg.B.TXT = BV_USBC_UOG_ENDPTCTRLn_TXT__INT;	// We're a USB "interrupt" endpoint
+endpointcfg.B.TXT = IMX_USB_ENDPTCTRL_INTERRUPT;		// We're a USB "interrupt" endpoint
 endpointcfg.B.RXE = 1;									// Recieve enable
 endpointcfg.B.RXR = 1;									// Reset the PID
-endpointcfg.B.RXT = BV_USBC_UOG_ENDPTCTRLn_RXT__INT;	// We're a USB "interrupt" endpoint
+endpointcfg.B.RXT = IMX_USB_ENDPTCTRL_INTERRUPT;		// We're a USB "interrupt" endpoint
 
 /*
 	Allocate transfer buffers and enable the endpoint
@@ -2359,10 +2414,10 @@ HW_USBC_UOG_ENDPTCTRLn_WR(USB_CDC_ENDPOINT_ABSTRACT_CONTROL_MANAGEMENT, endpoint
 endpointcfg.U = 0;										// Initialise
 endpointcfg.B.TXE = 1; 								// Transmit enable
 endpointcfg.B.TXR = 1; 								// Reset the PID
-endpointcfg.B.TXT = BV_USBC_UOG_ENDPTCTRLn_TXT__BULK;	// We're a USB "bulk" endpoint
+endpointcfg.B.TXT = IMX_USB_ENDPTCTRL_BULK;			// We're a USB "bulk" endpoint
 endpointcfg.B.RXE = 1;									// Recieve enable
 endpointcfg.B.RXR = 1;									// Reset the PID
-endpointcfg.B.RXT = BV_USBC_UOG_ENDPTCTRLn_RXT__BULK;	// We're a USB "bulk" endpoint
+endpointcfg.B.RXT = IMX_USB_ENDPTCTRL_BULK;			// We're a USB "bulk" endpoint
 
 /*
 	Allocate transfer buffers and enable the endpoint
@@ -2374,7 +2429,7 @@ HW_USBC_UOG_ENDPTCTRLn_WR(USB_CDC_ENDPOINT_SERIAL, endpointcfg.U);		// EP 2
 /*
 	Update the i.MX233's pointer to the queueheads (actually, not necessary as the address hasn't changed)
 */
-HW_USBC_UOG_ENDPOINTLISTADDR_SET((uint32_t)global_queuehead);
+HW_USBC_UOG_ENDPTLISTADDR_WR((uint32_t)global_queuehead);
 
 /*
 	Prime the endpoints
@@ -2390,23 +2445,98 @@ global_transfer_buffers_preallocated = 1;
 }
 
 /*
-	=========================
-	MAIN() under another name
-	=========================
+	==========================
+	i.MX6Q interrupt handeling
+	==========================
 */
+
 /*
-	C_ENTRY()
-	---------
+	ARM_INTERRUPT_VECTORS
+	---------------------
 */
-void c_entry(void)
+typedef struct
+{
+uint32_t reset;
+uint32_t undefined_instruction;
+uint32_t swi;
+uint32_t prefetch_abort;
+uint32_t data_abort;
+uint32_t reserved;
+uint32_t irq;
+uint32_t firq;
+uint32_t sw_monitor;
+} ARM_interrupt_vectors;
+
+/*
+	CPU_INTERRUPT_INIT()
+	--------------------
+*/
+void cpu_interrupt_init(void)
+{
+ARM_interrupt_vectors *vectors = (ARM_interrupt_vectors *)0x0093FFDC;
+
+vectors->irq = (uint32_t)isr_IRQ;
+enable_IRQ();
+}
+
+/*
+   INTERRUPT_INIT()
+   ----------------
+*/
+void interrupt_init(void)
+{
+uint32_t base;
+volatile ARM_generic_interrupt_controller_cpu_register_map *cpu_registers;
+volatile ARM_generic_interrupt_controller_distributor_register_map *distributor_registers;
+
+asm volatile
+	(
+	"MRC p15, 4, %0, c15, c0, 0;"
+	: "=r"(base)
+	:
+	:
+	);
+cpu_registers = (ARM_generic_interrupt_controller_cpu_register_map *)(base + 0x100);
+distributor_registers = (ARM_generic_interrupt_controller_distributor_register_map *)(base + 0x1000);
+
+cpu_registers->interrupt_priority_mask_register = 0xFF;
+cpu_registers->cpu_interface_control_register = 0x03;
+distributor_registers->distributor_control_register = 0x03;
+}
+
+/*
+	GRAB_INTERRUPT()
+	----------------
+*/
+void grab_interrupt(uint32_t which)
+{
+uint32_t base;
+volatile ARM_generic_interrupt_controller_distributor_register_map *distributor_registers;
+
+asm volatile
+	(
+	"MRC p15, 4, %0, c15, c0, 0;"
+	: "=r"(base)
+	:
+	:
+	);
+distributor_registers = (ARM_generic_interrupt_controller_distributor_register_map *)(base + 0x1000);
+
+distributor_registers->interrupt_priority_registers[which] = 0;
+distributor_registers->interrupt_security_registers[which / 32] &= ~(1 << (which & 0x1F));
+distributor_registers->interrupt_processor_targets_registers[which] |= 1;
+distributor_registers->interrupt_set_enable_registers[which / 32] = 1 << (which & 0x1F);
+}
+
+/*
+	======
+	MAIN()
+	======
+*/
+int main(void)
 {
 uint32_t irq_stack[256];
 uint32_t *irq_sp = irq_stack + sizeof(irq_stack);
-
-/*
-	Magic to get around the brownout problem in the FourARM
-*/
-HW_POWER_VDDIOCTRL.B.PWDN_BRNOUT = 0;
 
 /*
 	call all C++ static object constructors
@@ -2426,7 +2556,7 @@ while (constructor < &end_ctors)
 */
 extern uint32_t ATOSE_start_of_heap;
 
-internal_memory_head = (char *) &ATOSE_start_of_heap;
+external_memory_head = (char *) &ATOSE_start_of_heap;
 
 //Set up the IRQ stack
 asm volatile
@@ -2444,53 +2574,32 @@ asm volatile
 	);
 
 /*
-	Move the interrupt vector table to 0x00000000 (it should already be there though)
+	Set up the serial ports
 */
-asm volatile
-	(
-	"MRC p15, 0, R0, c1, c0, 0;"			// read control register
-	"AND R0, #~(1<<13);"					// turn off the high-interrupt vector table bit
-	"MCR p15, 0, R0, c1, c0, 0;"			// write control register
-	:
-	:
-	: "r0"
-	);
+serial_init();
+
+#ifdef NEVER
+		debug_print_string("Disconnect the USB Phy");
+		HW_USBPHY1CTRL.B.CLKGATE = 1;
+		delay_1_second();
+		debug_print_string("Reconnect the USB Phy");
+		HW_USBPHY1CTRL.B.CLKGATE = 0;
+		while (HW_USBPHY_CTRL.B.CLKGATE)
+			/* do nothing */ ;
+#endif
+
 
 /*
-	Program Interrupt controller (i.MX233 ICOLL)
+	Set up the interrupt controller, the CPU's interrupt vectors, and grab the USB interrupt
 */
-HW_ICOLL_CTRL_WR(0); // reset the interrupt controller
-
-/*
-	Enable USB WAKE UP and USB CTRL
-*/
-HW_ICOLL_INTERRUPTn_SET(VECTOR_IRQ_USB_WAKEUP, BM_ICOLL_INTERRUPTn_ENABLE);
-HW_ICOLL_INTERRUPTn_SET(VECTOR_IRQ_USB_CTRL, BM_ICOLL_INTERRUPTn_ENABLE);
-
-/*
-	Tell the PIC to pass interrupts on to the CPU (and do ARM-style ISRs)
-*/
-HW_ICOLL_CTRL_SET(
-	BM_ICOLL_CTRL_ARM_RSE_MODE |
-	BM_ICOLL_CTRL_IRQ_FINAL_ENABLE
-	);
-
-/*
-	Now we allow IRQ interrupts
-*/
-enable_IRQ();
+interrupt_init();
+cpu_interrupt_init();
+grab_interrupt(IMX_INT_USBOH3_UOTG);
 
 /*
 	Now we're up and running...
 */
-debug_print_string("\r\ni.MX233 USB CDC Loopback\r\nby Andrew Trotman and Nick Sherlock\r\nCopyright (c) 2012 University of Otago\r\n\r\n");
-
-/*
-	Enable the PHY (physical interface)
-*/
-debug_print_string("USB PHY startup... ");
-usb_phy_startup();
-debug_print_string(" done!\r\n");
+debug_print_string("\r\ni.MX6Q USB CDC Loopback\r\nby Andrew Trotman and Nick Sherlock\r\nCopyright (c) 2013 University of Otago\r\n\r\n");
 
 /*
 	Start the USB Controller
@@ -2502,5 +2611,7 @@ usb_setup_endpoint_zero();
 debug_print_string(" done!\r\n");
 
 for (;;);				// loop forever
+
+return 0;
 }
 

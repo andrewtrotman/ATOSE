@@ -195,6 +195,7 @@ uint32_t cpu_interface_dentification_register;					// 0xFC
 volatile uint32_t interrupt_count;
 volatile ARM_generic_interrupt_controller_cpu_register_map *cpu_registers;
 volatile ARM_generic_interrupt_controller_distributor_register_map *distributor_registers;
+
 /*
    ISR_IRQ()
    ---------
@@ -202,8 +203,6 @@ volatile ARM_generic_interrupt_controller_distributor_register_map *distributor_
 void isr_IRQ(void) __attribute__((interrupt("IRQ")));
 void isr_IRQ(void)
 {
-volatile ARM_generic_interrupt_controller_cpu_register_map *cpu_registers = ;
-volatile ARM_generic_interrupt_controller_distributor_register_map *distributor_registers = ;
 uint32_t interrupt_number;
 /*
    ACK the interrupt and tell the hardware that we're in the interrupt service routine
@@ -232,7 +231,6 @@ interrupt_count++;
    Tell the hardware that we're done
 */
 cpu_registers->end_of_interrupt_register = interrupt_number;
-
 }
 
 /*
