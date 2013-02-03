@@ -90,26 +90,6 @@ while (*string != 0)
 }
 
 /*
-	DEBUG_PRINT_HEX()
-	-----------------
-*/
-void debug_print_hex(int data)
-{
-int i = 0;
-char c;
-
-for (i = sizeof(int) * 2 - 1; i >= 0; i--)
-	{
-	c = data >> (i * 4);
-	c &= 0xf;
-	if (c > 9)
-		debug_putc(c - 10 + 'A');
-	else
-		debug_putc(c + '0');
-	}
-}
-
-/*
 	EPIT_INIT()
 	-----------
 */
@@ -118,10 +98,7 @@ void epit_init(void)
 uint32_t speed_in_Hz[] = {528000000, 396000000, 352000000, 198000000, 594000000};
 uint32_t frequency;
 
-/*
-	We mght need to gate the clock (which is CLKSRC_IPG_CLK)
-*/
-//			clock_gating_config(port->base, CLOCK_ON);
+HW_CCM_CCGR1.B.CG6 = 0x03;			// turn on the clock
 
 /*
 	Software reset the subsystem
@@ -131,28 +108,25 @@ while ((HW_EPIT_CR(DEFAULT_TIMER).B.SWR) != 0)
 	;	// nothing
 
 /*
-	Configure the timer
+	Configure the timer:
+		Use the peripheral clock
+		Set and forget mode
+		Immediate load starting with the value in the load register
 */
 frequency = speed_in_Hz[HW_CCM_CBCMR.B.PRE_PERIPH_CLK_SEL] / (HW_CCM_CBCDR.B.AHB_PODF + 1) / (HW_CCM_CBCDR.B.IPG_PODF + 1);
-HW_EPIT_CR_WR(DEFAULT_TIMER,
-	BF_EPIT_CR_CLKSRC(1) |											// peripheral clock source
-	BF_EPIT_CR_PRESCALAR((frequency / 1000000) - 1) |				// convert into in MHz
-	BM_EPIT_CR_RLD |												// set-and-forget mode
-	BM_EPIT_CR_IOVW | 	// immediate load mode
-	BM_EPIT_CR_ENMOD	// start counting from the load value
-	);
+HW_EPIT_CR_WR(DEFAULT_TIMER, BF_EPIT_CR_CLKSRC(1) | BF_EPIT_CR_PRESCALAR((frequency / 1000000) - 1) | BM_EPIT_CR_RLD | BM_EPIT_CR_IOVW | BM_EPIT_CR_ENMOD);
 }
 
 /*
 	EPIT_START()
 	------------
 */
-void epit_start(uint32_t load_val)
+void epit_start(uint32_t time_in_us)
 {
 /*
 	Store the count value in the load register (which then gets immediately loaded into the timer
 */
-HW_EPIT_LR_WR(DEFAULT_TIMER, load_val);
+HW_EPIT_LR_WR(DEFAULT_TIMER, time_in_us);
 
 /*
 	Clear the status register so that we can watch it clock over
@@ -180,31 +154,11 @@ HW_EPIT_CR_CLR(DEFAULT_TIMER, BM_EPIT_CR_EN);
 */
 void epit_delay_us(uint32_t usecs)
 {
-uint32_t count, status;
-
-debug_puts("Start Timer\r\n");
-epit_start(usecs)
-;
+epit_start(usecs);
 while (HW_EPIT_SR_RD(DEFAULT_TIMER) == 0)
-	{
-	count = HW_EPIT_CNR_RD(DEFAULT_TIMER);
-	status = HW_EPIT_SR_RD(DEFAULT_TIMER);
-
-	debug_puts("Counter:");
-	debug_print_hex(count);
-	debug_puts("\r\n");
-
-	debug_puts("status:");
-	debug_print_hex(status);
-	debug_puts("\r\n");
-	}
-
-debug_puts("Stop Timer\r\n");
+	;	// nothing (i.e. wait)
 epit_stop();
-
-debug_puts("Timer complete\r\n");
 }
-
 
 /*
 	MAIN()
