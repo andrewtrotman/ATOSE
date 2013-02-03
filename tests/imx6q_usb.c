@@ -21,6 +21,8 @@
 #include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsiomuxc.h"
 #include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsgpt.h"
 #include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsusbcore.h"
+#include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsusbphy.h"
+#include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsepit.h"
 #include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/irq_numbers.h"
 
 
@@ -2529,6 +2531,47 @@ distributor_registers->interrupt_set_enable_registers[which / 32] = 1 << (which 
 }
 
 /*
+	==========================================
+	u-Second timer code (using the i.MX6Q EPTI
+	==========================================
+*/
+#define DEFAULT_TIMER 1
+/*
+	DELAY_INIT()
+	------------
+*/
+void delay_init(void)
+{
+uint32_t speed_in_Hz[] = {528000000, 396000000, 352000000, 198000000, 594000000};
+uint32_t frequency;
+
+HW_CCM_CCGR1.B.CG6 = 0x03;
+
+HW_EPIT_CR_WR(DEFAULT_TIMER, BM_EPIT_CR_SWR);
+while ((HW_EPIT_CR(DEFAULT_TIMER).B.SWR) != 0)
+	;	// nothing
+
+frequency = speed_in_Hz[HW_CCM_CBCMR.B.PRE_PERIPH_CLK_SEL] / (HW_CCM_CBCDR.B.AHB_PODF + 1) / (HW_CCM_CBCDR.B.IPG_PODF + 1);
+HW_EPIT_CR_WR(DEFAULT_TIMER, BF_EPIT_CR_CLKSRC(1) | BF_EPIT_CR_PRESCALAR((frequency / 1000000) - 1) | BM_EPIT_CR_RLD | BM_EPIT_CR_IOVW | BM_EPIT_CR_ENMOD);
+}
+
+/*
+	DELAY_US()
+	----------
+*/
+void delay_us(uint32_t time_in_us)
+{
+HW_EPIT_LR_WR(DEFAULT_TIMER, time_in_us);
+HW_EPIT_SR_SET(DEFAULT_TIMER, BM_EPIT_SR_OCIF);
+HW_EPIT_CR_SET(DEFAULT_TIMER, BM_EPIT_CR_EN);
+
+while (HW_EPIT_SR_RD(DEFAULT_TIMER) == 0)
+	;	// nothing (i.e. wait)
+
+HW_EPIT_CR_CLR(DEFAULT_TIMER, BM_EPIT_CR_EN);
+}
+
+/*
 	======
 	MAIN()
 	======
@@ -2577,16 +2620,17 @@ asm volatile
 	Set up the serial ports
 */
 serial_init();
+delay_init();
 
-#ifdef NEVER
-		debug_print_string("Disconnect the USB Phy");
-		HW_USBPHY1CTRL.B.CLKGATE = 1;
-		delay_1_second();
-		debug_print_string("Reconnect the USB Phy");
-		HW_USBPHY1CTRL.B.CLKGATE = 0;
-		while (HW_USBPHY_CTRL.B.CLKGATE)
-			/* do nothing */ ;
-#endif
+debug_print_string("Disconnect the USB Phy...");
+HW_USBPHY_CTRL(1).B.CLKGATE = 1;
+
+debug_print_string("Wait...");
+delay_us(1000000);			// 1 second delay
+debug_print_string("Reconnect the USB Phy");
+HW_USBPHY_CTRL(1).B.CLKGATE = 0;
+while (HW_USBPHY_CTRL(1).B.CLKGATE)
+	/* do nothing */ ;
 
 
 /*
