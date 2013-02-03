@@ -1,0 +1,55 @@
+[Version]
+Signature="$Windows NT$"
+Class=Ports
+ClassGuid={4D36E978-E325-11CE-BFC1-08002BE10318}
+Provider=%ATOSE%
+LayoutFile=layout.inf
+DriverVer=01/06/07
+
+[Manufacturer]
+%ATOSE%=DeviceList
+
+[DeviceList]
+%DESCRIPTION%=SMV2USB, USB\VID_DEAD&PID_000E
+
+[DestinationDirs]
+FakeModemCopyFileSection=12
+DefaultDestDir=12
+
+;------------------------------------------------------------------------------
+;  Windows 2000/XP Sections
+;------------------------------------------------------------------------------
+
+[SMV2USB.nt]
+include=mdmcpq.inf
+CopyFiles=FakeModemCopyFileSection
+AddReg=SMV2USB.nt.AddReg
+
+[MCB2300USB.nt.AddReg]
+HKR,,NTMPDriver,,*ntkern
+HKR,,NTMPDriver,,usbser.sys
+HKR,,EnumPropPages32,,"MsPorts.dll,SerialPortPropPageProvider"
+HKR,,PortSubClass,1,01
+
+[SMV2USB.nt.Services]
+include=mdmcpq.inf
+AddService=usbser, 0x00000002, DriverService
+
+[DriverService]
+DisplayName=%DESCRIPTION%
+ServiceType=1
+StartType=3
+ErrorControl=1
+ServiceBinary=%12%\usbser.sys
+HKR,,PortSubClass,1,01
+
+[SMV2SB.nt.HW]
+include=mdmcpq.inf
+
+;------------------------------------------------------------------------------
+;  String Definitions
+;------------------------------------------------------------------------------
+
+[Strings]
+ATOSE="ATOSE"
+DESCRIPTION="ATOSE Octopus"
