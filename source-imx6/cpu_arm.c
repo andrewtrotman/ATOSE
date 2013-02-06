@@ -1,6 +1,8 @@
 /*
 	CPU_ARM.C
 	---------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
 */
 #include <stdint.h>
 #include "cpu_arm.h"
@@ -40,7 +42,7 @@ asm volatile
 	ATOSE_CPU_ARM::ENABLE_IRQ()
 	---------------------------
 */
-void ATOSE_cpu_arm::enable_IRQ(void)
+void ATOSE_cpu_arm::enable_irq(void)
 {
 set_cpsr(get_cpsr() & ~0x80);
 }
@@ -63,5 +65,5 @@ asm volatile
 	:
 	: [top_of_stack]"r"(irq_stack_pointer)
 );
-
+}
 

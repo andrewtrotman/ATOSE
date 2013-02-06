@@ -8,12 +8,15 @@
 */
 #include <stdint.h>
 #include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/irq_numbers.h"
+#include "interrupt_arm_gic.h"
+#include "interrupt_arm_gic_cpu.h"
+#include "interrupt_arm_gic_distributor.h"
 
 /*
 	class ATOSE_INTERRUPT_ARM_GIC::ATOSE_INTERRUPT_ARM_GIC()
    --------------------------------------------------------
 */
-void ATOSE_interrupt_arm_gic::ATOSE_interrupt_arm_gic(void)
+ATOSE_interrupt_arm_gic::ATOSE_interrupt_arm_gic()
 {
 uint32_t base;
 

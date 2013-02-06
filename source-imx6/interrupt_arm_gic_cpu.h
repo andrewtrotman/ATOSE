@@ -27,18 +27,19 @@
 */
 class ATOSE_interrupt_arm_gic_cpu
 {
-uint32_t cpu_interface_control_register;							// 0x00 (ICCICR)
-uint32_t interrupt_priority_mask_register;						// 0x04 (ICCPMR)
-uint32_t binary_point_register;										// 0x08 (ICCBPR)
-uint32_t interrupt_acknowledge_register;							// 0x0C (ICCIAR)
-uint32_t end_of_interrupt_register;									// 0x10 (ICCEOIR)
-uint32_t running_priority_register;									// 0x14 (ICCRPR)
-uint32_t highest_pending_interrupt_register;						// 0x18 (ICCHPIR)
-uint32_t aliased_binary_point_register;							// 0x1C (ICCABPR)
-uint32_t reserved1[8];
-uint32_t implementation_defined_registers[36];
-uint32_t reserved2[11];
-uint32_t cpu_interface_dentification_register;					// 0xFC (ICCIIDR)
+public:
+	uint32_t cpu_interface_control_register;							// 0x00 (ICCICR)
+	uint32_t interrupt_priority_mask_register;						// 0x04 (ICCPMR)
+	uint32_t binary_point_register;										// 0x08 (ICCBPR)
+	uint32_t interrupt_acknowledge_register;							// 0x0C (ICCIAR)
+	uint32_t end_of_interrupt_register;									// 0x10 (ICCEOIR)
+	uint32_t running_priority_register;									// 0x14 (ICCRPR)
+	uint32_t highest_pending_interrupt_register;						// 0x18 (ICCHPIR)
+	uint32_t aliased_binary_point_register;							// 0x1C (ICCABPR)
+	uint32_t reserved1[8];
+	uint32_t implementation_defined_registers[36];
+	uint32_t reserved2[11];
+	uint32_t cpu_interface_dentification_register;					// 0xFC (ICCIIDR)
 } ;
 
 #endif

@@ -10,14 +10,13 @@
 #define TIMER_IMX6Q_H_
 
 #include <stdint.h>
-
-#inlcude "device_driver.h"
+#include "device_driver.h"
 
 /*
 	class ATOSE_TIMER_IMX6Q
 	-----------------------
 */
-class ATOSE_timer_imx6q : ATOSE_device_driver
+class ATOSE_timer_imx6q : public ATOSE_device_driver
 {
 public:
 	ATOSE_timer_imx6q();

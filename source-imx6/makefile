@@ -1,0 +1,22 @@
+TARGET = Octopus
+CPU = IMX6Q
+
+CC = @arm-none-eabi-g++
+CFLAGS = -mcpu=cortex-a9 -D$(CPU) -D$(TARGET) -g3 -Wall -Os -fno-exceptions -fno-rtti -ffreestanding -nostdlib -nodefaultlibs -nostartfiles
+
+OBJECTS =					\
+	clock_imx6q.o			\
+	cpu_arm.o				\
+	cpu_arm_imx6q.o		\
+	interrupt_arm_gic.o	\
+	timer_imx6q.o			\
+	uart_imx6q.o
+
+all : $(OBJECTS)
+
+clean :
+	del $(OBJECTS)
+
+.c.o:
+	@echo $@
+	$(CC) $(CFLAGS) -c $< -o $@

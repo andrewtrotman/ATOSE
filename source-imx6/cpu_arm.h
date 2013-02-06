@@ -1,6 +1,10 @@
 /*
 	CPU_ARM.H
 	---------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
+
+	Basic manipulation of the CPU including management of interrupts
 */
 #ifndef CPU_ARM_H_
 #define CPU_ARM_H_
@@ -22,7 +26,7 @@ private:
 	void irq_handler(void);
 
 public:
-	cpu_arm();
+	ATOSE_cpu_arm();
 	virtual void set_irq_handler(void *address) = 0;
 	void enable_irq(void);
 } ;

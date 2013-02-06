@@ -13,6 +13,9 @@
 #include "device_driver.h"
 #include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/irq_numbers.h"
 
+class ATOSE_interrupt_arm_gic_distributor;
+class ATOSE_interrupt_arm_gic_cpu;
+
 /*
 	class ATOSE_INTERRUPT_ARM_GIC
 	-----------------------------

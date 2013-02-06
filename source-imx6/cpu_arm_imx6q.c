@@ -1,10 +1,13 @@
 /*
 	CPU_ARM_IMX6Q.C
 	---------------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
 */
 #include <stdint.h>
 
 #include "cpu_arm_imx6q.h"
+#include "interrupt_arm.h"
 
 /*
 	ATOSE_CPU_ARM_IMX6Q::SET_IRQ_HANDLER()
@@ -33,7 +36,7 @@
 */
 void ATOSE_cpu_arm_imx6q::set_irq_handler(void *irq_handler)
 {
-ARM_interrupt_vectors *vectors = (ARM_interrupt_vectors *)0x0093FFDC;		// top of on-chip RAM
+ATOSE_interrupt_arm *vectors = (ATOSE_interrupt_arm *)0x0093FFDC;		// top of on-chip RAM
 
-vectors->irq = isr_IRQ;
+vectors->irq = irq_handler;
 }

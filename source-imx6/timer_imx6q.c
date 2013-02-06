@@ -12,12 +12,13 @@
 */
 #include <stdint.h>
 #include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsgpt.h"
+#include "timer_imx6q.h"
 
 /*
 	ATOSE_TIMER_IMX6Q::ATOSE_TIMER_IMX6Q()
    --------------------------------------
 */
-void ATOSE_timer_imx6q::ATOSE_timer_imx6q(void)
+ATOSE_timer_imx6q::ATOSE_timer_imx6q()
 {
 }
 

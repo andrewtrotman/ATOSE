@@ -20,7 +20,7 @@
 	ATOSE_UART_IMX6Q::ATOSE_UART_IMX6Q()
 	------------------------------------
 */
-void ATOSE_uart_imx6q::ATOSE_uart_imx6q(void)
+ATOSE_uart_imx6q::ATOSE_uart_imx6q()
 {
 /*
 	Enable the clock to the UART
@@ -117,14 +117,14 @@ else
 	ATOSE_UART_IMX6Q::WRITE()
 	-------------------------
 */
-uint32_t ATOSE_uart_imx6q::write(uint8_t *buffer, uint32_t bytes);
+uint32_t ATOSE_uart_imx6q::write(uint8_t *buffer, uint32_t bytes)
 {
-while (*string != '\0')
+while (*buffer != '\0')
 	{
 	/*
 		Write to the serial port
 	*/
-	HW_UART_UTXD(port).U = value;
+	HW_UART_UTXD(port).U = *buffer;
 
 	/*
 		Make sure it was sent
@@ -135,8 +135,10 @@ while (*string != '\0')
 	/*
 		Move on to the next character
 	*/
-	string++;
+	buffer++;
 	}
+
+return bytes;
 }
 
 

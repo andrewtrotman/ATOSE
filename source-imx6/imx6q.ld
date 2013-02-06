@@ -1,3 +1,9 @@
+/*
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
+
+	Simple linker script for the i.MX6Q
+*/
 ENTRY(_Reset)
 
 SECTIONS
@@ -5,12 +11,12 @@ SECTIONS
 . = 0x910080;
 . = ALIGN(4);
 
-.text : { *(.ATOSE_entry_point); *(.text) } 
-.data : { *(.data) } 
-.bss : { *(.bss) } 
+.text : { *(.ATOSE_entry_point); *(.text) }
+.data : { *(.data) }
+.bss : { *(.bss) }
 
  __exidx_start = .;
-.ARM.exidx   : { *(.ARM.exidx* .gnu.linkonce.armexidx.*) } 
+.ARM.exidx   : { *(.ARM.exidx* .gnu.linkonce.armexidx.*) }
 __exidx_end = .;
 
 .rodata ALIGN(4):
@@ -26,7 +32,7 @@ __exidx_end = .;
 
 	*(.rodata*)
 	*(.gnu.linkonce.r*)
-	} 
+	}
 . = ALIGN(4);
 . = . + 0x1000; /* 4kB of stack memory */
 stack_top = .;

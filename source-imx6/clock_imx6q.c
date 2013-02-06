@@ -16,7 +16,7 @@
 	ATOSE_CLOCK_IMX6Q::ATOSE_CLOCK_IMX6Q()
 	--------------------------------------
 */
-void ATOSE_clock_imx6q::ATOSE_clock_imx6q(void)
+ATOSE_clock_imx6q::ATOSE_clock_imx6q()
 {
 uint32_t speed_in_Hz[] = {528000000, 396000000, 352000000, 198000000, 594000000};
 uint32_t frequency;

@@ -1,3 +1,9 @@
+/*
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
+
+	The necessary assembly to manage bootstrapping through the interrupt vectors including the reset vector (i.e. startup)
+*/
 .section .ATOSE_entry_point
 .global _Reset
 
