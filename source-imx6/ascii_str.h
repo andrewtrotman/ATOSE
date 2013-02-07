@@ -145,23 +145,22 @@ static inline char *ASCII_itoa(uint32_t value, char *destination, int base) { re
 	}
 #endif
 
-#ifdef NEVER
-	/*
-		MEMCPY()
-		--------
-	*/
-	static inline void *memcpy(void *destination, const void *source, size_t bytes)
-	{
-	uint8_t *from, *to, *end;
 
-	from = (uint8_t *)source;
-	to = (uint8_t *)destination;
-	end = (uint8_t *)from + bytes;
-	while (from < end)
-		*to++ = *from++;
+/*
+	MEMCPY()
+	--------
+*/
+inline void *memcpy(void *destination, const void *source, size_t bytes)
+{
+uint8_t *from, *to, *end;
 
-	return destination;
-	}
-#endif
+from = (uint8_t *)source;
+to = (uint8_t *)destination;
+end = (uint8_t *)from + bytes;
+while (from < end)
+	*to++ = *from++;
+
+return destination;
+}
 
 #endif

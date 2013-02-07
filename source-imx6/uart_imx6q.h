@@ -14,7 +14,6 @@
 #define UART_IMX6Q_H_
 
 #include <stdint.h>
-#include <string.h>
 #include "debug.h"
 
 /*

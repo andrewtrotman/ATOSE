@@ -5,7 +5,7 @@
 	Licensed BSD
 */
 #include <stdint.h>
-#include <string.h>
+#include "ascii_str.h"
 
 #include "cpu_arm_imx6q.h"
 #include "interrupt_arm.h"

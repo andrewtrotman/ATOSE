@@ -15,6 +15,12 @@
 */
 .global _Reset
 .global ATOSE_pointer
+/*
+	Make the pointes to the interrupt table global too
+*/
+.global ATOSE_interrupt_vectors_start
+.global ATOSE_interrupt_vectors_finish
+
 
 /*
 	The addresses of the interrupt handlers
@@ -166,7 +172,7 @@ ATOSE_interrupt_vectors_finish:
 	-------------
 */
 reset_handler:
-	ldr sp, =stack_top
+	ldr sp, =ATOSE_stack_top
 	bl main
 	wfi
 	b .

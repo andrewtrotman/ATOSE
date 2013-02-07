@@ -70,10 +70,10 @@ debug << "Reserved Interrupt (it should not be possible for this to happen" << A
 }
 
 /*
-	ATOSE_ATOSE::ISR_FIQ()
-	----------------------
+	ATOSE_ATOSE::ISR_FIRQ()
+	-----------------------
 */
-void ATOSE_atose::isr_fiq(ATOSE_registers *registers)
+void ATOSE_atose::isr_firq(ATOSE_registers *registers)
 {
 debug << "FIRQ" << ATOSE_debug::eoln;
 }

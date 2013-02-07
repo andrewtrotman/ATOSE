@@ -10,7 +10,6 @@
 	debug port during development.  The Octopus board has no external UART port, but it is
 	brought to a connector (shared with the JTAG)
 */
-#include <string.h>
 #include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsiomuxc.h"
 #include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsccm.h"
 #include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsuart.h"
