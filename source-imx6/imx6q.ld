@@ -8,7 +8,7 @@ ENTRY(_Reset)
 
 MEMORY
 {
-internal_ram : ORIGIN = 0x900000, LENGTH = 256K
+internal_ram : ORIGIN = 0x900000, LENGTH = 255K		/* the last 1KB is used by the i.MX6Q ROM for (amongst other stuff) the interrupt vector chaining. */
 external_ram : ORIGIN = 0x10000000, LENGTH = 1G
 }
 

@@ -17,7 +17,7 @@ int main(void)
 {
 ATOSE_atose atose;		// create and initialise everything
 
-atose.boot();			// now pass control to the OS
+atose.reset();			// now pass control to the OS
 
 return 0;			// like as if this is ever going to happen!
 }

@@ -44,7 +44,7 @@ private:
 
 public:
 	ATOSE_cpu_arm();
-	virtual void set_irq_handler(void *address) = 0;
+	virtual void set_interrupt_handlers(void *address) = 0;
 	virtual void enable_irq(void);
 	virtual void delay_us(uint32_t time_in_us);
 } ;

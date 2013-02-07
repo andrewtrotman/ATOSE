@@ -13,6 +13,8 @@
 #include "uart_imx6q.h"
 #include "cpu_arm_imx6q.h"
 
+class ATOSE_registers;
+
 /*
 	class ATOSE_ATOSE
 	-----------------
@@ -36,7 +38,15 @@ private:
 public:
 	ATOSE_atose();
 
-	void boot(void);
+	virtual void reset(ATOSE_registers *registers = NULL);		// we can't normally have the registers on reset.
+	virtual void isr_irq(ATOSE_registers *registers);
+	virtual void isr_fiq(ATOSE_registers *registers);
+	virtual void isr_swi(ATOSE_registers *registers);
+	virtual void isr_prefetch_abort(ATOSE_registers *registers);
+	virtual void isr_data_abort(ATOSE_registers *registers);
+	virtual void isr_undefined(ATOSE_registers *registers);
+	virtual void isr_reserved(ATOSE_registers *registers);
 } ;
 
 #endif /* ATOSE_H_ */
+

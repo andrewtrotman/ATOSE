@@ -11,16 +11,16 @@ CFLAGS = -mcpu=cortex-a9 -D$(CPU) -D$(TARGET) -g3 -Wall -Os -fno-exceptions -fno
 AS = @arm-none-eabi-as
 ASFLAGS = -mcpu=cortex-a9
 
-OBJECTS =					\
-	atose.o					\
-	clock_imx6q.o			\
-	cpu_arm.o				\
+OBJECTS =						\
+	atose.o						\
+	clock_imx6q.o				\
+	cpu_arm.o					\
 	cpu_arm_imx6q.o			\
 	interrupt_arm_gic.o		\
-	imx6q.o					\
-	main.o					\
-	stack.o					\
-	timer_imx6q.o			\
+	atose_startup.o			\
+	main.o						\
+	stack.o						\
+	timer_imx6q.o				\
 	uart_imx6q.o
 
 all : $(OBJECTS)
