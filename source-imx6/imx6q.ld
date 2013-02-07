@@ -6,17 +6,23 @@
 */
 ENTRY(_Reset)
 
+MEMORY
+{
+internal_ram : ORIGIN = 0x900000, LENGTH = 256K
+external_ram : ORIGIN = 0x10000000, LENGTH = 1G
+}
+
 SECTIONS
 {
-. = 0x910080;
+. = 0x900000;
 . = ALIGN(4);
 
-.text : { *(.ATOSE_entry_point); *(.text) }
-.data : { *(.data) }
-.bss : { *(.bss) }
+.text : { *(.ATOSE_entry_point); *(.text) } > internal_ram
+.data : { *(.data) } > internal_ram
+.bss : { *(.bss) } > internal_ram
 
  __exidx_start = .;
-.ARM.exidx   : { *(.ARM.exidx* .gnu.linkonce.armexidx.*) }
+.ARM.exidx   : { *(.ARM.exidx* .gnu.linkonce.armexidx.*) } > internal_ram
 __exidx_end = .;
 
 .rodata ALIGN(4):
@@ -32,7 +38,7 @@ __exidx_end = .;
 
 	*(.rodata*)
 	*(.gnu.linkonce.r*)
-	}
+	} > internal_ram
 . = ALIGN(4);
 . = . + 0x1000; /* 4kB of stack memory */
 stack_top = .;

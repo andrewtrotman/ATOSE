@@ -33,3 +33,7 @@ ATOSE_vectors_start:
 _Reset:
 	ldr sp, =stack_top
 	b main
+wait_forever:
+	wfi
+	b wait_forever
+

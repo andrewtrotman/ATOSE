@@ -20,7 +20,7 @@
 	ATOSE_UART_IMX6Q::ATOSE_UART_IMX6Q()
 	------------------------------------
 */
-ATOSE_uart_imx6q::ATOSE_uart_imx6q()
+ATOSE_uart_imx6q::ATOSE_uart_imx6q() : ATOSE_debug()
 {
 /*
 	Enable the clock to the UART

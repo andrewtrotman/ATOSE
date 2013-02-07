@@ -17,18 +17,36 @@
 */
 class ATOSE_cpu_arm
 {
-private:
-	static const uint32_t irq_stack_size = 1024;		// size of the IRQ stack (in bytes). This will be rounded down to the nearest whole word
+public:
+	/*
+		The ARM CPU modes are:
+		0b10000 User			(shares the stack with system mode)
+		0b10001 FIQ
+		0b10010 IRQ
+		0b10011 Supervisor
+		0b10111 Abort
+		0b11011 Undefined
+		0b11111 System			(shares the stack with user mode)
+	*/
+	static const uint32_t MODE_USER = 0x10;
+	static const uint32_t MODE_FIRQ = 0x11;
+	static const uint32_t MODE_IRQ = 0x12;
+	static const uint32_t MODE_SUPERVISOR = 0x13;
+	static const uint32_t MODE_ABORT = 0x17;
+	static const uint32_t MODE_UNDEFINED = 0x1B;
+	static const uint32_t MODE_SYSTEM = 0x1F;
+	static const uint32_t MODE_BITS = 0x1F;			// AND with this to get the status from the status register
 
 private:
 	uint32_t get_cpsr(void);
 	void set_cpsr(uint32_t new_cpsr);
-	void irq_handler(void);
+	static void irq_handler(void);
 
 public:
 	ATOSE_cpu_arm();
 	virtual void set_irq_handler(void *address) = 0;
-	void enable_irq(void);
+	virtual void enable_irq(void);
+	virtual void delay_us(uint32_t time_in_us);
 } ;
 
 #endif

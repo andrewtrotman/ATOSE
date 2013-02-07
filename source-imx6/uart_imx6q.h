@@ -15,12 +15,13 @@
 
 #include <stdint.h>
 #include <string.h>
+#include "debug.h"
 
 /*
 	class ATOSE_UART_IMX6Q
 	----------------------
 */
-class ATOSE_uart_imx6q
+class ATOSE_uart_imx6q : public ATOSE_debug
 {
 private:
 	static const uint32_t baud_rate = 115200;				// as fast as we can reasonable go
@@ -33,3 +34,4 @@ public:
 } ;
 
 #endif
+
