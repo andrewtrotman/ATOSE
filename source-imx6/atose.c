@@ -30,6 +30,7 @@ void ATOSE_atose::reset(ATOSE_registers *registers)
 	But we do need to set up the IRQ
 */
 cpu.set_interrupt_handlers(this);
+debug << "ATOSE up and running" << ATOSE_debug::eoln;
 }
 
 /*

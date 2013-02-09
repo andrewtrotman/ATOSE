@@ -7,12 +7,12 @@
 #include "stack.h"
 #include "cpu_arm.h"
 
-unsigned char ATOSE_stack::firq_stack[STACK_SIZE_FIRQ] 			__attribute__ ((aligned (4)));
-unsigned char ATOSE_stack::irq_stack[STACK_SIZE_IRQ] 				__attribute__ ((aligned (4)));
-unsigned char ATOSE_stack::supervisor_stack[STACK_SIZE_SUPERVISOR] __attribute__ ((aligned (4)));
-unsigned char ATOSE_stack::abort_stack[STACK_SIZE_ABORT] 			__attribute__ ((aligned (4)));
-unsigned char ATOSE_stack::system_stack[STACK_SIZE_SYSTEM] 		__attribute__ ((aligned (4))); // and USER
-unsigned char ATOSE_stack::undefined_stack[STACK_SIZE_UNDEFINED] 	__attribute__ ((aligned (4)));
+uint32_t ATOSE_stack::firq_stack[(STACK_SIZE_FIRQ + 1) / sizeof(uint32_t)];
+uint32_t ATOSE_stack::irq_stack[(STACK_SIZE_IRQ + 1) / sizeof(uint32_t)];
+uint32_t ATOSE_stack::supervisor_stack[(STACK_SIZE_SUPERVISOR + 1) / sizeof(uint32_t)];	// SWI stack
+uint32_t ATOSE_stack::abort_stack[(STACK_SIZE_ABORT + 1) / sizeof(uint32_t)];
+uint32_t ATOSE_stack::undefined_stack[(STACK_SIZE_UNDEFINED + 1) / sizeof(uint32_t)];
+uint32_t ATOSE_stack::system_stack[(STACK_SIZE_SYSTEM + 1) / sizeof(uint32_t)];			// and user
 
 /*
 	ATOSE_STACK::SET_STACK()
@@ -65,17 +65,17 @@ asm volatile
 current_mode = status_register & ATOSE_cpu_arm::MODE_BITS;
 
 if (current_mode != ATOSE_cpu_arm::MODE_FIRQ)
-	set_stack(firq_stack + STACK_SIZE_FIRQ, (status_register & ~0x1F) | ATOSE_cpu_arm::MODE_FIRQ);
+	set_stack(((uint8_t *)firq_stack) + STACK_SIZE_FIRQ, (status_register & ~0x1F) | ATOSE_cpu_arm::MODE_FIRQ);
 if (current_mode != ATOSE_cpu_arm::MODE_IRQ)
-	set_stack(irq_stack + STACK_SIZE_IRQ, (status_register & ~0x1F) | ATOSE_cpu_arm::MODE_IRQ);
+	set_stack(((uint8_t *)irq_stack) + STACK_SIZE_IRQ, (status_register & ~0x1F) | ATOSE_cpu_arm::MODE_IRQ);
 if (current_mode != ATOSE_cpu_arm::MODE_SUPERVISOR)
-	set_stack(supervisor_stack + STACK_SIZE_SUPERVISOR, (status_register & ~0x1F) | ATOSE_cpu_arm::MODE_SUPERVISOR);
+	set_stack(((uint8_t *)supervisor_stack) + STACK_SIZE_SUPERVISOR, (status_register & ~0x1F) | ATOSE_cpu_arm::MODE_SUPERVISOR);
 if (current_mode != ATOSE_cpu_arm::MODE_ABORT)
-	set_stack(abort_stack + STACK_SIZE_ABORT, (status_register & ~0x1F) | ATOSE_cpu_arm::MODE_ABORT);
+	set_stack(((uint8_t *)abort_stack) + STACK_SIZE_ABORT, (status_register & ~0x1F) | ATOSE_cpu_arm::MODE_ABORT);
 if (current_mode != ATOSE_cpu_arm::MODE_UNDEFINED)
-	set_stack(undefined_stack + STACK_SIZE_UNDEFINED, (status_register & ~0x1F) | ATOSE_cpu_arm::MODE_UNDEFINED);
+	set_stack(((uint8_t *)undefined_stack) + STACK_SIZE_UNDEFINED, (status_register & ~0x1F) | ATOSE_cpu_arm::MODE_UNDEFINED);
 if (current_mode != ATOSE_cpu_arm::MODE_SYSTEM)
-	set_stack(system_stack + STACK_SIZE_SYSTEM, (status_register & ~0x1F) | ATOSE_cpu_arm::MODE_SYSTEM);				// system and user mode share the stack
+	set_stack(((uint8_t *)system_stack) + STACK_SIZE_SYSTEM, (status_register & ~0x1F) | ATOSE_cpu_arm::MODE_SYSTEM);				// system and user mode share the stack
 
 /*
 	Go back into what ever mode we were in before (probably Supervisor mode)

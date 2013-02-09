@@ -13,13 +13,14 @@ AS = @arm-none-eabi-as
 ASFLAGS = -mcpu=cortex-a9
 
 OBJECTS =						\
-	atose_startup.o			\
+	atose_startup.o				\
 	atose.o						\
 	clock_imx6q.o				\
 	cpu_arm.o					\
-	cpu_arm_imx6q.o			\
+	cpu_arm_imx6q.o				\
+	debug.o						\
 	interrupt.o					\
-	interrupt_arm_gic.o		\
+	interrupt_arm_gic.o			\
 	main.o						\
 	stack.o						\
 	timer_imx6q.o				\

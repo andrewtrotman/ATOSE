@@ -13,13 +13,13 @@
 #include "ascii_str.h"
 
 /*
-	class ATOSE_debug
+	class ATOSE_DEBUG
 	-----------------
 */
 class ATOSE_debug
 {
 public:
-	static const uint8_t eoln = '\n';
+	static const uint8_t *eoln;
 
 private:
 	int base;
@@ -48,47 +48,14 @@ public:
 		------
 		read a string of bytes from the input stream and return the number read (0 = fail)
 	*/
-	virtual uint32_t read(uint8_t *buffer, uint32_t bytes)
-		{
-		uint32_t gone;
-
-		for (gone = 0; gone < bytes; gone++)
-			if (read_byte(buffer++) == 0)
-				return gone;
-
-		return bytes;
-		}
+	virtual uint32_t read(uint8_t *buffer, uint32_t bytes);
 
 	/*
 		WRITE()
 		-------
 		write a string of bytes to the output stream and return the number written (0 = fail)
 	*/
-	virtual uint32_t write(const uint8_t *buffer, uint32_t bytes)
-		{
-		uint32_t gone;
-
-		for (gone = 0; gone < bytes; gone++)
-			if (write_byte(*buffer++) == 0)
-				return gone;
-
-		return bytes;
-		}
-
-	/*
-		PUTS()
-		------
-		print a string to the output stream and add a <cr> to the end
-	*/
-	virtual uint32_t puts(const uint8_t *message)
-		{
-		uint32_t length = ASCII_strlen((char *)message);
-
-		write(message, length);
-		write_byte('\n');
-
-		return length + 1;
-		}
+	virtual uint32_t write(const uint8_t *buffer, uint32_t bytes);
 
 	/*
 		OPERATOR <<()

@@ -116,7 +116,7 @@ else
 	ATOSE_UART_IMX6Q::WRITE()
 	-------------------------
 */
-uint32_t ATOSE_uart_imx6q::write(uint8_t *buffer, uint32_t bytes)
+uint32_t ATOSE_uart_imx6q::write(const uint8_t *buffer, uint32_t bytes)
 {
 while (*buffer != '\0')
 	{

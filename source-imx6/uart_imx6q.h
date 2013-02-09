@@ -25,11 +25,11 @@ class ATOSE_uart_imx6q : public ATOSE_debug
 private:
 	static const uint32_t baud_rate = 115200;				// as fast as we can reasonable go
 	static const uint32_t port = 2;							// UART 2 is the "console" UART on the SABRE Lite board. UART 1 is the "other" UART on the Y-cable
-	static const uint32_t PLL3_FREQUENCY = 80000000;	// Phase Lock Loop 3 runs at 80MHz
+	static const uint32_t PLL3_FREQUENCY = 80000000;		// Phase Lock Loop 3 runs at 80MHz
 
 public:
 	ATOSE_uart_imx6q();
-	uint32_t write(uint8_t *buffer, uint32_t bytes);			// to put a single character write(&c,1);
+	virtual uint32_t write(const uint8_t *buffer, uint32_t bytes);			// to put a single character write(&c,1);
 } ;
 
 #endif
