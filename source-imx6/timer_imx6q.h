@@ -20,7 +20,6 @@ class ATOSE_timer_imx6q : public ATOSE_device_driver
 {
 public:
 	ATOSE_timer_imx6q();
-	virtual void init(void);
 
 	virtual void enable(void);
 	virtual void disable(void);

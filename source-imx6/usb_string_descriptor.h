@@ -30,7 +30,7 @@ public:
 public:
 	uint8_t bLength;
 	uint8_t bDescriptorType;
-	uint8_t wString[];
+	uint8_t wString[32];		// hopefully 32 is enough (recall that they are Unicode strings so 16 characters
 }  __attribute__ ((packed));
 
 #endif

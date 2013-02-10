@@ -20,14 +20,6 @@
 */
 ATOSE_timer_imx6q::ATOSE_timer_imx6q()
 {
-}
-
-/*
-	ATOSE_TIMER_IMX6Q::INIT()
-	-------------------------
-*/
-void ATOSE_timer_imx6q::init(void)
-{
 disable();
 
 /*

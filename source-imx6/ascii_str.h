@@ -163,4 +163,21 @@ while (from < end)
 return destination;
 }
 
+/*
+	MEMSET()
+	--------
+*/
+inline void *memset(void *destination, int value, size_t bytes)
+{
+uint8_t *to, *end;
+
+to = (uint8_t *)destination;
+end = (uint8_t *)to + bytes;
+while (to < end)
+	*to++ = (char)value;
+
+return destination;
+}
+
+
 #endif

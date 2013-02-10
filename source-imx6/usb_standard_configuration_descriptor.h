@@ -22,7 +22,7 @@ class ATOSE_usb_standard_configuration_descriptor
 public:
 	static const uint8_t SELFPOWERED = 0xC0;
 	static const uint8_t REMOTEWAKE = 0xA0;
-	static const uint8_t 100mA = 50;
+	static const uint8_t mA_100 = 50;
 
 public:
 	uint8_t bLength;

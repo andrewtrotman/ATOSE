@@ -8,6 +8,10 @@
 #define USB_IMX6Q_ENDPOINT_QUEUEHEAD_H_
 
 #include <stdint.h>
+#include "usb_imx6q_endpoint_queuehead_capabilities.h"
+#include "usb_imx6q_endpoint_transfer_descriptor.h"
+#include "usb_imx6q_endpoint_transfer_descriptor.h"
+#include "usb_setup_data.h"
 
 /*
 	class ATOSE_USB_IMX6Q_ENDPOINT_QUEUEHEAD

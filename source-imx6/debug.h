@@ -25,9 +25,9 @@ private:
 	int base;
 
 public:
-	ATOSE_debug() {}
+	ATOSE_debug() { base = 10; }
 
-	virtual void init(void) { base = 10; }
+	virtual void init(void) {}
 
 	/*
 		READ_BYTE()

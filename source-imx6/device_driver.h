@@ -18,7 +18,6 @@ class ATOSE_device_driver
 {
 public:
 	ATOSE_device_driver() {}
-	virtual void init(void) = 0;
 
 	virtual void enable(void) = 0;
 	virtual void disable(void) = 0;

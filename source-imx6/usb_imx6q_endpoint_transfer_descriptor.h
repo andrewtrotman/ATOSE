@@ -9,6 +9,8 @@
 
 #include <stdint.h>
 
+#include "usb_imx6q_endpoint_transfer_descriptor_dtd_token.h"
+
 /*
 	class ATOSE_USB_IMX6Q_ENDPOINT_TRANSFER_DESCRIPTOR
 	--------------------------------------------------

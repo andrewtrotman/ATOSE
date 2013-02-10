@@ -29,9 +29,9 @@ public:
 	/*
 		Preferred endpoint use for a virtual COM port
 	*/
-	static const uint8_t ENDPOINT_CONTROL 						0 		// Endpoint 0 is always control
-	static const uint8_t ENDPOINT_ABSTRACT_CONTROL_MANAGEMENT 	1		// Endpoint 1 is control management to the host
-	static const uint8_t ENDPOINT_SERIAL						2		// Endpoint 2 is for data
+	static const uint8_t ENDPOINT_CONTROL = 0; 							// Endpoint 0 is always control
+	static const uint8_t ENDPOINT_ABSTRACT_CONTROL_MANAGEMENT = 1;		// Endpoint 1 is control management to the host
+	static const uint8_t ENDPOINT_SERIAL = 2;							// Endpoint 2 is for data
 
 public:
 	ATOSE_usb_standard_configuration_descriptor cd;

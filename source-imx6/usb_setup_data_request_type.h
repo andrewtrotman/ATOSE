@@ -29,7 +29,7 @@ public:
 		unsigned type      : 2;
 		unsigned direction : 1;
 		} __attribute__ ((packed)) bit;
-	}
+	};
 } ;
 
 #endif

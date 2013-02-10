@@ -24,7 +24,9 @@ OBJECTS =						\
 	main.o						\
 	stack.o						\
 	timer_imx6q.o				\
-	uart_imx6q.o
+	uart_imx6q.o				\
+	usb.o						\
+	usb_imx6q.o
 
 all : atose.elf
 

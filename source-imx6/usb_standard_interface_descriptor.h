@@ -17,7 +17,7 @@
 */
 class ATOSE_usb_standard_interface_descriptor
 {
-public;
+public:
 	/*
 		The different interface classes we know about
 	*/

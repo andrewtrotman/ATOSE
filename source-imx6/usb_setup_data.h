@@ -25,7 +25,7 @@ public:
 		See page 248 of "Universal Serial Bus Specification Revision 2.0"
 	*/
 	static const uint8_t DIRECTION_HOST_TO_DEVICE = 0x00;
-	static const uint8_t DIRECTION_DEVICE_TO_HOST = 0x10
+	static const uint8_t DIRECTION_DEVICE_TO_HOST = 0x10;
 
 	static const uint8_t TYPE_STANDARD  = 0x00;
 	static const uint8_t TYPE_CLASS = 0x01;
@@ -37,7 +37,7 @@ public:
 	static const uint8_t RECIPIENT_ENDPOINT = 0x02;
 	static const uint8_t RECIPIENT_OTHER = 0x03;
 
-public;
+public:
 	ATOSE_usb_setup_data_request_type bmRequestType;
 	uint8_t bRequest;
 	uint16_t wValue;

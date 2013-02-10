@@ -8,19 +8,22 @@
 #define USB_H_
 
 #include <stdint.h>
+#include "device_driver.h"
+
+class ATOSE_usb_setup_data;
 
 /*
 	class ATOSE_USB
 	---------------
 */
-class ATOSE_usb
+class ATOSE_usb : public ATOSE_device_driver
 {
 public:
 	/*
 		We're compatible with: USB 2.0
 		Recall that all directions are RELATIVE TO THE HOST.
 	*/
-	static const uint16_t BCD_VERSION 						0x0200		/* we're compliant with USB 2.0 */
+	static const uint16_t BCD_VERSION = 0x0200;		/* we're compliant with USB 2.0 */
 
 	/*
 		States that the USB device hardware can be in
@@ -36,8 +39,7 @@ public:
 	/*
 		Configurable parameters
 	*/
-	static const uint8_t USB_MAX_PACKET_SIZE = 64;			// under USB 2.0 this must be 8, 16, 32, or 64
-
+	static const uint8_t MAX_PACKET_SIZE = 64;			// under USB 2.0 this must be 8, 16, 32, or 64
 
 	/*
 		The different descriptor types we know about
@@ -81,7 +83,36 @@ public:
 	static const uint8_t FEATURE_ENDPOINT_HALT = 0x00;
 	static const uint8_t FEATURE_DEVICE_REMOTE_WAKEUP = 0x01;
 	static const uint8_t FEATURE_TEST_MODE = 0x02;
-} ;
 
+protected:
+	virtual void enable_endpoint_zero(void) = 0;
+	virtual void enable_endpoint(long endpoint, long mode) = 0;
+	virtual void send_to_host(uint32_t endpoint, const uint8_t *buffer, uint32_t length) = 0;
+	virtual void recieve_from_host(uint32_t endpoint) = 0;
+	virtual void signal_an_error(uint32_t endpoint) = 0;
+	virtual void set_address(long address) = 0;
+
+	void ack(uint32_t endpoint);
+	void process_setup_packet(ATOSE_usb_setup_data *setup_packet);
+
+
+
+	uint32_t usb_cdc_command(ATOSE_usb_setup_data *packet);
+	uint32_t usb_command(ATOSE_usb_setup_data *packet);
+	void usb_get_descriptor(ATOSE_usb_setup_data *packet);
+	uint32_t ms_usb_get_descriptor(ATOSE_usb_setup_data *packet);
+
+
+	void debug_print_this(const char *string, uint32_t number, const char *string2);
+	void debug_print_string(const char *string);
+	void print_setup_packet(ATOSE_usb_setup_data *packet);
+
+public:
+	ATOSE_usb();
+
+	virtual void enable(void) { enable_endpoint_zero(); }
+	virtual void disable(void) {}
+	virtual void acknowledge(void) {}
+} ;
 
 #endif /* USB_H_ */

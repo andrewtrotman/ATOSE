@@ -12,11 +12,11 @@
 #include <stdint.h>
 
 /*
-	class ATOSE_USB_MS_CUSTOM_PROPERTY_FUNCTION
-	-------------------------------------------
+	class ATOSE_USB_MS_EXTENDED_PROPERTY_FUNCTION
+	---------------------------------------------
 	Page 7 of "Extended Properties OS Feature Descriptor Specification (July 13, 2012)"
 */
-class ATOSE_usb_ms_custom_property_function
+class ATOSE_usb_ms_extended_property_function
 {
 public:
 	uint32_t dwSize;

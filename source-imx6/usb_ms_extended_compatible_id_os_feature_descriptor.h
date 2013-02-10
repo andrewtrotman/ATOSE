@@ -11,8 +11,8 @@
 
 #include <stdint.h>
 
-#include "usb_ms_compatible_id_header,h"
-#include "usb_ms_compatible_id_function.h
+#include "usb_ms_compatible_id_header.h"
+#include "usb_ms_compatible_id_function.h"
 
 /*
 	class ATOSE_USB_MS__EXTENDED_COMPATIBLE_ID_OS_FEATURE_DESCRIPTOR
@@ -24,8 +24,8 @@
 class ATOSE_usb_ms_extended_compatible_id_os_feature_descriptor
 {
 public:
-	usb_ms_compatible_id_header header;
-	usb_ms_compatible_id_function section1;
+	ATOSE_usb_ms_compatible_id_header header;
+	ATOSE_usb_ms_compatible_id_function section1;
 } __attribute__ ((packed));
 
 #endif

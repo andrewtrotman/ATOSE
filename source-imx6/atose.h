@@ -39,6 +39,8 @@ public:
 public:
 	ATOSE_atose();
 
+	static ATOSE_atose *get_ATOSE(void) { extern uint32_t ATOSE_pointer; return ((ATOSE_atose *)(&ATOSE_pointer)); }
+
 	virtual void reset(ATOSE_registers *registers = NULL);		// we can't normally have the registers on reset.
 	virtual void isr_irq(ATOSE_registers *registers);
 	virtual void isr_firq(ATOSE_registers *registers);
