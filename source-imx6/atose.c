@@ -15,9 +15,8 @@
 ATOSE_atose::ATOSE_atose() : debug(imx6q_serial_port), cpu(imx6q_cpu), interrupt_controller(imx6q_gic), usb(imx6q_usb)
 {
 set_ATOSE();
-/*
-	At the moment we don't need to so anything other than initialise the references.
-*/
+
+debug << "sizeof(atose) = " << sizeof(*this) << "b\r\n";
 }
 
 /*

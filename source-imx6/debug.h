@@ -62,22 +62,24 @@ public:
 		-------------
 		dump stuff to the output channel
 	*/
-	ATOSE_debug &operator << (const uint8_t character) 		{ write(&character, 1); return *this; }
-	ATOSE_debug &operator << (const int8_t character) 			{ *this << (uint8_t)character; return *this; }
-	ATOSE_debug &operator << (const char character) 			{ *this << (uint8_t)character; return *this; }
+	ATOSE_debug &operator << (uint8_t character) 			{ write(&character, 1); return *this; }
+	ATOSE_debug &operator << (int8_t character) 			{ *this << (uint8_t)character; return *this; }
+	ATOSE_debug &operator << (char character) 			{ *this << (uint8_t)character; return *this; }
 
 	ATOSE_debug &operator << (const uint8_t *string) 			{ write(string, ASCII_strlen((char *)string)); return *this; }
 	ATOSE_debug &operator << (const int8_t *string) 			{ *this << (uint8_t *) string; return *this; }
 	ATOSE_debug &operator << (const char *string) 				{ *this << (uint8_t *) string; return *this; }
 
 	ATOSE_debug &operator << (uint64_t value) 					{ char buffer[sizeof(long) * 8 + 2]; ASCII_itoa(value, buffer, base); *this << buffer; return *this; }
-	ATOSE_debug &operator << (int64_t value) 						{ char buffer[sizeof(long) * 8 + 2]; ASCII_itoa(value, buffer, base); *this << buffer; return *this; }
+	ATOSE_debug &operator << (int64_t value) 					{ char buffer[sizeof(long) * 8 + 2]; ASCII_itoa(value, buffer, base); *this << buffer; return *this; }
 
 	ATOSE_debug &operator << (uint32_t value) 					{ *this << (uint64_t)value; return *this; }
-	ATOSE_debug &operator << (int32_t value) 						{ *this << (int64_t)value; return *this; }
+	ATOSE_debug &operator << (int32_t value) 					{ *this << (int64_t)value; return *this; }
 
 	ATOSE_debug &operator << (uint16_t value) 					{ *this << (uint64_t)value; return *this; }
-	ATOSE_debug &operator << (int16_t value) 						{ *this << (int64_t)value; return *this; }
+	ATOSE_debug &operator << (int16_t value) 					{ *this << (int64_t)value; return *this; }
+
+	ATOSE_debug &operator << (size_t value) 					{ *this << (int64_t)value; return *this; }
 
 	/*
 		HEX()

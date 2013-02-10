@@ -21,6 +21,7 @@ OBJECTS =						\
 	debug.o						\
 	interrupt.o					\
 	interrupt_arm_gic.o			\
+	kernel_malloc.o					\
 	main.o						\
 	stack.o						\
 	timer_imx6q.o				\

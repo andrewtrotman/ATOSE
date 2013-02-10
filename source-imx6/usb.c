@@ -38,7 +38,6 @@ uint32_t min(uint32_t a, uint32_t b) { return a < b ? a : b; }
 */
 static uint8_t our_zero_8 = 0;
 static uint16_t our_zero_16 = 0;
-//static uint32_t our_zero_32 = 0;
 
 /*
 	OUR_ONE
@@ -47,7 +46,6 @@ static uint16_t our_zero_16 = 0;
 */
 static uint8_t our_one_8 = 1;
 static uint16_t our_one_16 = 1;
-//static uint32_t our_one_32 = 1;
 
 /*
 	OUR_DEVICE_DESCRIPTOR

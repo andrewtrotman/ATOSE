@@ -16,8 +16,8 @@
 int main(void)
 {
 ATOSE_atose atose;		// create and initialise everything
-
 atose.reset();			// now pass control to the OS
+
 while (1)
 	;	// do nothing
 

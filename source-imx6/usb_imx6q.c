@@ -13,41 +13,10 @@
 #include "atose.h"
 #include "ascii_str.h"
 #include "usb_imx6q.h"
+#include "kernel_alloc.h"
 #include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsusbcore.h"
 #include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsusbphy.h"
 #include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/irq_numbers.h"
-
-/*
-	Pointers to memory (use for allocators)
-*/
-extern uint32_t ATOSE_start_of_heap;
-char *external_memory_head = (char *)&ATOSE_start_of_heap;
-
-/*
-	MAIN_MEMORY_ALLOC()
-	-------------------
-	Allocate "size" bytes of memory alliged on an "alignment" boundey
-*/
-void* main_memory_alloc(size_t size, unsigned int alignment)
-{
-void *result;
-
-/*
-	Align the beginning to the requested alignment
-*/
-uint32_t realignment = alignment - ((uint32_t) external_memory_head % alignment);
-
-if (realignment > 0 && realignment < alignment)
-	external_memory_head += realignment;
-
-/*
-	Now return the current pointer and move on
-*/
-result = external_memory_head;
-external_memory_head += size;
-
-return result;
-}
 
 /*
 	ATOSE_USB_IMX6Q::ATOSE_USB_IMX6Q()
@@ -101,6 +70,12 @@ HW_USBC_UOG_USBMODE.B.SLOM = 1;
 	now start the USB sub-system
 */
 HW_USBC_UOG_USBCMD.B.RS = 1;
+
+/*
+	Zero everything (queheads then transfer descriptors)
+*/
+memset(port_queuehead, 0, sizeof (port_queuehead));
+memset(port_transfer_descriptor, 0, sizeof (port_transfer_descriptor));
 }
 
 /*
@@ -228,7 +203,7 @@ HW_USBPHY_CTRL(1).B.CLKGATE = 1;
 /*
 	Wait long enough that the host notices what's happened
 */
-ATOSE_atose::get_ATOSE()->cpu.delay_us(1000000);			// 1 second delay
+ATOSE_atose::get_ATOSE()->cpu.delay_us(1000000 / 10);			// 1/10 second delay
 
 /*
 	Now reconnect
@@ -236,6 +211,11 @@ ATOSE_atose::get_ATOSE()->cpu.delay_us(1000000);			// 1 second delay
 HW_USBPHY_CTRL(1).B.CLKGATE = 0;
 while (HW_USBPHY_CTRL(1).B.CLKGATE)
 	; /* do nothing */
+
+/*
+	OK, we we're up, now pass control on to the (parent) USB object
+*/
+ATOSE_usb::enable();
 }
 
 /*
@@ -253,8 +233,6 @@ return IMX_INT_USBOH3_UOTG;
 */
 void ATOSE_usb_imx6q::acknowledge(void)
 {
-ATOSE_atose::get_ATOSE()->debug << "[i.MX6Q ACKNOWLEDGE(";
-
 hw_usbc_uog_usbsts_t usb_status;
 
 /*
@@ -267,32 +245,20 @@ HW_USBC_UOG_USBSTS.U = usb_status.U;
 	After initialisation and under normal operation we expect only this case.
 */
 if (usb_status.B.UI)
-	{
-	ATOSE_atose::get_ATOSE()->debug << "UI";
 	usb_interrupt();
-	}
 
 /*
 	USB Reset Interrupt
 */
 if (usb_status.B.URI)
-	{
-	ATOSE_atose::get_ATOSE()->debug << "URI";
 	reset_interrupt();
-	}
 
 /*
 	USB Port Change Interrupt
 	If we disable this then when the user disconnects and reconnects then we don't get a reset message!!!
 */
 if (usb_status.B.PCI)
-	{
-	ATOSE_atose::get_ATOSE()->debug << "PCI";
-
 	portchange_interrupt();
-	}
-
-ATOSE_atose::get_ATOSE()->debug << ")done] ";
 }
 
 /*
@@ -536,10 +502,15 @@ port_queuehead[which].capabilities.bit.maximum_packet_length = ATOSE_usb::MAX_PA
 port_queuehead[which].capabilities.bit.ios = 1;
 
 /*
-	Allocate a transfer buffer and put that in the queuehead too
+	Allocate a transfer buffer and put that in the queuehead too (if we need to)
+	Recall that these structures are set to 0 on object creation and therefore a compare
+	to NULL will avoid multiple allocation problems
 */
-global_transfer_buffer[which][0] = (uint8_t *)main_memory_alloc(QUEUE_BUFFER_SIZE, QUEUE_BUFFER_SIZE);
-port_queuehead[which].dtd_overlay_area.buffer_pointer[0] = (void *)global_transfer_buffer[which][0];
+if (global_transfer_buffer[which][0] == NULL)
+	{
+	global_transfer_buffer[which][0] = (uint8_t *)ATOSE_kernel_malloc(QUEUE_BUFFER_SIZE, QUEUE_BUFFER_SIZE);
+	port_queuehead[which].dtd_overlay_area.buffer_pointer[0] = (void *)global_transfer_buffer[which][0];
+	}
 }
 
 /*
@@ -548,14 +519,6 @@ port_queuehead[which].dtd_overlay_area.buffer_pointer[0] = (void *)global_transf
 */
 void ATOSE_usb_imx6q::enable_endpoint_zero(void)
 {
-ATOSE_atose::get_ATOSE()->debug << "ENABLEENDPOINT(0)";
-
-/*
-	Zero everything (queheads then transder descriptors)
-*/
-memset(port_queuehead, 0, sizeof (port_queuehead));
-memset(port_transfer_descriptor, 0, sizeof (port_transfer_descriptor));
-
 /*
 	Queue 0 and 1 (Endpoint 0) are necessarily for USB Control
 */

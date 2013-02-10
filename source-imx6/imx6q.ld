@@ -51,7 +51,7 @@ SECTIONS
 .rodata : { *(.rodata*) } > internal_ram
 
 . = ALIGN(4);
-. = . + 0x1000; /* 4kB of stack memory */
+. = . + 0x4000; /* 16kB of stack memory (the ATOSE_atose object takes 8K of that!!! */
 ATOSE_stack_top = .;
 ATOSE_start_of_heap = .;
 }
