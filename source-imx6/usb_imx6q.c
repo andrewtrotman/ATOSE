@@ -13,7 +13,7 @@
 #include "atose.h"
 #include "ascii_str.h"
 #include "usb_imx6q.h"
-#include "kernel_alloc.h"
+#include "kernel_malloc.h"
 #include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsusbcore.h"
 #include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsusbphy.h"
 #include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/irq_numbers.h"
