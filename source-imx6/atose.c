@@ -12,8 +12,9 @@
 	ATOSE_ATOSE::ATOSE_ATOSE()
 	--------------------------
 */
-ATOSE_atose::ATOSE_atose() : debug(imx6q_serial_port), cpu(imx6q_cpu)
+ATOSE_atose::ATOSE_atose() : debug(imx6q_serial_port), cpu(imx6q_cpu), interrupt_controller(imx6q_gic), usb(imx6q_usb)
 {
+set_ATOSE();
 /*
 	At the moment we don't need to so anything other than initialise the references.
 */
@@ -31,6 +32,19 @@ void ATOSE_atose::reset(ATOSE_registers *registers)
 */
 cpu.set_interrupt_handlers(this);
 debug << "ATOSE up and running" << ATOSE_debug::eoln;
+
+debug << "Enable USB...";
+
+usb.enable();
+debug << "done" << ATOSE_debug::eoln;
+
+debug << "Tell Interrupt controller about USB...";
+interrupt_controller.enable(&usb, usb.get_interrup_id());
+debug << "done" << ATOSE_debug::eoln;
+
+debug << "enable IRQ";
+cpu.enable_irq();
+debug << "done" << ATOSE_debug::eoln;
 }
 
 /*
@@ -77,15 +91,6 @@ debug << "Reserved Interrupt (it should not be possible for this to happen" << A
 void ATOSE_atose::isr_firq(ATOSE_registers *registers)
 {
 debug << "FIRQ" << ATOSE_debug::eoln;
-}
-
-/*
-	ATOSE_ATOSE::ISR_IRQ()
-	----------------------
-*/
-void ATOSE_atose::isr_irq(ATOSE_registers *registers)
-{
-debug << "IRQ" << ATOSE_debug::eoln;
 }
 
 /*

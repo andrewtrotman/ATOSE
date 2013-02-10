@@ -12,6 +12,8 @@
 #include "cpu_arm.h"
 #include "uart_imx6q.h"
 #include "cpu_arm_imx6q.h"
+#include "interrupt_arm_gic.h"
+#include "usb_imx6q.h"
 
 class ATOSE_registers;
 
@@ -28,6 +30,8 @@ private:
 	ATOSE_stack stack;
 	ATOSE_cpu_arm_imx6q imx6q_cpu;
 	ATOSE_uart_imx6q imx6q_serial_port;
+	ATOSE_interrupt_arm_gic imx6q_gic;
+	ATOSE_usb_imx6q imx6q_usb;
 
 public:
 	/*
@@ -35,14 +39,18 @@ public:
 	*/
 	ATOSE_debug &debug;
 	ATOSE_cpu_arm &cpu;
+	ATOSE_interrupt &interrupt_controller;
+	ATOSE_usb &usb;
+
+private:
+	void set_ATOSE(void) { extern ATOSE_atose *ATOSE_pointer; ATOSE_pointer = this; }
 
 public:
 	ATOSE_atose();
 
-	static ATOSE_atose *get_ATOSE(void) { extern uint32_t ATOSE_pointer; return ((ATOSE_atose *)(&ATOSE_pointer)); }
+	static ATOSE_atose *get_ATOSE(void) { extern ATOSE_atose *ATOSE_pointer; return ATOSE_pointer; }
 
 	virtual void reset(ATOSE_registers *registers = NULL);		// we can't normally have the registers on reset.
-	virtual void isr_irq(ATOSE_registers *registers);
 	virtual void isr_firq(ATOSE_registers *registers);
 	virtual void isr_swi(ATOSE_registers *registers);
 	virtual void isr_prefetch_abort(ATOSE_registers *registers);

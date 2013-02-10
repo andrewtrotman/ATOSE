@@ -11,6 +11,8 @@
 
 #include <stdint.h>
 #include "device_driver.h"
+#include "interrupt.h"
+
 #include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/irq_numbers.h"
 
 class ATOSE_interrupt_arm_gic_distributor;
@@ -20,7 +22,7 @@ class ATOSE_interrupt_arm_gic_cpu;
 	class ATOSE_INTERRUPT_ARM_GIC
 	-----------------------------
 */
-class ATOSE_interrupt_arm_gic
+class ATOSE_interrupt_arm_gic : public ATOSE_interrupt
 {
 private:
 	static const uint32_t IMX_INT_SPURIOUS = 1023;									// Due to race conditions the GIC can generate spurious interrupts which it then signals as coming from source 1023
@@ -35,7 +37,11 @@ private:
 
 public:
 	ATOSE_interrupt_arm_gic();
-	void enable(ATOSE_device_driver *driver, uint32_t source);
+
+	virtual void enable(ATOSE_device_driver *driver, uint32_t source);
+	virtual uint32_t get_interrup_id(void) { return 0; }
+
+	virtual void isr_irq(ATOSE_registers *registers);
 } ;
 
 #endif

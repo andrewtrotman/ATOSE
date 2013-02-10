@@ -22,6 +22,8 @@ public:
 	virtual void enable(void) = 0;
 	virtual void disable(void) = 0;
 	virtual void acknowledge(void) = 0;
+
+	virtual uint32_t get_interrup_id(void) = 0;
 } ;
 
 #endif

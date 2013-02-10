@@ -4,12 +4,18 @@
 	Copyright (c) 2012-2013 Andrew Trotman
 	Licensed BSD
 */
+
+/*
+	We need to tell the i.MX6 SDK that we're using an i.MX6Q
+*/
+#define CHIP_MX6DQ 1
+
 #include "atose.h"
 #include "ascii_str.h"
 #include "usb_imx6q.h"
 #include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsusbcore.h"
 #include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsusbphy.h"
-
+#include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/irq_numbers.h"
 
 /*
 	Pointers to memory (use for allocators)
@@ -42,9 +48,6 @@ external_memory_head += size;
 
 return result;
 }
-
-
-
 
 /*
 	ATOSE_USB_IMX6Q::ATOSE_USB_IMX6Q()
@@ -236,11 +239,22 @@ while (HW_USBPHY_CTRL(1).B.CLKGATE)
 }
 
 /*
+	ATOSE_USB_IMX6Q::GET_INTERRUP_ID()
+	----------------------------------
+*/
+uint32_t ATOSE_usb_imx6q::get_interrup_id(void)
+{
+return IMX_INT_USBOH3_UOTG;
+}
+
+/*
 	ATOSE_USB_IMX6Q::ACKNOWLEDGE()
 	------------------------------
 */
 void ATOSE_usb_imx6q::acknowledge(void)
 {
+ATOSE_atose::get_ATOSE()->debug << "[i.MX6Q ACKNOWLEDGE(";
+
 hw_usbc_uog_usbsts_t usb_status;
 
 /*
@@ -253,20 +267,32 @@ HW_USBC_UOG_USBSTS.U = usb_status.U;
 	After initialisation and under normal operation we expect only this case.
 */
 if (usb_status.B.UI)
+	{
+	ATOSE_atose::get_ATOSE()->debug << "UI";
 	usb_interrupt();
+	}
 
 /*
 	USB Reset Interrupt
 */
 if (usb_status.B.URI)
+	{
+	ATOSE_atose::get_ATOSE()->debug << "URI";
 	reset_interrupt();
+	}
 
 /*
 	USB Port Change Interrupt
 	If we disable this then when the user disconnects and reconnects then we don't get a reset message!!!
 */
 if (usb_status.B.PCI)
+	{
+	ATOSE_atose::get_ATOSE()->debug << "PCI";
+
 	portchange_interrupt();
+	}
+
+ATOSE_atose::get_ATOSE()->debug << ")done] ";
 }
 
 /*
@@ -522,6 +548,8 @@ port_queuehead[which].dtd_overlay_area.buffer_pointer[0] = (void *)global_transf
 */
 void ATOSE_usb_imx6q::enable_endpoint_zero(void)
 {
+ATOSE_atose::get_ATOSE()->debug << "ENABLEENDPOINT(0)";
+
 /*
 	Zero everything (queheads then transder descriptors)
 */
@@ -583,3 +611,4 @@ void ATOSE_usb_imx6q::set_address(long address)
 {
 HW_USBC_UOG_DEVICEADDR_WR(BF_USBC_UOG_DEVICEADDR_USBADR(address) | BM_USBC_UOG_DEVICEADDR_USBADRA);
 }
+

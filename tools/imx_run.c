@@ -1282,7 +1282,9 @@ for (parameter = 1; parameter < argc; parameter++)
 	else if (strcmp(argv[parameter], "-verbose") == 0)
 		verbose = true;
 	else
-		elf_file = read_entire_file(elf_filename = argv[parameter], &elf_file_length);
+		if ((elf_file = read_entire_file(elf_filename = argv[parameter], &elf_file_length)) == NULL)
+			exit(printf("Can't open file:%s\n", elf_filename));
+
 	}
 
 /*

@@ -69,7 +69,7 @@ ATOSE_atose::get_ATOSE()->isr_firq(registers);
 */
 extern "C" void ATOSE_isr_irq(ATOSE_registers *registers)
 {
-ATOSE_atose::get_ATOSE()->isr_irq(registers);
+ATOSE_atose::get_ATOSE()->interrupt_controller.isr_irq(registers);
 }
 
 /*

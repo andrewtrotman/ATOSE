@@ -12,6 +12,7 @@
 */
 #include <stdint.h>
 #include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsgpt.h"
+#include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/irq_numbers.h"
 #include "timer_imx6q.h"
 
 /*
@@ -91,3 +92,11 @@ void ATOSE_timer_imx6q::acknowledge(void)
 */
 }
 
+/*
+	ATOSE_TIMER_IMX6Q::GET_INTERRUP_ID()
+	------------------------------------
+*/
+uint32_t ATOSE_timer_imx6q::get_interrup_id(void)
+{
+return IMX_INT_GPT;
+}

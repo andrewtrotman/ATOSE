@@ -8,6 +8,10 @@
 */
 #include <stdint.h>
 #include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/irq_numbers.h"
+
+#include "atose.h"
+#include "ascii_str.h"
+#include "registers.h"
 #include "interrupt_arm_gic.h"
 #include "interrupt_arm_gic_cpu.h"
 #include "interrupt_arm_gic_distributor.h"
@@ -16,9 +20,14 @@
 	class ATOSE_INTERRUPT_ARM_GIC::ATOSE_INTERRUPT_ARM_GIC()
    --------------------------------------------------------
 */
-ATOSE_interrupt_arm_gic::ATOSE_interrupt_arm_gic()
+ATOSE_interrupt_arm_gic::ATOSE_interrupt_arm_gic() : ATOSE_interrupt()
 {
 uint32_t base;
+
+/*
+	Clear the list of pointers to device drivers
+*/
+memset(device, 0, sizeof(device));
 
 /*
 	Get the address of the CPU's configuration registers, but in the address space of the SOC.
@@ -65,6 +74,57 @@ distributor_registers->interrupt_processor_targets_registers[source] |= 1;
 distributor_registers->interrupt_set_enable_registers[source / 32] = 1 << (source & 0x1F);
 
 device[source] = driver;
+}
+
+/*
+	ATOSE_INTERRUPT_ARM_GIC::ISR_IRQ()
+	----------------------------------
+*/
+void ATOSE_interrupt_arm_gic::isr_irq(ATOSE_registers *registers)
+{
+uint32_t base;
+ATOSE_interrupt_arm_gic_cpu *cpu_registers;
+uint32_t got;
+
+/*
+	Get the address of the CPU's configuration registers, but in the address space of the SOC.
+	This instruction only works on the Cortex-A9 MPCore, it does not work on a unicore Cortex A9.
+	It has been tested on the i.MX6Q
+*/
+asm volatile
+	(
+	"MRC p15, 4, %0, c15, c0, 0;"
+	: "=r"(base)
+	:
+	:
+	);
+cpu_registers = (ATOSE_interrupt_arm_gic_cpu *)(base + 0x100);
+
+/*
+   ACK the interrupt and tell the hardware that we're in the interrupt service routine
+*/
+got = cpu_registers->interrupt_acknowledge_register;
+
+/*
+   Make sure it wasn't a spurious interrupt
+	The Cortex A9 MPCore Reference Manual (page 3-3) makes it clear that no semaphore is
+	required to avoid the race condition.  This test for spurious is enough
+*/
+if (got == IMX_INT_SPURIOUS)
+   return;
+
+/*
+	Dispatch to the device driver
+*/
+if (device[got] != NULL)
+	device[got]->acknowledge();
+
+/*
+	Tell the interrupt controller that we've finished processing the Interrupt
+*/
+cpu_registers->end_of_interrupt_register = got;
+
+return;
 }
 
 
