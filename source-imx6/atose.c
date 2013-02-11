@@ -12,11 +12,9 @@
 	ATOSE_ATOSE::ATOSE_ATOSE()
 	--------------------------
 */
-ATOSE_atose::ATOSE_atose() : debug(imx6q_serial_port), cpu(imx6q_cpu), interrupt_controller(imx6q_gic), usb(imx6q_usb)
+ATOSE_atose::ATOSE_atose() : debug(imx6q_serial_port), cpu(imx6q_cpu), interrupt_controller(imx6q_gic) 	//, usb(imx6q_usb)
 {
 set_ATOSE();
-
-debug << "sizeof(atose) = " << sizeof(*this) << "b\r\n";
 }
 
 /*
@@ -32,13 +30,17 @@ void ATOSE_atose::reset(ATOSE_registers *registers)
 cpu.set_interrupt_handlers(this);
 debug << "ATOSE up and running" << ATOSE_debug::eoln;
 
-debug << "Enable USB...";
+debug << "Enable USB...(disabled)...";
 
-usb.enable();
+//usb.enable();
 debug << "done" << ATOSE_debug::eoln;
 
-debug << "Tell Interrupt controller about USB...";
-interrupt_controller.enable(&usb, usb.get_interrup_id());
+debug << "Tell Interrupt controller about USB...(disabled)...";
+//interrupt_controller.enable(&usb, usb.get_interrup_id());
+debug << "done" << ATOSE_debug::eoln;
+
+debug << "Tell Interrupt controller about USB HOST...";
+interrupt_controller.enable(&imx6q_host_usb, imx6q_host_usb.get_interrup_id());
 debug << "done" << ATOSE_debug::eoln;
 
 debug << "enable IRQ";

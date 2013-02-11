@@ -15,6 +15,8 @@
 #include "interrupt_arm_gic.h"
 #include "usb_imx6q.h"
 
+#include "host_usb.h"				// FIX this once we get the host controller working
+
 class ATOSE_registers;
 
 /*
@@ -31,8 +33,10 @@ private:
 	ATOSE_cpu_arm_imx6q imx6q_cpu;
 	ATOSE_uart_imx6q imx6q_serial_port;
 	ATOSE_interrupt_arm_gic imx6q_gic;
-	ATOSE_usb_imx6q imx6q_usb;
+//	ATOSE_usb_imx6q imx6q_usb;
 
+	ATOSE_host_usb imx6q_host_usb;		// FIX this once we get the host controller working
+	
 public:
 	/*
 		A few references for syntactic purposes (i.e. standard methods to refer to these objects regardless of subclassing)
@@ -40,7 +44,7 @@ public:
 	ATOSE_debug &debug;
 	ATOSE_cpu_arm &cpu;
 	ATOSE_interrupt &interrupt_controller;
-	ATOSE_usb &usb;
+//	ATOSE_usb &usb;
 
 private:
 	void set_ATOSE(void) { extern ATOSE_atose *ATOSE_pointer; ATOSE_pointer = this; }

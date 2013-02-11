@@ -19,6 +19,7 @@ OBJECTS =						\
 	cpu_arm.o					\
 	cpu_arm_imx6q.o				\
 	debug.o						\
+	host_usb.o					\
 	interrupt.o					\
 	interrupt_arm_gic.o			\
 	kernel_malloc.o					\
