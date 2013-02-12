@@ -9,6 +9,7 @@
 ^windows_HID/
 ^Datasheets/
 ^freescale/
+^boundary/
 \.bak$
 \.o$
 \.elf$
