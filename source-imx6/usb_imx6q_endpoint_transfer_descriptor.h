@@ -26,7 +26,7 @@ public:
 	static const uint8_t STATUS_ACTIVE = 0x80;
 
 public:
-	struct ATOSE_usb_imx6q_endpoint_transfer_descriptor *next_link_pointer;		/* Next TD pointer(31-5), T(0) set indicate invalid */
+	ATOSE_usb_imx6q_endpoint_transfer_descriptor *next_link_pointer;		/* Next TD pointer(31-5), T(0) set indicate invalid */
 	ATOSE_usb_imx6q_endpoint_transfer_descriptor_dtd_token token;
 	void *buffer_pointer[BUFFER_POINTERS];
 	uint32_t reserved;

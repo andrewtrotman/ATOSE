@@ -22,6 +22,7 @@
 
 #include "atose.h"
 #include "host_usb.h"
+#include "ascii_str.h"
 
 /*
 	=====================================================
@@ -321,6 +322,53 @@ void ATOSE_host_usb::enable(void)
 {
 }
 
+
+
+/*
+	========================
+	========================
+	========================
+*/
+
+static ATOSE_usb_ehci_queue_head queue_head __attribute__ (aligned(32));
+static ATOSE_usb_ehci_queue_element_transfer_descriptor global_qTD  __attribute__ (aligned(32));
+static uint8_t buffer[4096] __attribute__ (aligned(4096));
+
+/*
+	SEND_TO_DEVICE()
+	----------------
+*/
+void send_to_device(uint32_t device, uint32_t endpoint, char *buffer, uint32_t buffer_length)
+{
+memset(&queue_head, 0, sizeof(queue_head));
+queue_head.queue_head_horizontal_link_pointer.bit.qhlp = queue_head.queue_head_horizontal_link_pointer;						// point to self
+queue_head.queue_head_horizontal_link_pointer.bit.typ = ATOSE_usb_ehci_queue_head_horizontal_link_pointer::QUEUE_HEAD;	// we're a queuehead
+queue_head.queue_head_horizontal_link_pointer.bit.t = ATOSE_usb_ehci_queue_head_horizontal_link_pointer::TERMINATOR;		// and we're the last one
+
+queue_head.characteristics.bit.device_address = device;		// it doesn't have an address yet.
+queue_head.characteristics.bit.endpt = endpoint;
+queue_head.characteristics.bit.maximum_packet_length = MAX_PACKET_SIZE;
+queue_head.characteristics.bit.eps = ATOSE_usb_ehci_queue_head_endpoint_characteristics::SPEED_HIGH;
+
+queue_head.capabilities.bit.mult = ATOSE_usb_ehci_queue_head_endpoint_capabilities::TRANSACTIONS_ONE;
+
+queue_head.next_qtd_pointer = &global_qTD;
+
+global_qTD.next_qtd_pointer = (ATOSE_usb_ehci_queue_element_transfer_descriptor *)ATOSE_usb_ehci_queue_element_transfer_descriptorTERMINATOR;
+global_qTD.alternate_next_qtd_pointer = (ATOSE_usb_ehci_queue_element_transfer_descriptor *)ATOSE_usb_ehci_queue_element_transfer_descriptorTERMINATOR;
+
+global_qTD.token.bit.status = ATOSE_usb_ehci_queue_element_transfer_descriptor_token::STATUS_ACTIVE;
+global_qTD.token.bit.pid_code = PID_OUT;
+global_qTD.token.bit.c_err = 0;
+global_qTD.token.bit.c_page = 0;
+global_qTD.token.bit.ioc = 1
+global_qTD.token.bit.total_bytes = buffer_length;
+global_qTD.token.bit.dt = 0;
+
+global_qTD.buffer_pointer[0] = buffer;
+}
+
+
 /*
 	ATOSE_HOST_USB::ACKNOWLEDGE()
 	-----------------------------
@@ -357,6 +405,18 @@ if (usb_status.B.URI)
 */
 if (usb_status.B.PCI)
 	{
-	debug_print_string("USB PCI]\r\n");
+	debug_print_string("USB PCI:");
+
+	/*
+		Page 5223 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012"
+		"To communicate
+		with devices through the asynchronous schedule, system software must write the
+		USB_ASYNCLISTADDR register with the address of a control or bulk queue head.
+		Software must then enable the asynchronous schedule by writing one to the
+		Asynchronous Schedule Enable bit in the USB_USBCMD register. To communicate with
+		devices through the periodic schedule, system software must enable the periodic schedule
+		by writing one to the Periodic Schedule Enable bit in the USB_USBCMD register."
+	*/
+	debug_print_string("]\r\n");
 	}
 }
