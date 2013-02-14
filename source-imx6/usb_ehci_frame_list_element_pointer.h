@@ -35,7 +35,7 @@ public:
 			unsigned frame_list_link_pointer : 27;
 			} bit __attribute__ ((packed));
 		} ;
-} ;
+} __attribute__ ((packed));
 
 #endif
 

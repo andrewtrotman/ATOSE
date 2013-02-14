@@ -22,14 +22,14 @@ public:
 	static const uint32_t PID_IN = 0x01;
 	static const uint32_t PID_SETUP = 0x02;
 
-	static const uint32_t STATUS_ACTIVE 1<<7;
-	static const uint32_t STATUS_HALTED 1<<6;
-	static const uint32_t STATUS_DATA_BUFFER_ERROR 1<<5;
-	static const uint32_t STATUS_BABBLE 1<<4;
-	static const uint32_t STATUS_TRANSACTION_ERROR 1<<3;
-	static const uint32_t STATUS_MISSED_MICROFRAME 1<<2;
-	static const uint32_t STATUS_SPLIT_TRANSACTION_STATE 1<<1;
-	static const uint32_t STATUS_PING_STATE 1<<0;
+	static const uint32_t STATUS_ACTIVE = 1 << 7;
+	static const uint32_t STATUS_HALTED = 1 << 6;
+	static const uint32_t STATUS_DATA_BUFFER_ERROR = 1 << 5;
+	static const uint32_t STATUS_BABBLE = 1 << 4;
+	static const uint32_t STATUS_TRANSACTION_ERROR = 1 << 3;
+	static const uint32_t STATUS_MISSED_MICROFRAME = 1 << 2;
+	static const uint32_t STATUS_SPLIT_TRANSACTION_STATE = 1 << 1;
+	static const uint32_t STATUS_PING_STATE = 1 << 0;
 
 public:
 	union
@@ -46,7 +46,7 @@ public:
 			unsigned dt				: 1;
 			} bit __attribute__ ((packed));
 		} ;
-} ;
+} __attribute__ ((packed));
 
 #endif
 

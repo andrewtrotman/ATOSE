@@ -33,7 +33,7 @@ public:
 			unsigned mult           : 2;
 			} bit __attribute__ ((packed));
 		} ;
-} ;
+} __attribute__ ((packed));
 
 #endif
 

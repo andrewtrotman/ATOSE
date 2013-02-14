@@ -10,6 +10,12 @@
 
 #include <stdint.h>
 
+#include "usb_ehci_queue_head_endpoint_capabilities.h"
+#include "usb_ehci_queue_element_transfer_descriptor.h"
+#include "usb_ehci_queue_head_horizontal_link_pointer.h"
+#include "usb_ehci_queue_head_endpoint_characteristics.h"
+#include "usb_ehci_queue_element_transfer_descriptor_token.h"
+
 /*
 	class ATOSE_USB_EHCI_QUEUE_HEAD
 	-------------------------------
@@ -29,6 +35,6 @@ public:
 	ATOSE_usb_ehci_queue_element_transfer_descriptor *alternate_next_qtd_pointer;
 	ATOSE_usb_ehci_queue_element_transfer_descriptor_token token;
 	void *buffer_pointer[BUFFER_POINTERS];
-} ;
+} __attribute__ ((packed));
 
 #endif

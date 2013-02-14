@@ -5,8 +5,8 @@
 	Licensed BSD
 */
 
-#ifndef USB_EHCI_QUEUE_HEAD_ENDPOINT_CHARACTERISTICS.H
-#define USB_EHCI_QUEUE_HEAD_ENDPOINT_CHARACTERISTICS.H
+#ifndef USB_EHCI_QUEUE_HEAD_ENDPOINT_CHARACTERISTICS_H_
+#define USB_EHCI_QUEUE_HEAD_ENDPOINT_CHARACTERISTICS_H_
 
 /*
 	class ATOSE_USB_EHCI_QUEUE_HEAD_ENDPOINT_CHARACTERISTICS
@@ -38,6 +38,7 @@ public:
 			unsigned rl                    : 4;
 			} bit __attribute__ ((packed));
 		} ;
-} ;
+} __attribute__ ((packed));
 
 #endif
+

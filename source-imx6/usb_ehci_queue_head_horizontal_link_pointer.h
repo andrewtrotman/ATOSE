@@ -20,8 +20,8 @@ public:
 	/*
 		typ values
 	*/
-	static const uint32_t ISOCHRONOUS_TRANSFER_DESCRIPTOR 0x00
-	static const uint32_t QUEUE_HEAD = 0x01
+	static const uint32_t ISOCHRONOUS_TRANSFER_DESCRIPTOR = 0x00;
+	static const uint32_t QUEUE_HEAD = 0x01;
 	static const uint32_t SPLIT_TRANSACTION_ISOCHRONOUS_TRANSFER_DESCRIPTOR = 0x02;
 	static const uint32_t FRAME_SPAN_TRAVERSAL_NODE = 0x03;
 
@@ -43,6 +43,6 @@ public:
 			unsigned qhlp : 27;
 			} bit __attribute__ ((packed));
 		};
-} ;
+} __attribute__ ((packed));
 
 #endif
