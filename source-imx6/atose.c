@@ -64,6 +64,7 @@ debug << "Prefetch Abort" << ATOSE_debug::eoln;
 void ATOSE_atose::isr_data_abort(ATOSE_registers *registers)
 {
 debug << "Data Abort" << ATOSE_debug::eoln;
+while (1);
 }
 
 /*

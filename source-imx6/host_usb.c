@@ -190,7 +190,7 @@ HW_IOMUXC_SW_PAD_CTL_PAD_GPIO17_WR(BF_IOMUXC_SW_PAD_CTL_PAD_GPIO17_HYS_V(ENABLED
 	Set the direction to output.  The Hub is connected to pin 12 of GPIO port 7
 */
 HW_GPIO_GDIR_SET(7, 1 << 12);
-delay_us(20);		// I think we have to wait 2 "wait states", but I'm not sure how long that is.  20us seems to work
+delay_us(20);		// I think we have to wait 2 "wait states", but I'm not sure how long that is. 20us seems to work
 
 /*
 	Hold the line high (in the 1-state)
@@ -348,108 +348,158 @@ void ATOSE_host_usb::enable(void)
 	========================
 */
 
-static ATOSE_usb_ehci_queue_head queue_head __attribute__ ((aligned(32)));
-static ATOSE_usb_ehci_queue_element_transfer_descriptor global_qTD  __attribute__ ((aligned(64)));
-static uint8_t buffer[4096] __attribute__ ((aligned(4096)));
+/*
+	Although the reference manual allignes transfer descriptors on 32-byte boundaries, the
+	i.MX6Q SDK (iMX6_Platform_SDK\sdk\drivers\usb\src\usbh_drv.c) alligns them on 64-byte
+	boundaries (see usbh_qtd_init()).
+*/
+static ATOSE_usb_ehci_queue_element_transfer_descriptor global_qTD1  __attribute__ ((aligned(64)));
+static ATOSE_usb_ehci_queue_element_transfer_descriptor global_qTD2  __attribute__ ((aligned(64)));
+static ATOSE_usb_ehci_queue_element_transfer_descriptor global_qTD3  __attribute__ ((aligned(64)));
+
+/*
+   The i.MX6Q SDK (iMX6_Platform_SDK\sdk\drivers\usb\src\usbh_drv.c) alligns on 64-byte
+	boundaries (see usbh_qh_init()), so we do the same here.
+*/
+static ATOSE_usb_ehci_queue_head queue_head __attribute__ ((aligned(64)));
+
+/*
+	USB_BUS_RESET()
+	---------------
+*/
+void usb_bus_reset(void)
+{
+HW_USBC_UH1_PORTSC1_WR(HW_USBC_UH1_PORTSC1_RD() | BM_USBC_UH1_PORTSC1_PR);
+
+//! Wait for reset to finish
+while(HW_USBC_UH1_PORTSC1_RD() & BM_USBC_UH1_PORTSC1_PR)
+	; /* do nothing */
+}
+/*
+	INIT_QUEUEHEAD()
+	----------------
+*/
+void init_queuehead(ATOSE_usb_ehci_queue_head *queue_head, uint32_t device, uint32_t endpoint)
+{
+memset(queue_head, 0, sizeof(queue_head));
+
+queue_head->queue_head_horizontal_link_pointer.all = (uint32_t)&queue_head;																// point to self
+queue_head->queue_head_horizontal_link_pointer.bit.typ = ATOSE_usb_ehci_queue_head_horizontal_link_pointer::QUEUE_HEAD;	// we're a queuehead
+//queue_head->queue_head_horizontal_link_pointer.bit.t = ATOSE_usb_ehci_queue_head_horizontal_link_pointer::TERMINATOR;		// and we're the last one
+
+queue_head->characteristics.bit.ep = HW_USBC_UH1_PORTSC1.B.PSPD;	// port speed
+queue_head->characteristics.bit.h = 1;				// we're the head of the list
+queue_head->characteristics.bit.maximum_packet_length = 8;		// MAX_PACKET_SIZE
+queue_head->characteristics.bit.dtc = 1;
+queue_head->characteristics.bit.endpt = endpoint;
+queue_head->characteristics.bit.device_address = device;		// it doesn't have an address yet.
+
+queue_head->capabilities.bit.mult = ATOSE_usb_ehci_queue_head_endpoint_capabilities::TRANSACTIONS_ONE;
+
+queue_head->next_qtd_pointer = queue_head->alternate_next_qtd_pointer = (ATOSE_usb_ehci_queue_element_transfer_descriptor *)ATOSE_usb_ehci_queue_element_transfer_descriptor::TERMINATOR;
+}
+
+/*
+	INIT_TRANSFER_DESCRIPTOR()
+	--------------------------
+	data need not be aligned correctly, that is taken care of by this round.
+	the maximum amount of data we can "safely" transmit is (BUFFER_POINTERS - 1) * 4096 + 1
+	because if we worst case aligned then the first buffer will contain only one byte.
+	So, don't call this routine with more than 20KB of data
+*/
+void init_transfer_descriptor(ATOSE_usb_ehci_queue_element_transfer_descriptor *descriptor, uint32_t transaction_type, char *data, uint32_t data_length)
+{
+uint32_t offset, remaining, block;
+
+memset(descriptor, 0, sizeof(*descriptor));
+
+descriptor->next_qtd_pointer = (ATOSE_usb_ehci_queue_element_transfer_descriptor *)ATOSE_usb_ehci_queue_element_transfer_descriptor::TERMINATOR;
+descriptor->alternate_next_qtd_pointer = (ATOSE_usb_ehci_queue_element_transfer_descriptor *)ATOSE_usb_ehci_queue_element_transfer_descriptor::TERMINATOR;
+
+descriptor->token.bit.pid_code = transaction_type;
+if (transaction_type != ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_SETUP)
+	descriptor->token.bit.dt = 1;
+descriptor->token.bit.ioc = 0;
+descriptor->token.bit.total_bytes = data_length;
+descriptor->token.bit.c_err = 3;
+descriptor->token.bit.status = ATOSE_usb_ehci_queue_element_transfer_descriptor_token::STATUS_ACTIVE;
+
+/*
+	Now on to the data.  The i.MX6Q counts up-to a 4KB boundary so if we don't
+	pre-align the data pointer then we must break it on 4KB boundaries.
+*/
+descriptor->buffer_pointer[0] = data;
+
+offset = ((uint32_t)data) % 4096;
+remaining = data_length - (4096 - offset);
+
+/*
+	all the other buffers start on a 4K boundary
+*/
+for (block = 1; block < ATOSE_usb_ehci_queue_element_transfer_descriptor::BUFFER_POINTERS; block++)
+	if (remaining > 0)
+		{
+		descriptor->buffer_pointer[block] = (uint8_t *)((uint32_t)data) + ((4096 * block) - offset);
+		remaining -= 4096;
+		}
+}
 
 /*
 	SEND_SETUP_PACKET_TO_DEVICE()
 	-----------------------------
 */
-void send_setup_packet_to_device(uint32_t device, uint32_t endpoint, ATOSE_usb_setup_data *packet)
+void send_setup_packet_to_device(uint32_t device, uint32_t endpoint, ATOSE_usb_setup_data *packet, ATOSE_usb_standard_device_descriptor *descriptor)
 {
-memset(&queue_head, 0, sizeof(queue_head));
-queue_head.queue_head_horizontal_link_pointer.all = (uint32_t)&queue_head;																// point to self
-queue_head.queue_head_horizontal_link_pointer.bit.typ = ATOSE_usb_ehci_queue_head_horizontal_link_pointer::QUEUE_HEAD;	// we're a queuehead
-queue_head.queue_head_horizontal_link_pointer.bit.t = ATOSE_usb_ehci_queue_head_horizontal_link_pointer::TERMINATOR;		// and we're the last one
-
-queue_head.characteristics.bit.c = 1;					// we're a control endpoint
-queue_head.characteristics.bit.maximum_packet_length = 8;		// MAX_PACKET_SIZE
-queue_head.characteristics.bit.ep = ATOSE_usb_ehci_queue_head_endpoint_characteristics::SPEED_LOW;
-queue_head.characteristics.bit.endpt = endpoint;
-queue_head.characteristics.bit.device_address = device;		// it doesn't have an address yet.
-
-queue_head.capabilities.bit.mult = ATOSE_usb_ehci_queue_head_endpoint_capabilities::TRANSACTIONS_ONE;
-
-queue_head.next_qtd_pointer = &global_qTD;
-queue_head.alternate_next_qtd_pointer = &global_qTD;
-
-global_qTD.next_qtd_pointer = (ATOSE_usb_ehci_queue_element_transfer_descriptor *)ATOSE_usb_ehci_queue_element_transfer_descriptor::TERMINATOR;
-global_qTD.alternate_next_qtd_pointer = (ATOSE_usb_ehci_queue_element_transfer_descriptor *)ATOSE_usb_ehci_queue_element_transfer_descriptor::TERMINATOR;
-
-global_qTD.token.bit.dt = 0;
-global_qTD.token.bit.total_bytes = sizeof(*packet);
-global_qTD.token.bit.ioc = 1;
-global_qTD.token.bit.c_page = 0;
-global_qTD.token.bit.c_err = 1;
-global_qTD.token.bit.pid_code = ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_SETUP;
-global_qTD.token.bit.status = ATOSE_usb_ehci_queue_element_transfer_descriptor_token::STATUS_ACTIVE;
-
-memcpy(buffer, packet, sizeof(*packet));
-global_qTD.buffer_pointer[0] = buffer;
-
-debug_print_string("\r\n");
-debug_print_this("HW_USBC_UH1_USBSTS :", HW_USBC_UH1_USBSTS.U, "");
-
-HW_USBC_UH1_ASYNCLISTADDR.B.ASYBASE = (uint32_t)&queue_head;
-HW_USBC_UH1_USBCMD.B.ASE = 1;
-
-debug_print_this("HW_USBC_UH1_USBSTS :", HW_USBC_UH1_USBSTS.U, "");
-delay_us(100000);
-debug_print_this("HW_USBC_UH1_USBSTS :", HW_USBC_UH1_USBSTS.U, "");
-
-
-//delay_us(1000);
-HW_USBC_UH1_USBCMD.B.ASE = 0;
-HW_USBC_UH1_USBSTS.U = HW_USBC_UH1_USBSTS.U;
-debug_print_this("HW_USBC_UH1_USBSTS :", HW_USBC_UH1_USBSTS.U, "");
-
-}
+init_queuehead(&queue_head, 0, 0);
+init_transfer_descriptor(&global_qTD1, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_SETUP, (char *)packet, sizeof(*packet));
+init_transfer_descriptor(&global_qTD2, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_IN, (char *)descriptor, sizeof(*descriptor));
+init_transfer_descriptor(&global_qTD3, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_OUT, 0, 0);
 
 /*
-	READ_FROM_DEVICE()
-	------------------
+	Create the chain and interrupt on completion
 */
-void read_from_device(uint32_t device, uint32_t endpoint, uint8_t *parametric_buffer, uint32_t parametric_buffer_length)
-{
-memset(&queue_head, 0, sizeof(queue_head));
-queue_head.queue_head_horizontal_link_pointer.all = (uint32_t)&queue_head.queue_head_horizontal_link_pointer;				// point to self
-queue_head.queue_head_horizontal_link_pointer.bit.typ = ATOSE_usb_ehci_queue_head_horizontal_link_pointer::QUEUE_HEAD;	// we're a queuehead
-queue_head.queue_head_horizontal_link_pointer.bit.t = ATOSE_usb_ehci_queue_head_horizontal_link_pointer::TERMINATOR;		// and we're the last one
+global_qTD1.next_qtd_pointer = &global_qTD2;
+global_qTD2.next_qtd_pointer = &global_qTD3;
+global_qTD3.token.bit.ioc = 1;
 
-queue_head.characteristics.bit.device_address = device;		// it doesn't have an address yet.
-queue_head.characteristics.bit.endpt = endpoint;
-queue_head.characteristics.bit.maximum_packet_length = 8;		// MAX_PACKET_SIZE
-queue_head.characteristics.bit.ep = ATOSE_usb_ehci_queue_head_endpoint_characteristics::SPEED_HIGH;
+/*
+	Shove it in the queuehead
+*/
+queue_head.next_qtd_pointer = &global_qTD1;
 
-queue_head.capabilities.bit.mult = ATOSE_usb_ehci_queue_head_endpoint_capabilities::TRANSACTIONS_ONE;
-
-queue_head.next_qtd_pointer = &global_qTD;
-
-global_qTD.next_qtd_pointer = (ATOSE_usb_ehci_queue_element_transfer_descriptor *)ATOSE_usb_ehci_queue_element_transfer_descriptor::TERMINATOR;
-global_qTD.alternate_next_qtd_pointer = (ATOSE_usb_ehci_queue_element_transfer_descriptor *)ATOSE_usb_ehci_queue_element_transfer_descriptor::TERMINATOR;
-
-global_qTD.token.bit.status = ATOSE_usb_ehci_queue_element_transfer_descriptor_token::STATUS_ACTIVE;
-global_qTD.token.bit.pid_code = ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_IN;
-global_qTD.token.bit.c_err = 0;
-global_qTD.token.bit.c_page = 0;
-global_qTD.token.bit.ioc = 1;
-global_qTD.token.bit.total_bytes = parametric_buffer_length;
-global_qTD.token.bit.dt = 0;
-
-global_qTD.buffer_pointer[0] = buffer;
-
-debug_print_string("\r\nREC:\r\n");
-debug_print_this("HW_USBC_UH1_USBSTS :", HW_USBC_UH1_USBSTS.U, "");
+/*
+	Shove the queuehead in the async list
+*/
 HW_USBC_UH1_ASYNCLISTADDR.B.ASYBASE = (uint32_t)&queue_head;
-HW_USBC_UH1_USBCMD.B.ASE = 1;
-debug_print_this("HW_USBC_UH1_USBSTS :", HW_USBC_UH1_USBSTS.U, "");
-delay_us(100000);
-debug_print_this("HW_USBC_UH1_USBSTS :", HW_USBC_UH1_USBSTS.U, "");
-HW_USBC_UH1_USBCMD.B.ASE = 0;
-debug_print_this("HW_USBC_UH1_USBSTS :", HW_USBC_UH1_USBSTS.U, "");
 
-memcpy(parametric_buffer, buffer, parametric_buffer_length);
+/*
+	Enable the Async list
+*/
+debug_print_string("Enable Async List\r\n");
+HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() | BM_USBC_UH1_USBCMD_ASE);
+while(!(HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_AS))
+	;	/* do nothing */
+
+/*
+	Wait for it to terminate
+*/
+debug_print_string("Wait for it to finish\r\n");
+while(!(HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_UI));
+	HW_USBC_UH1_USBSTS_WR(HW_USBC_UH1_USBSTS_RD() | BM_USBC_UH1_USBSTS_UI);
+
+/*
+	Wait for the final object to effect
+*/
+//while (global_qTD3.token.bit.status == ATOSE_usb_ehci_queue_element_transfer_descriptor_token::STATUS_ACTIVE)
+//	; /* do nothing */
+
+/*
+	Disable the async list
+*/
+debug_print_string("Disable Async List\r\n");
+HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() & (~BM_USBC_UH1_USBCMD_ASE));
+while(HW_USBC_UH1_USBCMD_RD() & BM_USBC_UH1_USBCMD_ASE)
+	;	/* nothing */
 }
 
 /*
@@ -463,28 +513,22 @@ hw_usbc_uog_usbsts_t usb_status;
 usb_status.U = HW_USBC_UH1_USBSTS.U;
 HW_USBC_UH1_USBSTS.U = usb_status.U;
 
-debug_print_string("[HW_USBC_UH1_USBSTS:");
+debug_print_string("\r\n[HW_USBC_UH1_USBSTS:");
 debug_print_hex(usb_status.U);
 
 /*
 	After initialisation and under normal operation we expect only this case.
 */
 if (usb_status.B.UI)
-	{
 	debug_print_string("USB INTERRUPT]\r\n");
-	}
 
 else if (usb_status.B.UI)
-	{
 	debug_print_string("USB ERROR]\r\n");
-	}
 /*
 	USB Reset Interrupt
 */
 else if (usb_status.B.URI)
-	{
 	debug_print_string("USB RESET]\r\n");
-	}
 
 /*
 	USB Port Change Interrupt
@@ -492,7 +536,17 @@ else if (usb_status.B.URI)
 */
 else if (usb_status.B.PCI)
 	{
-	debug_print_string("USB PCI:");
+	debug_print_string("USB PCI:\r\n");
+
+	debug_print_this("HW_USBC_UH1_PORTSC1    :", HW_USBC_UH1_PORTSC1.U);
+	debug_print_this("BM_USBC_UH1_PORTSC1_CCS:", BM_USBC_UH1_PORTSC1_CCS);
+
+	debug_print_string("Waiting for USB connected...\r\n");
+	while(!(HW_USBC_UH1_PORTSC1_RD() & BM_USBC_UH1_PORTSC1_CCS))
+		; /* nothing */
+	debug_print_string("Connect detected.\r\n");
+
+	usb_bus_reset();
 	/*
 		Page 5223 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012"
 		"To communicate
@@ -507,6 +561,8 @@ else if (usb_status.B.PCI)
 	/*
 		The first request should be a setup packet asking for the device descriptor.
 	*/
+	delay_us(1000 * 1000);	// wait 1 second
+
 	ATOSE_usb_setup_data setup_packet;
 	ATOSE_usb_standard_device_descriptor descriptor;
 
@@ -516,15 +572,11 @@ else if (usb_status.B.PCI)
 	setup_packet.wIndex = 0;
 	setup_packet.wLength = 8;
 
-	memset(buffer, 0xFF, sizeof(buffer));
-	send_setup_packet_to_device(0, 0, &setup_packet);
+	memset(&descriptor, 0xFF, sizeof(descriptor));
 
-	delay_us(1000 * 1000);	// wait 1 second
-	debug_print_this("qTD.status:", global_qTD.token.bit.status);
+	debug_print_string("About to call send_setup_packet_to_device\r\n");
 
-
-	memset(buffer, 0xFF, sizeof(buffer));
-	read_from_device(0, 0, (uint8_t *)&descriptor, 8);
+	send_setup_packet_to_device(0, 0, &setup_packet, &descriptor);
 
 	debug_print_string("--\r\n");
 	debug_print_this("bLength         :", descriptor.bLength);
@@ -541,11 +593,9 @@ else if (usb_status.B.PCI)
 	setup_packet.wIndex = 0;
 	setup_packet.wLength = sizeof(descriptor) <= descriptor.bLength ? sizeof(descriptor) :  descriptor.bLength;
 
-	memset(buffer, 0xFF, sizeof(buffer));
 	memset(&descriptor, 0xFF, sizeof(descriptor));
-	send_setup_packet_to_device(0, 0, &setup_packet);
-	memset(buffer, 0xFF, sizeof(buffer));
-	read_from_device(0, 0, (uint8_t *)&descriptor, setup_packet.wLength);
+
+	send_setup_packet_to_device(0, 0, &setup_packet, &descriptor);
 
 	debug_print_string("--\r\n");
 	debug_print_this("bLength         :", descriptor.bLength);
