@@ -10,6 +10,7 @@
 ^Datasheets/
 ^freescale/
 ^boundary/
+^usb-test/
 \.bak$
 \.o$
 \.elf$
