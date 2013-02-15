@@ -487,39 +487,16 @@ for (block = 1; block < ATOSE_usb_ehci_queue_element_transfer_descriptor::BUFFER
 */
 void ATOSE_host_usb::send_setup_packet_to_device(uint32_t device, uint32_t endpoint, ATOSE_usb_setup_data *packet, ATOSE_usb_standard_device_descriptor *descriptor)
 {
-uint32_t usbhSetupCommand[2];
-usbhSetupCommand[0] = 0x01000680;
-usbhSetupCommand[1] = 0x00120000;
-
-debug_print_string("PACKET:\r\n");
-debug_dump_buffer((unsigned char *)packet, 0, sizeof(*packet));
-debug_print_string("COMPARED TO :\r\n");
-debug_dump_buffer((unsigned char *)usbhSetupCommand, 0, sizeof(usbhSetupCommand));
-
-packet = (ATOSE_usb_setup_data *)usbhSetupCommand;
-
 /*
 	Initialise the queuehead and bung it in the Async list
 */
 initialise_queuehead(&queue_head, 0, 0);
-HW_USBC_UH1_ASYNCLISTADDR_WR((uint32_t)&queue_head);
-
-/*
-	Enable the Async list
-*/
-debug_print_string("Enable Async List\r\n");
-HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() | BM_USBC_UH1_USBCMD_ASE);
-while(!(HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_AS))
-	;	/* do nothing */
-
-usb_bus_reset();
-
 
 /*
 	Initialise the descriptors
 */
 initialise_transfer_descriptor(&global_qTD1, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_SETUP, (char *)packet, sizeof(*packet));
-initialise_transfer_descriptor(&global_qTD2, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_IN, (char *)descriptor, 18);
+initialise_transfer_descriptor(&global_qTD2, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_IN, (char *)descriptor, sizeof(*descriptor));
 initialise_transfer_descriptor(&global_qTD3, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_OUT, 0, 0);
 
 /*
@@ -530,21 +507,31 @@ global_qTD2.next_qtd_pointer = &global_qTD3;
 global_qTD3.token.bit.ioc = 1;
 
 /*
-	Shove it in the queuehead
+	Shove the descriptors into the queuehead
 */
 queue_head.next_qtd_pointer = &global_qTD1;
 
 /*
-	Wait for it to terminate
+	Pass the queuehead on the to the i.MX6Q
 */
-debug_print_string("Wait for it to finish\r\n");
+HW_USBC_UH1_ASYNCLISTADDR_WR((uint32_t)&queue_head);
+
+/*
+	Enable the Async list and wait for it to start
+*/
+HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() | BM_USBC_UH1_USBCMD_ASE);
+while(!(HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_AS))
+	;	/* do nothing */
+
+/*
+	Wait for the request to finish
+*/
 while(!(HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_UI));
 	HW_USBC_UH1_USBSTS_WR(HW_USBC_UH1_USBSTS_RD() | BM_USBC_UH1_USBSTS_UI);
 
 /*
-	Disable the async list
+	Disable the Async list
 */
-debug_print_string("Disable Async List\r\n");
 HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() & (~BM_USBC_UH1_USBCMD_ASE));
 while(HW_USBC_UH1_USBCMD_RD() & BM_USBC_UH1_USBCMD_ASE)
 	;	/* nothing */
@@ -585,68 +572,46 @@ if (usb_status.B.PCI)
 	debug_print_string("USB PCI]\r\n");
 
 	/*
-		Page 5223 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012"
-		"To communicate
-		with devices through the asynchronous schedule, system software must write the
-		USB_ASYNCLISTADDR register with the address of a control or bulk queue head.
-		Software must then enable the asynchronous schedule by writing one to the
-		Asynchronous Schedule Enable bit in the USB_USBCMD register. To communicate with
-		devices through the periodic schedule, system software must enable the periodic schedule
-		by writing one to the Periodic Schedule Enable bit in the USB_USBCMD register."
+		Wait for the connect to finish
 	*/
 	while(!(HW_USBC_UH1_PORTSC1_RD() & BM_USBC_UH1_PORTSC1_CCS))
 		; /* nothing */
-	usb_bus_reset();
 
 	/*
-		Page 5223 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012"
-		"To communicate
-		with devices through the asynchronous schedule, system software must write the
-		USB_ASYNCLISTADDR register with the address of a control or bulk queue head.
-		Software must then enable the asynchronous schedule by writing one to the
-		Asynchronous Schedule Enable bit in the USB_USBCMD register. To communicate with
-		devices through the periodic schedule, system software must enable the periodic schedule
-		by writing one to the Periodic Schedule Enable bit in the USB_USBCMD register."
+		Reset the USB bus
 	*/
+	usb_bus_reset();
 
 	/*
 		The first request should be a setup packet asking for the device descriptor.
 	*/
-
 	ATOSE_usb_setup_data setup_packet;
 	ATOSE_usb_standard_device_descriptor descriptor;
 
 	setup_packet.bmRequestType.all = 0x80;
 	setup_packet.bRequest = ATOSE_usb::REQUEST_GET_DESCRIPTOR;
-	setup_packet.wValue = ATOSE_usb::DESCRIPTOR_TYPE_DEVICE;
+	setup_packet.wValue_high = ATOSE_usb::DESCRIPTOR_TYPE_DEVICE;
+	setup_packet.wValue_low = 0;
 	setup_packet.wIndex = 0;
 	setup_packet.wLength = 0x12;
 
 	send_setup_packet_to_device(0, 0, &setup_packet, &descriptor);
-
-	setup_packet.bmRequestType.all = 0x80;
-	setup_packet.bRequest = ATOSE_usb::REQUEST_GET_DESCRIPTOR;
-	setup_packet.wValue = ATOSE_usb::DESCRIPTOR_TYPE_DEVICE;
-	setup_packet.wIndex = 0;
 	setup_packet.wLength = sizeof(descriptor) <= descriptor.bLength ? sizeof(descriptor) :  descriptor.bLength;
-
-
 	send_setup_packet_to_device(0, 0, &setup_packet, &descriptor);
 
-	debug_print_string("--\r\n");
-	debug_print_this("bLength         :", descriptor.bLength);
-	debug_print_this("bDescriptorType :", descriptor.bDescriptorType);
-	debug_print_this("bcdUSB          :", descriptor.bcdUSB);
-	debug_print_this("bDeviceClass    :", descriptor.bDeviceClass);
-	debug_print_this("bDeviceSubClass :", descriptor.bDeviceSubClass);
-	debug_print_this("bDeviceProtocol :", descriptor.bDeviceProtocol);
-	debug_print_this("bMaxPacketSize0 :", descriptor.bMaxPacketSize0);
-	debug_print_this("idVendor :", descriptor.idVendor);
-	debug_print_this("idProduct :", descriptor.idProduct);
-	debug_print_this("bcdDevice :", descriptor.bcdDevice);
-	debug_print_this("iManufacturer :", descriptor.iManufacturer);
-	debug_print_this("iProduct :", descriptor.iProduct);
-	debug_print_this("iSerialNumber :", descriptor.iSerialNumber);
+	debug_print_this("bLength            :", descriptor.bLength);
+	debug_print_this("bDescriptorType    :", descriptor.bDescriptorType);
+	debug_print_this("bcdUSB             :", descriptor.bcdUSB);
+	debug_print_this("bDeviceClass       :", descriptor.bDeviceClass);
+	debug_print_this("bDeviceSubClass    :", descriptor.bDeviceSubClass);
+	debug_print_this("bDeviceProtocol    :", descriptor.bDeviceProtocol);
+	debug_print_this("bMaxPacketSize0    :", descriptor.bMaxPacketSize0);
+	debug_print_this("idVendor           :", descriptor.idVendor);
+	debug_print_this("idProduct          :", descriptor.idProduct);
+	debug_print_this("bcdDevice          :", descriptor.bcdDevice);
+	debug_print_this("iManufacturer      :", descriptor.iManufacturer);
+	debug_print_this("iProduct           :", descriptor.iProduct);
+	debug_print_this("iSerialNumber      :", descriptor.iSerialNumber);
 	debug_print_this("bNumConfigurations :", descriptor.bNumConfigurations);
 	}
 }

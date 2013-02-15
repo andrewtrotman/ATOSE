@@ -40,7 +40,15 @@ public:
 public:
 	ATOSE_usb_setup_data_request_type bmRequestType;
 	uint8_t bRequest;
-	uint16_t wValue;
+	union
+		{
+		uint16_t wValue;
+		struct
+			{
+			uint8_t wValue_low;
+			uint8_t wValue_high;
+			} ;
+		} ;
 	uint16_t wIndex;
 	uint16_t wLength;
 } __attribute__ ((packed));
