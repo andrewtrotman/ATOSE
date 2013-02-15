@@ -523,18 +523,20 @@ HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() | BM_USBC_UH1_USBCMD_ASE);
 while(!(HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_AS))
 	;	/* do nothing */
 
-/*
-	Wait for the request to finish
-*/
-while(!(HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_UI));
-	HW_USBC_UH1_USBSTS_WR(HW_USBC_UH1_USBSTS_RD() | BM_USBC_UH1_USBSTS_UI);
+#ifdef NEVER
+		/*
+			Wait for the request to finish
+		*/
+		while(!(HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_UI));
+			HW_USBC_UH1_USBSTS_WR(HW_USBC_UH1_USBSTS_RD() | BM_USBC_UH1_USBSTS_UI);
 
-/*
-	Disable the Async list
-*/
-HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() & (~BM_USBC_UH1_USBCMD_ASE));
-while(HW_USBC_UH1_USBCMD_RD() & BM_USBC_UH1_USBCMD_ASE)
-	;	/* nothing */
+		/*
+			Disable the Async list
+		*/
+		HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() & (~BM_USBC_UH1_USBCMD_ASE));
+		while(HW_USBC_UH1_USBCMD_RD() & BM_USBC_UH1_USBCMD_ASE)
+			;	/* nothing */
+#endif
 }
 
 /*
@@ -545,31 +547,35 @@ void ATOSE_host_usb::acknowledge(void)
 {
 hw_usbc_uog_usbsts_t usb_status;
 
+static	ATOSE_usb_setup_data setup_packet;
+static 	ATOSE_usb_standard_device_descriptor descriptor;
+
 /*
 	Acknowledge all the interrupts
 */
-usb_status.U = HW_USBC_UH1_USBSTS.U = HW_USBC_UH1_USBSTS.U;
-
+usb_status.U = HW_USBC_UH1_USBSTS.U;
+HW_USBC_UH1_USBSTS.U = usb_status.U;
 
 /*
 	USBINT (as it's know) After initialisation and under normal operation we expect only this case.
 */
 if (usb_status.B.UI)
-	debug_print_string("USB INTERRUPT]\r\n");
+	{
+	debug_print_string("USB INTERRUPT\r\n");
+	}
 
 /*
 	USB Reset Interrupt
 */
 if (usb_status.B.URI)
-	debug_print_string("USB RESET]\r\n");
+	debug_print_string("USB RESET\r\n");
 
 /*
 	USB Port Change Interrupt
-	If we disable this then when the user disconnects and reconnects then we don't get a reset message!!!
 */
 if (usb_status.B.PCI)
 	{
-	debug_print_string("USB PCI]\r\n");
+	debug_print_string("USB PCI\r\n");
 
 	/*
 		Wait for the connect to finish
@@ -585,9 +591,6 @@ if (usb_status.B.PCI)
 	/*
 		The first request should be a setup packet asking for the device descriptor.
 	*/
-	ATOSE_usb_setup_data setup_packet;
-	ATOSE_usb_standard_device_descriptor descriptor;
-
 	setup_packet.bmRequestType.all = 0x80;
 	setup_packet.bRequest = ATOSE_usb::REQUEST_GET_DESCRIPTOR;
 	setup_packet.wValue_high = ATOSE_usb::DESCRIPTOR_TYPE_DEVICE;
@@ -596,6 +599,7 @@ if (usb_status.B.PCI)
 	setup_packet.wLength = 0x12;
 
 	send_setup_packet_to_device(0, 0, &setup_packet, &descriptor);
+#ifdef NEVER
 	setup_packet.wLength = sizeof(descriptor) <= descriptor.bLength ? sizeof(descriptor) :  descriptor.bLength;
 	send_setup_packet_to_device(0, 0, &setup_packet, &descriptor);
 
@@ -613,5 +617,7 @@ if (usb_status.B.PCI)
 	debug_print_this("iProduct           :", descriptor.iProduct);
 	debug_print_this("iSerialNumber      :", descriptor.iSerialNumber);
 	debug_print_this("bNumConfigurations :", descriptor.bNumConfigurations);
+#endif
+	HW_USBC_UH1_USBSTS.B.PCI = 1;
 	}
 }

@@ -43,7 +43,7 @@ debug << "Tell Interrupt controller about USB HOST...";
 interrupt_controller.enable(&imx6q_host_usb, imx6q_host_usb.get_interrup_id());
 debug << "done" << ATOSE_debug::eoln;
 
-debug << "enable IRQ";
+debug << "enable IRQ...";
 cpu.enable_irq();
 debug << "done" << ATOSE_debug::eoln;
 }
