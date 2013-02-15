@@ -21,6 +21,7 @@ class ATOSE_usb_ehci_queue_element_transfer_descriptor
 {
 public:
 	static const uint32_t BUFFER_POINTERS = 5;
+	static const uint32_t BUFFER_SIZE = 4096;
 	static const uint32_t TERMINATOR = 1;
 
 public:

@@ -2,7 +2,13 @@
 #	Copyright (c) 2013 Andrew Trotman
 #	Licensed BSD
 #
-TARGET = Octopus
+
+#
+# Possible values for TARGET are:
+#	SABRE_LITE: The boundaryDevice's SABRE Lite board
+#	Octopus   : Our Octopus board
+#
+TARGET = SABRE_LITE
 CPU = IMX6Q
 
 CC = @arm-none-eabi-g++
