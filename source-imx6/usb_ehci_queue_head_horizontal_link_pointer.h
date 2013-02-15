@@ -8,6 +8,8 @@
 #ifndef USB_EHCI_QUEUE_HEAD_HORIZONTAL_LINK_POINTER_H_
 #define USB_EHCI_QUEUE_HEAD_HORIZONTAL_LINK_POINTER_H_
 
+class ATOSE_usb_ehci_queue_head;
+
 /*
 	class ATOSE_USB_EHCI_QUEUE_HEAD_HORIZONTAL_LINK_POINTER
 	-------------------------------------------------------
@@ -34,7 +36,7 @@ public:
 public:
 	union
 		{
-		uint32_t all;
+		ATOSE_usb_ehci_queue_head *all;
 		struct
 			{
 			unsigned t : 1;

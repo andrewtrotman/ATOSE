@@ -45,6 +45,7 @@
 
 #define DEFAULT_UART 2
 
+void dump_usbsts(void);
 void do_some_magic(void);
 
 /*
@@ -257,172 +258,6 @@ delay_us(1000);
 	=====================================================
 	=====================================================
 */
-/*
-	VOID USBENABLECLOCKS(VOID)
-	--------------------------
-*/
-void usbEnableClocks(void)
-{
-/*
-* Enable the USB clock for the controller
-*/
-HW_CCM_CCGR6.B.CG0 = 3;
-
-/*
-* Enable the PLL\n
-* OTG, Host2 and Host3 controllers use USB_PLL0
-* Host1 controller uses USB_PLL1
-*/
-
-HW_CCM_ANALOG_PLL_USB2_SET(BM_CCM_ANALOG_PLL_USB2_POWER);
-HW_CCM_ANALOG_PLL_USB2_SET(BM_CCM_ANALOG_PLL_USB2_EN_USB_CLKS);
-
-while(!(HW_CCM_ANALOG_PLL_USB2_RD() & BM_CCM_ANALOG_PLL_USB2_LOCK))
-	;// nothing
-
-HW_CCM_ANALOG_PLL_USB2_CLR(BM_CCM_ANALOG_PLL_USB2_BYPASS);
-HW_CCM_ANALOG_PLL_USB2_SET(BM_CCM_ANALOG_PLL_USB2_ENABLE);
-
-}
-/*
-	VOID USBENABLETRANSCEIVER(VOID)
-	-------------------------------
-*/
-void usbEnableTransceiver(void)
-{
-uint32_t instance;
-
-instance = HW_USBPHY2;
-
-//! NOTE !! CLKGATE must be cleared before clearing power down
-HW_USBPHY_CTRL_CLR(instance, BM_USBPHY_CTRL_SFTRST);	//! - clear SFTRST
-HW_USBPHY_CTRL_CLR(instance, BM_USBPHY_CTRL_CLKGATE);	//! - clear CLKGATE
-HW_USBPHY_PWD_WR(instance, 0);	//! - clear all power down bits
-HW_USBPHY_CTRL_SET(instance, BM_USBPHY_CTRL_ENUTMILEVEL2 | BM_USBPHY_CTRL_ENUTMILEVEL3 | BM_USBPHY_CTRL_ENHOSTDISCONDETECT);
-
-//! disable the charger detector. This must be off during normal operation
-	{
-	// this register is not documented. Will be updated in the next release
-	uint32_t *ChargerDetectControl;
-	ChargerDetectControl = (uint32_t *) 0x020c81b0;
-	*ChargerDetectControl |= 1 << 20;   // disable detector
-	}
-}
-
-int32_t gpio_set_direction(int32_t port, int32_t pin, int32_t dir)
-{
-uint32_t oldVal = 0, newVal = 0;
-
-if ((port > HW_GPIO_INSTANCE_COUNT) || (port < 1))
-	return INVALID_PARAMETER;
-
-if ((pin > 31) || (pin < 0))
-	return INVALID_PARAMETER;
-
-oldVal = HW_GPIO_GDIR_RD(port);
-
-if (dir == GPIO_GDIR_INPUT)
-	newVal = oldVal & (~(1 << pin));
-else
-	newVal = oldVal | (1 << pin);
-
-HW_GPIO_GDIR_WR(port, newVal);
-
-return 0; //SUCCESS;
-}
-
-int32_t gpio_set_level(int32_t port, int32_t pin, uint32_t level)
-{
-if ((port > HW_GPIO_INSTANCE_COUNT) || (port < 1))
-	return INVALID_PARAMETER;
-
-if ((pin > 31) || (pin < 0))
-	return INVALID_PARAMETER;
-
-uint32_t mask = 1 << pin;
-
-int32_t dir = HW_GPIO_GDIR_RD(port) & mask ? GPIO_GDIR_OUTPUT : GPIO_GDIR_INPUT;
-
-if (dir != GPIO_GDIR_OUTPUT)
-	return -1;
-
-uint32_t value = HW_GPIO_DR_RD(port);   // read current value
-
-if (level == GPIO_LOW_LEVEL)            // fix it up
-	value &= ~mask;
-else if ( level == GPIO_HIGH_LEVEL)
-	value |= mask;
-
-HW_GPIO_DR_WR(port, value);             // write new value
-
-return 0; //SUCCESS;
-}
-
-/*
-	VOID USBENABLEVBUS(VOID)
-	------------------------
-*/
-void usbEnableVbus(void)
-{
-#define reg32_write(addr,val) *((volatile uint32_t *)(addr)) = (val)
-
-reg32_write(IOMUXC_SW_MUX_CTL_PAD_EIM_D30, ALT5);
-gpio_set_direction(GPIO_PORT3, 30, GPIO_GDIR_OUTPUT);
-gpio_set_level(GPIO_PORT3, 30, GPIO_HIGH_LEVEL);
-}
-
-/*
-	VOID USBH_INIT(VOID)
-	--------------------
-*/
-void usbh_init(void)
-{
-usbEnableClocks();
-usbEnableTransceiver();
-
-HW_USBC_UH1_PORTSC1_WR(HW_USBC_UH1_PORTSC1_RD() & (~(BF_USBC_UH1_PORTSC1_PTS_1(3) | BF_USBC_UH1_PORTSC1_PTS_2(1))));
-
-//! Reset controller after switching PHY's
-HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() | BM_USBC_UH1_USBCMD_RST);
-
-//! wait for reset to complete
-while (HW_USBC_UH1_USBCMD_RD() & BM_USBC_UH1_USBCMD_RST)
-	;/* nothing */
-
-//! set controller to host mode
-#define USB_USBMODE_CM_HOST              (0x3)
-HW_USBC_UH1_USBMODE_WR(USB_USBMODE_CM_HOST);
-
-//! Set Asynchronous schedule park mode to 3
-//! to allow up to 3 successive transactions same queue.
-//! set interrupt interval to 0 for immediate interrupt
-HW_USBC_UH1_USBCMD_WR(BF_USBC_UH1_USBCMD_ASP(3) | BF_USBC_UH1_USBCMD_ITC(0));
-
-#ifdef USB_USE_INT
-/* setup interrupt */
-usb_init_host_interrupts(port->moduleBaseAddress);
-#endif
-
-//! start the controller
-//! the controller will start running but the schedules are not yet enabled.
-HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() | BM_USBC_UH1_USBCMD_RS);
-
-//! Enable port power.
-//! Port power must be set for port to detect a device connection
-HW_USBC_UH1_PORTSC1_WR(HW_USBC_UH1_PORTSC1_RD() | BM_USBC_UH1_PORTSC1_PP);
-
-//! Enable Vbus power when Vbus power is controlled by GPIO
-//! On some board hardware, Vbus is not controlled by PortPower
-//
-usbEnableVbus();
-}
-
-/*
-	=====================================================
-	=====================================================
-	=====================================================
-*/
-
 
 
 
@@ -447,103 +282,97 @@ ATOSE_host_usb::ATOSE_host_usb() : ATOSE_device_driver()
 			HW_USBPHY_TX_TXCAL45DN = 0x0
 			HW_USBPHY_TX_D_CAL = 0x7"
 */
-#ifdef NEVER
+
 /*
 	Enable the pads (this code was generated by the IOMUX tool)
 */
 HW_IOMUXC_SW_MUX_CTL_PAD_EIM_DATA30_WR(BF_IOMUXC_SW_MUX_CTL_PAD_EIM_DATA30_SION_V(DISABLED) | BF_IOMUXC_SW_MUX_CTL_PAD_EIM_DATA30_MUX_MODE_V(ALT6));
 HW_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA30_WR(BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA30_HYS_V(ENABLED) | BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA30_PUS_V(100K_OHM_PU) | BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA30_PUE_V(PULL) | BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA30_PKE_V(ENABLED) | BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA30_ODE_V(DISABLED) | BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA30_SPEED_V(100MHZ) | BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA30_DSE_V(40_OHM) | BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA30_SRE_V(SLOW));
 HW_IOMUXC_USB_H1_OC_SELECT_INPUT_WR(BF_IOMUXC_USB_H1_OC_SELECT_INPUT_DAISY_V(EIM_DATA30_ALT6));
-#endif
 
-#ifdef NEVER
-	/*
-		Send the clock the the Phy
-	*/
-	HW_CCM_ANALOG_PLL_USB2_SET(BM_CCM_ANALOG_PLL_USB2_POWER);
-	HW_CCM_ANALOG_PLL_USB2_SET(BM_CCM_ANALOG_PLL_USB2_EN_USB_CLKS);
-	while(!(HW_CCM_ANALOG_PLL_USB2_RD() & BM_CCM_ANALOG_PLL_USB2_LOCK))
-		;	/* nothing */
-	HW_CCM_ANALOG_PLL_USB2_CLR(BM_CCM_ANALOG_PLL_USB2_BYPASS);
-	HW_CCM_ANALOG_PLL_USB2_SET(BM_CCM_ANALOG_PLL_USB2_ENABLE);
-	/*
-		Reset the Phy
-	*/
-	HW_USBPHY_CTRL_CLR(HW_USBPHY2, BM_USBPHY_CTRL_SFTRST);
-	HW_USBPHY_CTRL_CLR(HW_USBPHY2, BM_USBPHY_CTRL_CLKGATE);
-	HW_USBPHY_PWD_WR(HW_USBPHY2, 0);
+/*
+	Send the clock the the Phy
+*/
+HW_CCM_ANALOG_PLL_USB2_SET(BM_CCM_ANALOG_PLL_USB2_POWER);
+HW_CCM_ANALOG_PLL_USB2_SET(BM_CCM_ANALOG_PLL_USB2_EN_USB_CLKS);
+while(!(HW_CCM_ANALOG_PLL_USB2_RD() & BM_CCM_ANALOG_PLL_USB2_LOCK))
+	;	/* nothing */
+HW_CCM_ANALOG_PLL_USB2_CLR(BM_CCM_ANALOG_PLL_USB2_BYPASS);
+HW_CCM_ANALOG_PLL_USB2_SET(BM_CCM_ANALOG_PLL_USB2_ENABLE);
+/*
+	Reset the Phy
+*/
+HW_USBPHY_CTRL_CLR(HW_USBPHY2, BM_USBPHY_CTRL_SFTRST);
+HW_USBPHY_CTRL_CLR(HW_USBPHY2, BM_USBPHY_CTRL_CLKGATE);
+HW_USBPHY_PWD_WR(HW_USBPHY2, 0);
 
-	/*
-		Who-knows why, we just gotta do this (according to the docs)
-	*/
-	HW_USBPHY_TX(HW_USBPHY2).B.TXCAL45DP = 0x00;
-	HW_USBPHY_TX(HW_USBPHY2).B.TXCAL45DN = 0x00;
-	HW_USBPHY_TX(HW_USBPHY2).B.D_CAL = 0x07;
+/*
+	Who-knows why, we just gotta do this (according to the docs)
+*/
+HW_USBPHY_TX(HW_USBPHY2).B.TXCAL45DP = 0x00;
+HW_USBPHY_TX(HW_USBPHY2).B.TXCAL45DN = 0x00;
+HW_USBPHY_TX(HW_USBPHY2).B.D_CAL = 0x07;
 
-	/*
-		We move on from the USB Phy to the USB controller...
-		Reset the USB port
-	*/
-	HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD()| BM_USBC_UH1_USBCMD_RST);
-	while (HW_USBC_UH1_USBCMD_RD() & BM_USBC_UH1_USBCMD_RST)
-		;	// nothing
+/*
+	We move on from the USB Phy to the USB controller...
+	Reset the USB port
+*/
+HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD()| BM_USBC_UH1_USBCMD_RST);
+while (HW_USBC_UH1_USBCMD_RD() & BM_USBC_UH1_USBCMD_RST)
+	;	// nothing
 
-	/*
-		Tell the controller we're a HOST.  Possible values are (see Page 5427 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012")
-			00 Idle [Default for combination host/device]
-			01 Reserved
-			10 Device Controller [Default for device only controller]
-			11 Host Controller [Default for host only controller]
-	*/
-	HW_USBC_UH1_USBMODE.B.CM = 3;			// HOST mode
+/*
+	Tell the controller we're a HOST.  Possible values are (see Page 5427 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012")
+		00 Idle [Default for combination host/device]
+		01 Reserved
+		10 Device Controller [Default for device only controller]
+		11 Host Controller [Default for host only controller]
+*/
+HW_USBC_UH1_USBMODE.B.CM = 3;			// HOST mode
 
-	/*
-		Run and Power-up
-	*/
-	HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() | BM_USBC_UH1_USBCMD_RS);
-	HW_USBC_UH1_PORTSC1_WR(HW_USBC_UH1_PORTSC1_RD() | BM_USBC_UH1_PORTSC1_PP);
+/*
+	Run and Power-up
+*/
+HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() | BM_USBC_UH1_USBCMD_RS);
+HW_USBC_UH1_PORTSC1_WR(HW_USBC_UH1_PORTSC1_RD() | BM_USBC_UH1_PORTSC1_PP);
 
-	/*
-		We want to know about the following events:
-			BM_USBC_UH1_USBSTS_URI |	// USB USB Reset Received
-			BM_USBC_UH1_USBSTS_PCI |	// USB Port Change Detect
-			BM_USBC_UH1_USBSTS_UI		// USB Interrupt (USBINT)
+/*
+	We want to know about the following events:
+		BM_USBC_UH1_USBSTS_URI |	// USB USB Reset Received
+		BM_USBC_UH1_USBSTS_PCI |	// USB Port Change Detect
+		BM_USBC_UH1_USBSTS_UI		// USB Interrupt (USBINT)
 
-	*/
-	HW_USBC_UH1_USBSTS_SET(
-		BM_USBC_UH1_USBSTS_AAI | 		// Async Advance Interrupt Enable
-		BM_USBC_UH1_USBSTS_SEI | 		// ERROR interrupt
-		BM_USBC_UH1_USBSTS_UEI | 		// ERROR interrupt
-		BM_USBC_UH1_USBSTS_URI |
-		BM_USBC_UH1_USBSTS_PCI |
-		BM_USBC_UH1_USBSTS_UI);
+*/
+HW_USBC_UH1_USBSTS_SET(
+	BM_USBC_UH1_USBSTS_AAI | 		// Async Advance Interrupt Enable
+	BM_USBC_UH1_USBSTS_SEI | 		// ERROR interrupt
+	BM_USBC_UH1_USBSTS_UEI | 		// ERROR interrupt
+	BM_USBC_UH1_USBSTS_URI |
+	BM_USBC_UH1_USBSTS_PCI |
+	BM_USBC_UH1_USBSTS_UI);
 
-	/*
-		Enable interrupts
-		The Port Change Detect interrupt is essential for a disconnect and reconnect while we're powered up.  If
-		we don't enable the port connect then we don't get the reset interrupt to tell us we've just connected to
-		a host.
-	*/
-	HW_USBC_UH1_USBINTR_WR(
-		BM_USBC_UH1_USBINTR_AAE | 		// Async Advance Interrupt Enable
-		BM_USBC_UH1_USBINTR_SEE | 		// ERROR interrupt
-		BM_USBC_UH1_USBINTR_UEE | 		// ERROR interrupt
-		BM_USBC_UH1_USBINTR_URE |
-		BM_USBC_UH1_USBINTR_PCE |
-		BM_USBC_UH1_USBINTR_UE
-	);
+/*
+	Enable interrupts
+	The Port Change Detect interrupt is essential for a disconnect and reconnect while we're powered up.  If
+	we don't enable the port connect then we don't get the reset interrupt to tell us we've just connected to
+	a host.
+*/
+HW_USBC_UH1_USBINTR_WR(
+	BM_USBC_UH1_USBINTR_AAE | 		// Async Advance Interrupt Enable
+	BM_USBC_UH1_USBINTR_SEE | 		// ERROR interrupt
+	BM_USBC_UH1_USBINTR_UEE | 		// ERROR interrupt
+	BM_USBC_UH1_USBINTR_URE |
+	BM_USBC_UH1_USBINTR_PCE |
+	BM_USBC_UH1_USBINTR_UE
+);
 
-	/*
-		Set the port speed, options are:
-			BV_USBC_UOG_PORTSC1_PSPD__FULL  0		// 12Mb/s
-			BV_USBC_UOG_PORTSC1_PSPD__LOW   1		// 1.5Mb/s
-			BV_USBC_UOG_PORTSC1_PSPD__HIGH  2		// 480Mb/s
-	*/
+/*
+	Set the port speed, options are:
+		BV_USBC_UOG_PORTSC1_PSPD__FULL  0		// 12Mb/s
+		BV_USBC_UOG_PORTSC1_PSPD__LOW   1		// 1.5Mb/s
+		BV_USBC_UOG_PORTSC1_PSPD__HIGH  2		// 480Mb/s
+*/
 HW_USBC_UH1_PORTSC1.B.PSPD = 2;
-#else
-	usbh_init();
-#endif
-
 
 /*
 	Turn on the USB Hub on the SABRE Lite board.
@@ -613,13 +442,13 @@ void init_queuehead(ATOSE_usb_ehci_queue_head *queue_head, uint32_t device, uint
 {
 memset(queue_head, 0, sizeof(queue_head));
 
-queue_head->queue_head_horizontal_link_pointer.all = (uint32_t)&queue_head;																// point to self
+queue_head->queue_head_horizontal_link_pointer.all = queue_head;		// point to self
 queue_head->queue_head_horizontal_link_pointer.bit.typ = ATOSE_usb_ehci_queue_head_horizontal_link_pointer::QUEUE_HEAD;	// we're a queuehead
 //queue_head->queue_head_horizontal_link_pointer.bit.t = ATOSE_usb_ehci_queue_head_horizontal_link_pointer::TERMINATOR;		// and we're the last one
 
 queue_head->characteristics.bit.ep = HW_USBC_UH1_PORTSC1.B.PSPD;	// port speed
 queue_head->characteristics.bit.h = 1;				// we're the head of the list
-queue_head->characteristics.bit.maximum_packet_length = 8;		// MAX_PACKET_SIZE
+queue_head->characteristics.bit.maximum_packet_length = (queue_head->characteristics.bit.ep == 0x01 ? 0x08 : 0x40);		// 0x08 for LOW-speed else 0x40
 queue_head->characteristics.bit.dtc = 1;
 queue_head->characteristics.bit.endpt = endpoint;
 queue_head->characteristics.bit.device_address = device;		// it doesn't have an address yet.
@@ -680,9 +509,39 @@ for (block = 1; block < ATOSE_usb_ehci_queue_element_transfer_descriptor::BUFFER
 */
 void send_setup_packet_to_device(uint32_t device, uint32_t endpoint, ATOSE_usb_setup_data *packet, ATOSE_usb_standard_device_descriptor *descriptor)
 {
+uint32_t usbhSetupCommand[2];
+usbhSetupCommand[0] = 0x01000680;
+usbhSetupCommand[1] = 0x00120000;
+
+debug_print_string("PACKET:\r\n");
+debug_dump_buffer((unsigned char *)packet, 0, sizeof(*packet));
+debug_print_string("COMPARED TO :\r\n");
+debug_dump_buffer((unsigned char *)usbhSetupCommand, 0, sizeof(usbhSetupCommand));
+
+packet = (ATOSE_usb_setup_data *)usbhSetupCommand;
+
+/*
+	Initialise the queuehead and bung it in the Async list
+*/
 init_queuehead(&queue_head, 0, 0);
+HW_USBC_UH1_ASYNCLISTADDR_WR((uint32_t)&queue_head);
+
+/*
+	Enable the Async list
+*/
+debug_print_string("Enable Async List\r\n");
+HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() | BM_USBC_UH1_USBCMD_ASE);
+while(!(HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_AS))
+	;	/* do nothing */
+
+usb_bus_reset();
+
+
+/*
+	Initialise the descriptors
+*/
 init_transfer_descriptor(&global_qTD1, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_SETUP, (char *)packet, sizeof(*packet));
-init_transfer_descriptor(&global_qTD2, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_IN, (char *)descriptor, sizeof(*descriptor));
+init_transfer_descriptor(&global_qTD2, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_IN, (char *)descriptor, 18);
 init_transfer_descriptor(&global_qTD3, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_OUT, 0, 0);
 
 /*
@@ -698,42 +557,11 @@ global_qTD3.token.bit.ioc = 1;
 queue_head.next_qtd_pointer = &global_qTD1;
 
 /*
-	Shove the queuehead in the async list
-*/
-HW_USBC_UH1_ASYNCLISTADDR.B.ASYBASE = (uint32_t)&queue_head;
-
-debug_dump_buffer((unsigned char *)&queue_head, 0, sizeof(queue_head));
-
-debug_print_this("HW_USBC_UH1_USBSTS : ", HW_USBC_UH1_USBSTS.U);
-/*
-	Enable the Async list
-*/
-debug_print_string("Enable Async List\r\n");
-HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() | BM_USBC_UH1_USBCMD_ASE  | BM_USBC_UH1_USBCMD_IAA);
-while(!(HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_AS))
-	;	/* do nothing */
-
-
-delay_us(1000*1000);
-
-debug_dump_buffer((unsigned char *)&queue_head, 0, sizeof(queue_head));
-
-debug_print_this("HW_USBC_UH1_USBSTS : ", HW_USBC_UH1_USBSTS.U);
-HW_USBC_UH1_USBSTS.U = HW_USBC_UH1_USBSTS.U;
-
-debug_print_this("HW_USBC_UH1_USBSTS : ", HW_USBC_UH1_USBSTS.U);
-/*
 	Wait for it to terminate
 */
 debug_print_string("Wait for it to finish\r\n");
 while(!(HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_UI));
 	HW_USBC_UH1_USBSTS_WR(HW_USBC_UH1_USBSTS_RD() | BM_USBC_UH1_USBSTS_UI);
-
-/*
-	Wait for the final object to effect
-*/
-//while (global_qTD3.token.bit.status == ATOSE_usb_ehci_queue_element_transfer_descriptor_token::STATUS_ACTIVE)
-//	; /* do nothing */
 
 /*
 	Disable the async list
@@ -898,6 +726,42 @@ debug_print_this("Bit field {bit25, bit31, bit30}               :", HW_USBC_UH1_
 }
 
 /*
+	VOID DUMP_USBSTS()
+	------------------
+*/
+void dump_usbsts(void)
+{
+hw_usbc_uog_usbsts_t value;
+
+value.U = HW_USBC_UH1_USBSTS.U;
+
+debug_print_string("USBSTS:\r\n");
+debug_print_this("USB Interrupt (USBINT)                        :", value.B.UI);
+debug_print_this("USB Error Interrupt (USBERRINT)               :", value.B.UEI);
+debug_print_this("Port Change Detect                            :", value.B.PCI);
+debug_print_this("Frame List Rollover                           :", value.B.FRI);
+debug_print_this("System Error                                  :", value.B.SEI);
+debug_print_this("Interrupt on Async Advance                    :", value.B.AAI);
+debug_print_this("USB Reset Received                            :", value.B.URI);
+debug_print_this("SOF Received                                  :", value.B.SRI);
+debug_print_this("DCSuspend                                     :", value.B.SLI);
+debug_print_this("Reserved                                      :", value.B.RESERVED0);
+debug_print_this("ULPI Interrupt                                :", value.B.ULPII);
+debug_print_this("Reserved                                      :", value.B.RESERVED1);
+debug_print_this("HCHaIted                                      :", value.B.HCH);
+debug_print_this("Reclamation                                   :", value.B.RCL);
+debug_print_this("Periodic Schedule Status                      :", value.B.PS);
+debug_print_this("Asynchronous Schedule Status                  :", value.B.AS);
+debug_print_this("NAK Interrupt Bit                             :", value.B.NAKI);
+debug_print_this("Reserved                                      :", value.B.RESERVED2);
+debug_print_this("General Purpose Timer Interrupt 0(GPTINT0)    :", value.B.TI0);
+debug_print_this("General Purpose Timer Interrupt 1(GPTINT1)    :", value.B.TI1);
+debug_print_this("Reserved                                      :", value.B.RESERVED3);
+
+
+}
+
+/*
 	DO_SOME_MAGIC(VOID)
 	-------------------
 */
@@ -911,14 +775,7 @@ debug_print_string("Connect detected.\r\n");
 dump_portsc1();
 
 debug_print_string("Bus Reset.\r\n");
-	usb_bus_reset();
-delay_us(1000*1000);
-debug_print_string("Bus Reset.\r\n");
-	usb_bus_reset();
-delay_us(1000*1000);
-
-dump_portsc1();
-
+usb_bus_reset();
 
 	/*
 		Page 5223 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012"
@@ -942,7 +799,7 @@ setup_packet.bmRequestType.all = 0x80;
 setup_packet.bRequest = ATOSE_usb::REQUEST_GET_DESCRIPTOR;
 setup_packet.wValue = ATOSE_usb::DESCRIPTOR_TYPE_DEVICE;
 setup_packet.wIndex = 0;
-setup_packet.wLength = 8;
+setup_packet.wLength = 0x12;
 
 memset(&descriptor, 0xFF, sizeof(descriptor));
 
