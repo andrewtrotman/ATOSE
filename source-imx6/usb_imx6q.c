@@ -508,7 +508,7 @@ port_queuehead[which].capabilities.bit.ios = 1;
 */
 if (global_transfer_buffer[which][0] == NULL)
 	{
-	global_transfer_buffer[which][0] = (uint8_t *)ATOSE_kernel_malloc(QUEUE_BUFFER_SIZE, QUEUE_BUFFER_SIZE);
+	global_transfer_buffer[which][0] = (uint8_t *)ATOSE_kernel_malloc(QUEUE_BUFFER_SIZE, QUEUE_BUFFER_SIZE);		// FIX: this is broken because ATOSE_kernel_malloc() is depricated
 	port_queuehead[which].dtd_overlay_area.buffer_pointer[0] = (void *)global_transfer_buffer[which][0];
 	}
 }

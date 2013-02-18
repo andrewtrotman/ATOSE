@@ -12,9 +12,39 @@
 	ATOSE_ATOSE::ATOSE_ATOSE()
 	--------------------------
 */
-ATOSE_atose::ATOSE_atose() : debug(imx6q_serial_port), cpu(imx6q_cpu), interrupt_controller(imx6q_gic) 	//, usb(imx6q_usb)
+ATOSE_atose::ATOSE_atose() : imx6q_heap(), scheduler(&imx6q_heap), process_clock(imx6q_process_clock), heap(imx6q_heap), debug(imx6q_serial_port), cpu(imx6q_cpu), interrupt_controller(imx6q_gic) /*, usb(imx6q_usb) */
 {
 set_ATOSE();
+}
+
+/*
+	IDLE()
+	------
+	This is the ATOSE idle process
+*/
+int idle(void)
+{
+uint32_t param, answer;
+
+#define ATOSE_SWI 0x6174
+
+while (1)
+	{
+	for (param = 0; param < 0xFFFF; param++)
+		{
+		asm volatile 
+			(
+			"mov r0, %[param];"
+			"swi %[ATOSE_swi];"
+			"mov %[answer], r0;"
+			: [answer]"=r" (answer)
+			: [param]"r"(param), [ATOSE_swi]"i"(ATOSE_SWI)
+			: "r0"
+			);
+		}
+	}
+
+return 0;
 }
 
 /*
@@ -31,22 +61,33 @@ cpu.set_interrupt_handlers(this);
 debug << "ATOSE up and running" << ATOSE_debug::eoln;
 
 debug << "Enable USB...(disabled)...";
-
 //usb.enable();
-debug << "done" << ATOSE_debug::eoln;
-
-debug << "Tell Interrupt controller about USB...(disabled)...";
 //interrupt_controller.enable(&usb, usb.get_interrup_id());
 debug << "done" << ATOSE_debug::eoln;
 
+debug << "Tell Interrupt controller about TIMER...";
+interrupt_controller.enable(&process_clock, process_clock.get_interrup_id());
+process_clock.enable();
+debug << "done" << ATOSE_debug::eoln;
+
+
 debug << "Tell Interrupt controller about USB HOST...";
-interrupt_controller.enable(&imx6q_host_usb, imx6q_host_usb.get_interrup_id());
+//interrupt_controller.enable(&imx6q_host_usb, imx6q_host_usb.get_interrup_id());
 debug << "done" << ATOSE_debug::eoln;
 
 debug << "enable IRQ...";
 cpu.enable_irq();
 debug << "done" << ATOSE_debug::eoln;
+
+debug  << "Start the IDLE process";
+heap.init();
+scheduler.create_idle_process(idle);
+debug << "done" << ATOSE_debug::eoln;
+
+while (1)
+	;	/* nothing */
 }
+
 
 /*
 	ATOSE_ATOSE::ISR_PREFETCH_ABORT()
@@ -73,7 +114,10 @@ while (1);
 */
 void ATOSE_atose::isr_undefined(ATOSE_registers *registers)
 {
-debug << "Undefined Instruction" << ATOSE_debug::eoln;
+debug.hex();
+debug << "Undefined Instruction at address:0x" << (registers->r14_current - 4) << ATOSE_debug::eoln;
+while (1)
+	;	/* hang */
 }
 
 /*
@@ -83,7 +127,7 @@ debug << "Undefined Instruction" << ATOSE_debug::eoln;
 */
 void ATOSE_atose::isr_reserved(ATOSE_registers *registers)
 {
-debug << "Reserved Interrupt (it should not be possible for this to happen" << ATOSE_debug::eoln;
+debug << "Reserved Interrupt (it should not be possible for this to happen)" << ATOSE_debug::eoln;
 }
 
 /*

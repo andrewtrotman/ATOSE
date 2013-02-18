@@ -129,21 +129,19 @@ return destination;
 static inline char *ASCII_itoa(int32_t value, char *destination, int base) { return ASCII_itoa((int64_t)value, destination, base); }
 static inline char *ASCII_itoa(uint32_t value, char *destination, int base) { return ASCII_itoa((uint64_t)value, destination, base); }
 
-#ifdef NEVER
-	/*
-		BZERO()
-		-------
-	*/
-	static inline void bzero(void *destination, size_t bytes)
-	{
-	uint8_t *start, *end;
+/*
+	BZERO()
+	-------
+*/
+static inline void bzero(void *destination, size_t bytes)
+{
+uint8_t *start, *end;
 
-	end = (uint8_t *)destination + bytes;
+end = (uint8_t *)destination + bytes;
 
-	for (start = (uint8_t *)destination; start < end; start++)
-		*start = 0;
-	}
-#endif
+for (start = (uint8_t *)destination; start < end; start++)
+	*start = 0;
+}
 
 
 /*

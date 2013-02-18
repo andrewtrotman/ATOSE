@@ -10,12 +10,15 @@
 #include "stack.h"
 #include "debug.h"
 #include "cpu_arm.h"
-#include "uart_imx6q.h"
-#include "cpu_arm_imx6q.h"
-#include "interrupt_arm_gic.h"
+#include "host_usb.h"
 #include "usb_imx6q.h"
+#include "mmu_imx6q.h"
+#include "uart_imx6q.h"
+#include "timer_imx6q.h"
+#include "cpu_arm_imx6q.h"
+#include "process_manager.h"
+#include "interrupt_arm_gic.h"
 
-#include "host_usb.h"				// FIX this once we get the host controller working
 
 class ATOSE_registers;
 
@@ -31,20 +34,25 @@ private:
 	*/
 	ATOSE_stack stack;
 	ATOSE_cpu_arm_imx6q imx6q_cpu;
-	ATOSE_uart_imx6q imx6q_serial_port;
 	ATOSE_interrupt_arm_gic imx6q_gic;
+	ATOSE_uart_imx6q imx6q_serial_port;
+	ATOSE_mmu_imx6q imx6q_heap;
+	ATOSE_timer_imx6q imx6q_process_clock;
 //	ATOSE_usb_imx6q imx6q_usb;
+	ATOSE_host_usb imx6q_host_usb;
 
-	ATOSE_host_usb imx6q_host_usb;		// FIX this once we get the host controller working
-	
 public:
 	/*
 		A few references for syntactic purposes (i.e. standard methods to refer to these objects regardless of subclassing)
 	*/
+	ATOSE_process_manager scheduler;
+	ATOSE_timer &process_clock;
+	ATOSE_mmu &heap;
 	ATOSE_debug &debug;
 	ATOSE_cpu_arm &cpu;
 	ATOSE_interrupt &interrupt_controller;
 //	ATOSE_usb &usb;
+	ATOSE_registers *registers_of_interrupted_process;
 
 private:
 	void set_ATOSE(void) { extern ATOSE_atose *ATOSE_pointer; ATOSE_pointer = this; }

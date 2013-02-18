@@ -3,6 +3,8 @@
 	---------------
 	Copyright (c) 2012-2013 Andrew Trotman
 	Licensed BSD
+
+	FIX: this file should be depricated soon
 */
 #include <stdint.h>
 #include <stddef.h>

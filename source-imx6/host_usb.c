@@ -547,8 +547,8 @@ void ATOSE_host_usb::acknowledge(void)
 {
 hw_usbc_uog_usbsts_t usb_status;
 
-static	ATOSE_usb_setup_data setup_packet;
-static 	ATOSE_usb_standard_device_descriptor descriptor;
+static ATOSE_usb_setup_data setup_packet;
+static ATOSE_usb_standard_device_descriptor descriptor;
 
 /*
 	Acknowledge all the interrupts
@@ -621,3 +621,43 @@ if (usb_status.B.PCI)
 	HW_USBC_UH1_USBSTS.B.PCI = 1;
 	}
 }
+
+
+
+
+
+#ifdef NEVER
+/*
+	ATOSE_HOST_USB::DEVICE_MANAGER()
+	--------------------------------
+*/
+void ATOSE_host_usb::manage(void)
+{
+wait_for_connect_or_disconnect();
+sent_setup(packet, &descriptor);
+sent_setup(packet, &descriptor);
+switch (device_type)
+	{
+	case HUB:
+		special_stuff();
+		break;
+	case KEYBOARD:
+		special_stuff();
+		break;
+	case MOUSE:
+		special_stuff();
+		break;
+	case iMX6Q:
+		special_stuff();
+		break;
+	case DISK:
+		special_stuff();
+		break;
+	default:
+		give_it_an_id();
+		forget_about_it();
+		break;
+	}
+}
+
+#endif

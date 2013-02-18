@@ -83,7 +83,7 @@ device[source] = driver;
 void ATOSE_interrupt_arm_gic::isr_irq(ATOSE_registers *registers)
 {
 uint32_t base;
-ATOSE_interrupt_arm_gic_cpu *cpu_registers;
+ATOSE_interrupt_arm_gic_cpu *gic_cpu_registers;
 uint32_t got;
 
 /*
@@ -98,12 +98,12 @@ asm volatile
 	:
 	:
 	);
-cpu_registers = (ATOSE_interrupt_arm_gic_cpu *)(base + 0x100);
+gic_cpu_registers = (ATOSE_interrupt_arm_gic_cpu *)(base + 0x100);
 
 /*
    ACK the interrupt and tell the hardware that we're in the interrupt service routine
 */
-got = cpu_registers->interrupt_acknowledge_register;
+got = gic_cpu_registers->interrupt_acknowledge_register;
 
 /*
    Make sure it wasn't a spurious interrupt
@@ -114,6 +114,11 @@ if (got == IMX_INT_SPURIOUS)
    return;
 
 /*
+	Save the pointer to the current registers because some device driver might want to access them.
+*/
+ATOSE_atose::get_ATOSE()->registers_of_interrupted_process = registers;
+
+/*
 	Dispatch to the device driver
 */
 if (device[got] != NULL)
@@ -122,7 +127,7 @@ if (device[got] != NULL)
 /*
 	Tell the interrupt controller that we've finished processing the Interrupt
 */
-cpu_registers->end_of_interrupt_register = got;
+gic_cpu_registers->end_of_interrupt_register = got;
 
 return;
 }

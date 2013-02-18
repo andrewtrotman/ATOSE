@@ -18,8 +18,13 @@ CLINKFLAGS = -l gcc
 AS = @arm-none-eabi-as
 ASFLAGS = -mcpu=cortex-a9
 
+
+#
+# WARNING-> atose_startup.o *must* be the first object in the list so that imx_run.exe can load and run the program
+#
 OBJECTS =						\
 	atose_startup.o				\
+	address_space.o				\
 	atose.o						\
 	clock_imx6q.o				\
 	cpu_arm.o					\
@@ -28,8 +33,12 @@ OBJECTS =						\
 	host_usb.o					\
 	interrupt.o					\
 	interrupt_arm_gic.o			\
-	kernel_malloc.o					\
+	kernel_malloc.o				\
+	kernel_memory_allocator.o	\
 	main.o						\
+	mmu.o						\
+	mmu_page_list.o				\
+	process_manager.o			\
 	stack.o						\
 	timer_imx6q.o				\
 	uart_imx6q.o				\
