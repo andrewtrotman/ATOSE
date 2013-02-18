@@ -103,6 +103,7 @@ IMX6Q_TOOLS =						         \
 	$(BIN_DIR)\imx6q_uart.elf	         \
 	$(BIN_DIR)\imx6q_interrupt.elf		\
 	$(BIN_DIR)\imx6q_clock.elf		\
+	$(BIN_DIR)\imx6q_ram.elf		\
 	$(BIN_DIR)\imx6q_timer.elf
 
 #
@@ -152,6 +153,10 @@ $(BIN_DIR)\imx6q_usb.elf : $(TESTS_DIR)\imx6q.ld $(TESTS_DIR)\imx6q.s
 $(BIN_DIR)\imx6q_clock.elf : $(TESTS_DIR)\imx6q.ld $(TESTS_DIR)\imx6q.s
 	@echo $@
 	$(CCC) $(CCCFLAGS) $(TESTS_DIR)\imx6q_clock.c $(TESTS_DIR)\imx6q.s $(CLINKFLAGS) -o $@  -T $(TESTS_DIR)\imx6q.ld
+
+$(BIN_DIR)\imx6q_ram.elf : $(TESTS_DIR)\imx6q.ld $(TESTS_DIR)\imx6q.s
+	@echo $@
+	$(CCC) $(CCCFLAGS) $(TESTS_DIR)\imx6q_ram.c $(TESTS_DIR)\imx6q.s $(CLINKFLAGS) -o $@  -T $(TESTS_DIR)\imx6q.ld
 
 
 
