@@ -105,17 +105,57 @@ HW_GPT_CR.B.EN = 0;
 	ATOSE_TIMER_IMX6Q::ACKNOWLEDGE()
 	--------------------------------
 */
-void ATOSE_timer_imx6q::acknowledge(void)
+void ATOSE_timer_imx6q::acknowledge(ATOSE_registers *registers)
 {
+ATOSE_atose *os;
+ATOSE_process *current_process, *next_process;
+
 /*
 	Service the interrupt
 */
 HW_GPT_SR.U = HW_GPT_SR.U;
 
-ATOSE_atose::get_ATOSE()->debug << "X";
+
 /*
-	Not sure yet
+	Get a handle to the ATOSE object
 */
+os = ATOSE_atose::get_ATOSE();
+
+/*
+	What's running and what's next to run?
+*/
+current_process = os->scheduler.get_current_process();
+next_process = os->scheduler.get_next_process() ;
+
+/*
+	if the current process is the next process then there is no work to do
+*/
+if (current_process != next_process)
+	{
+	os->debug << "switch";
+	/*
+		If we're running a process then copy the registers into its register space
+		this way if we cause a context switch then we've not lost anything
+	*/
+	if (current_process != NULL)
+		memcpy(&current_process->execution_path.registers, registers, sizeof(*registers));
+
+	/*
+		Context switch
+	*/
+	if (next_process != NULL)
+		{
+		/*
+			Set the registers so that we fall back to the next context
+		*/
+		memcpy(registers, &next_process->execution_path.registers, sizeof(*registers));
+
+		/*
+			Set the address space to fall back to the next context
+		*/
+		os->heap.assume(&next_process->address_space);
+		}
+	}
 }
 
 /*

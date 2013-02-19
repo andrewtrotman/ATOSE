@@ -47,12 +47,22 @@ OBJECTS =						\
 
 all : atose.elf
 
-atose.elf : $(OBJECTS) imx6q.ld
+atose.elf : $(OBJECTS) imx6q.ld examples\hello.elf.c
 	@echo $@
 	$(CC) $(CFLAGS) -o atose.elf $(OBJECTS) -T imx6q.ld $(CLINKFLAGS)
 
+examples\hello.elf.c : examples\hello.c
+	@cd examples
+	@make /nologo
+	@cd ..
+
+atose.o : examples\hello.elf.c
+
 clean :
-	del $(OBJECTS) atose.elf
+	@del $(OBJECTS) atose.elf
+	@cd examples
+	@make /nologo clean
+	@cd ..
 
 .c.o:
 	@echo $@

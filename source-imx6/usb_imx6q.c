@@ -231,7 +231,7 @@ return IMX_INT_USBOH3_UOTG;
 	ATOSE_USB_IMX6Q::ACKNOWLEDGE()
 	------------------------------
 */
-void ATOSE_usb_imx6q::acknowledge(void)
+void ATOSE_usb_imx6q::acknowledge(ATOSE_registers *registers)
 {
 hw_usbc_uog_usbsts_t usb_status;
 

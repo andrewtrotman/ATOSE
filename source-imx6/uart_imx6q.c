@@ -118,23 +118,20 @@ else
 */
 uint32_t ATOSE_uart_imx6q::write(const uint8_t *buffer, uint32_t bytes)
 {
-while (*buffer != '\0')
+uint32_t which;
+
+for (which = 0; which < bytes; which++)
 	{
 	/*
 		Write to the serial port
 	*/
-	HW_UART_UTXD(port).U = *buffer;
+	HW_UART_UTXD(port).U = *buffer++;
 
 	/*
 		Make sure it was sent
 	*/
 	while (HW_UART_UTS(port).B.TXEMPTY == 0)
 		; // do nothing
-
-	/*
-		Move on to the next character
-	*/
-	buffer++;
 	}
 
 return bytes;

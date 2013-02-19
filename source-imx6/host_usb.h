@@ -31,7 +31,7 @@ public:
 
 	virtual void enable(void);
 	virtual void disable(void) {}
-	virtual void acknowledge(void);
+	virtual void acknowledge(ATOSE_registers *registers);
 	virtual uint32_t get_interrup_id(void);
 } ;
 

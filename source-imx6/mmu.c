@@ -69,7 +69,8 @@ bad_page = 0;		// cause a fault
 	controller writes into these pages
 		(ARM_MMU_V5_PAGE_SECTION_USER_READONLY | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION)
 */
-os_page = (ARM_MMU_V5_PAGE_SECTION_USER_READONLY | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION);
+//os_page = (ARM_MMU_V5_PAGE_SECTION_USER_READONLY | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION);
+os_page = (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_NONCACHED_NONBUFFERED | ARM_MMU_V5_PAGE_TYPE_SECTION);
 
 /*
 
@@ -83,7 +84,8 @@ os_page = (ARM_MMU_V5_PAGE_SECTION_USER_READONLY | ARM_MMU_V5_PAGE_DOMAIN_02 | A
 	User DATA pages are set to cache, buffer, user read write, no-execute:
 		 (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V7_PAGE_SECTION_USER_NO_EXECUTE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION)
 */
-user_data_page = (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V7_PAGE_SECTION_USER_NO_EXECUTE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION);
+//user_data_page = (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V7_PAGE_SECTION_USER_NO_EXECUTE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION);
+user_data_page = (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_NONCACHED_NONBUFFERED | ARM_MMU_V5_PAGE_TYPE_SECTION);
 
 /*
 	User CODE (probram) pages are set to cache, buffer, and user can read
@@ -91,6 +93,7 @@ user_data_page = (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V7_PAGE_SECTI
 		(ARM_MMU_V5_PAGE_SECTION_USER_READONLY | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION)
 */
 user_code_page = (ARM_MMU_V5_PAGE_SECTION_USER_READONLY | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION);
+user_code_page = (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_NONCACHED_NONBUFFERED | ARM_MMU_V5_PAGE_TYPE_SECTION);
 
 /*
 	A page table can now be set up with: each page is 1MB in size (ARM V5 Sections), full permission to do anything
@@ -209,6 +212,11 @@ void ATOSE_mmu::flush_caches(void)
 asm volatile
 	(
 	/*
+		Barrier (complete all instructions up to this point before going on)
+	*/
+	"dsb;"
+
+	/*
 		Clear register 0
 	*/
 	"mov r0, #0;"
@@ -227,6 +235,7 @@ asm volatile
 		Instruction cache invalidate all
 	*/
 	"mcr p15, 0, r0, c7, c5, 0;"		// ICIALLU
+	"isb;"									// flush the CPU pipeline
 
 	/*
 		Data cache invalidate all
@@ -247,6 +256,13 @@ asm volatile
 	"add r1, r1, #1;"					// else, next
 	"cmp r1, #4;"						// Last way reached yet?
 	"bne way_loop;"						// if not, iterate way_loop
+
+
+	/*
+		Barrier (complete all instructions up to this point before going on)
+	*/
+	"dsb;"
+
 	:
 	:
 	:"r0", "r1", "r2", "r3");
@@ -347,9 +363,10 @@ void ATOSE_mmu::assume(uint32_t *page_table)
 asm volatile
 	(
 	"mcr	p15, 0, %[table], c2, c0, 0;"	// set the Translation Table Base Register
+	"dsb;"										// make sure it completes before proceeding
 	:
 	: [table]"r"(page_table)
-	: "r0", "r1"
+	:
 	);
 }
 

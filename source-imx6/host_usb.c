@@ -543,7 +543,7 @@ while(!(HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_AS))
 	ATOSE_HOST_USB::ACKNOWLEDGE()
 	-----------------------------
 */
-void ATOSE_host_usb::acknowledge(void)
+void ATOSE_host_usb::acknowledge(ATOSE_registers *registers)
 {
 hw_usbc_uog_usbsts_t usb_status;
 

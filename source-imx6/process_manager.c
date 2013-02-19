@@ -6,7 +6,8 @@
 #include "atose.h"
 #include "ascii_str.h"
 #include "process_manager.h"
-#include "elf.h"
+#include "elf32_ehdr.h"
+#include "elf32_phdr.h"
 
 
 /*
@@ -15,8 +16,8 @@
 */
 ATOSE_process_manager::ATOSE_process_manager(ATOSE_mmu *mmu) : active_process(mmu), idle(mmu)
 {
-this->mmu = mmu; 
-active_head = active_tail = 0; 
+this->mmu = mmu;
+active_head = active_tail = 0;
 current_process = 0;
 }
 
@@ -31,12 +32,12 @@ current_process = 0;
 */
 uint32_t ATOSE_process_manager::elf_load(ATOSE_process *process, const uint8_t *file, uint32_t length)
 {
-Elf32_Ehdr *header;			// the ELF file header
+ATOSE_elf32_ehdr *header;			// the ELF file header
 uint32_t header_ok;			// used to check the ELf magic number is correct
 uint32_t header_offset;		// location (in the file) of the first header
 uint32_t header_size;			// size of each header
 uint32_t header_num;			// number of headers
-Elf32_Phdr *current_header;	// the current header
+ATOSE_elf32_phdr *current_header;	// the current header
 uint32_t which;				// which header we're currenty looking at
 uint32_t permissions;			// permissions on pages in the address space (READ / WRITE / EXECUTE / etc.)
 uint8_t *into;					// pointer to a segment returned by the address space
@@ -44,19 +45,19 @@ uint8_t *into;					// pointer to a segment returned by the address space
 /*
 	An ELF file must be at least the length of the header.
 */
-if (length < sizeof(Elf32_Ehdr))
+if (length < sizeof(ATOSE_elf32_ehdr))
 	return ELF_BAD_FROM_START;		// the header is broken
 
-header = (Elf32_Ehdr *)file;
+header = (ATOSE_elf32_ehdr *)file;
 
 /*
 	First verify that we have and ELF file
 */
 header_ok = 0;
-header_ok += (file[EI_MAG0] == 0x7F);
-header_ok += (file[EI_MAG1] == 'E');
-header_ok += (file[EI_MAG2] == 'L');
-header_ok += (file[EI_MAG3] == 'F');
+header_ok += (file[ATOSE_elf32_ehdr::EI_MAG0] == 0x7F);
+header_ok += (file[ATOSE_elf32_ehdr::EI_MAG1] == 'E');
+header_ok += (file[ATOSE_elf32_ehdr::EI_MAG2] == 'L');
+header_ok += (file[ATOSE_elf32_ehdr::EI_MAG3] == 'F');
 
 if (header_ok != 4)
 	return ELF_BAD_ID;
@@ -64,43 +65,43 @@ if (header_ok != 4)
 /*
 	Check we have a 32-bit file
 */
-if (file[EI_CLASS] != ELFCLASS32)
+if (file[ATOSE_elf32_ehdr::EI_CLASS] != ATOSE_elf32_ehdr::ELFCLASS32)
 	return ELF_BAD_BITNESS;
 
 /*
 	Check we have a little endian file
 */
-if (file[EI_DATA] != ELFDATA2LSB)
+if (file[ATOSE_elf32_ehdr::EI_DATA] != ATOSE_elf32_ehdr::ELFDATA2LSB)
 	return ELF_BAD_ENDIAN;
 
 /*
 	Check we have a file version we understand
 */
-if (file[EI_VERSION] != EV_CURRENT)
+if (file[ATOSE_elf32_ehdr::EI_VERSION] != ATOSE_elf32_ehdr::EV_CURRENT)
 	return ELF_BAD_VERSION;
 
 /*
 	Make sure the header is the right length
 */
-if (header->e_ehsize != sizeof(Elf32_Ehdr))
+if (header->e_ehsize != sizeof(ATOSE_elf32_ehdr))
 	return ELF_BAD_HEADER;
 
 /*
 	Make sure the header is a version we understand
 */
-if (header->e_version != EV_CURRENT)
+if (header->e_version != ATOSE_elf32_ehdr::EV_CURRENT)
 	return ELF_BAD_HEADER_VERSION;
 
 /*
 	Now check we're an executable file
 */
-if (header->e_type != ET_EXEC)
+if (header->e_type != ATOSE_elf32_ehdr::ET_EXEC)
 	return ELF_BAD_TYPE;
 
 /*
 	Check we're an ARM executable file
 */
-if (header->e_machine != EM_ARM)
+if (header->e_machine != ATOSE_elf32_ehdr::EM_ARM)
 	return ELF_BAD_ARCHITECTURE;
 
 /*
@@ -123,7 +124,7 @@ header_num = header->e_phnum;
 /*
 	Make sure the program header is the righ size
 */
-if (header_size != sizeof(Elf32_Phdr))
+if (header_size != sizeof(ATOSE_elf32_phdr))
 	return ELF_BAD_PROGRAM_HEADER_SIZE;
 
 /*
@@ -139,14 +140,14 @@ if ((header_offset + header_size * header_num) > length)
 
 	The check is done before the load to make our own unwind semantics easy
 */
-current_header = (Elf32_Phdr *)(file + header_offset);
+current_header = (ATOSE_elf32_phdr *)(file + header_offset);
 for (which = 0; which < header_num; which++)
 	{
 	/*
 		At present we only allow loadable segments (program and data) and
 		C++ stack unwind  semantics segments.
 	*/
-	if (current_header->p_type != PT_ARM_UNWIND && current_header->p_type != PT_LOAD)
+	if (current_header->p_type != ATOSE_elf32_phdr::PT_ARM_UNWIND && current_header->p_type != ATOSE_elf32_phdr::PT_LOAD)
 		return ELF_BAD_PROGRAM_SEGMENT_TYPE;
 
 	/*
@@ -174,7 +175,7 @@ if (process->address_space.create() == 0)
 /*
 	Add the necessary pages into it
 */
-current_header = (Elf32_Phdr *)(file + header_offset);
+current_header = (ATOSE_elf32_phdr *)(file + header_offset);
 for (which = 0; which < header_num; which++)
 	{
 	/*
@@ -185,11 +186,11 @@ for (which = 0; which < header_num; which++)
 		code in here.
 	*/
 	permissions = ATOSE_address_space::NONE;
-	if (current_header->p_flags & PF_R)
+	if (current_header->p_flags & ATOSE_elf32_phdr::PF_R)
 		permissions += ATOSE_address_space::READ;
-	if (current_header->p_flags & PF_W)
+	if (current_header->p_flags & ATOSE_elf32_phdr::PF_W)
 		permissions += ATOSE_address_space::WRITE;
-	if (current_header->p_flags & PF_X)
+	if (current_header->p_flags & ATOSE_elf32_phdr::PF_X)
 		permissions += ATOSE_address_space::EXECUTE;
 
 	/*
@@ -212,7 +213,7 @@ for (which = 0; which < header_num; which++)
 
 	/*
 		Move on to the next segment
-	*/	
+	*/
 	current_header++;
 	}
 
@@ -225,7 +226,7 @@ mmu->assume(&process->address_space);
 /*
 	Now load each executable file segment into the new address space
 */
-current_header = (Elf32_Phdr *)(file + header_offset);
+current_header = (ATOSE_elf32_phdr *)(file + header_offset);
 for (which = 0; which < header_num; which++)
 	{
 	/*
@@ -235,7 +236,7 @@ for (which = 0; which < header_num; which++)
 
 	/*
 		Move on to the next segment
-	*/	
+	*/
 	current_header++;
 	}
 

@@ -41,7 +41,7 @@ page_list.push(page);		// mark the page as part of the process's list of pages
 	of the address space.
 */
 for (current = 0; current < 256; current++)
-	page_table[current] = current | mmu->os_page;
+	page_table[current] = (current << 20) | mmu->os_page;
 
 /*
 	Mark all other pages to cause faults (except for the last page)
@@ -80,7 +80,7 @@ create();
 */
 page_table = mmu->get_identity_page_table();
 
-return this; 
+return this;
 }
 
 /*
@@ -167,7 +167,7 @@ for (which = base_page; which <= last_page; which++)
 		if ((page = mmu->pull()) == 0)
 			return NULL;		// We fail because there are no more pages to give
 		else
-			add_page((void *)(which * mmu->page_size), page, mmu->user_data_page);		// FIX the permissions here are wrong.
+			add_page((void *)(which * mmu->page_size), page, mmu->user_data_page);
 		}
 	}
 

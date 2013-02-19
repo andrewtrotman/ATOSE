@@ -17,7 +17,7 @@ class ATOSE_thread
 {
 friend class ATOSE_process_manager;
 
-private:
+public:
 	ATOSE_process *process;
 	ATOSE_registers registers;
 

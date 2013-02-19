@@ -122,7 +122,7 @@ ATOSE_atose::get_ATOSE()->registers_of_interrupted_process = registers;
 	Dispatch to the device driver
 */
 if (device[got] != NULL)
-	device[got]->acknowledge();
+	device[got]->acknowledge(registers);
 
 /*
 	Tell the interrupt controller that we've finished processing the Interrupt

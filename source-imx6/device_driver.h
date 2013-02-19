@@ -10,6 +10,8 @@
 #ifndef DEVICE_DRIVER_H_
 #define DEVICE_DRIVER_H_
 
+class ATOSE_registers;
+
 /*
 	class ATOSE_DEVICE_DRIVER
 	-------------------------
@@ -21,7 +23,7 @@ public:
 
 	virtual void enable(void) = 0;
 	virtual void disable(void) = 0;
-	virtual void acknowledge(void) = 0;
+	virtual void acknowledge(ATOSE_registers *registers) = 0;
 
 	virtual uint32_t get_interrup_id(void) = 0;
 } ;

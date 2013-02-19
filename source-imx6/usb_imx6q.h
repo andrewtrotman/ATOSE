@@ -38,7 +38,7 @@ public:
 	static const uint32_t MAX_ENDPOINTS = 8;
 
 	/*
-		There are two queue heads for each endpoint, even numbers are OUT going from host, odd numbers 
+		There are two queue heads for each endpoint, even numbers are OUT going from host, odd numbers
 		are IN coming to host. "The Endpoint Queue Head List must be aligned to a 2k boundary"  see page
 		5329 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012"
 	*/
@@ -83,7 +83,7 @@ public:
 
 	virtual void enable(void);
 	virtual void disable(void) {}
-	virtual void acknowledge(void);
+	virtual void acknowledge(ATOSE_registers *registers);
 	uint32_t get_interrup_id(void);
 } ;
 

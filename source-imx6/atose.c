@@ -7,6 +7,9 @@
 #include "atose.h"
 #include "stack.h"
 #include "registers.h"
+#include "atose_api.h"
+
+#include "examples/hello.elf.c"
 
 /*
 	ATOSE_ATOSE::ATOSE_ATOSE()
@@ -24,25 +27,12 @@ set_ATOSE();
 */
 int idle(void)
 {
-uint32_t param, answer;
+ATOSE_api api;
 
-#define ATOSE_SWI 0x6174
+api.spawn(hello_elf, hello_elf_size);
 
 while (1)
-	{
-	for (param = 0; param < 0xFFFF; param++)
-		{
-		asm volatile 
-			(
-			"mov r0, %[param];"
-			"swi %[ATOSE_swi];"
-			"mov %[answer], r0;"
-			: [answer]"=r" (answer)
-			: [param]"r"(param), [ATOSE_swi]"i"(ATOSE_SWI)
-			: "r0"
-			);
-		}
-	}
+	api.write('A');
 
 return 0;
 }
@@ -84,8 +74,9 @@ heap.init();
 scheduler.create_idle_process(idle);
 debug << "done" << ATOSE_debug::eoln;
 
+debug << "Wait for startup" << ATOSE_debug::eoln;
 while (1)
-	;	/* nothing */
+	debug << ".";
 }
 
 
@@ -96,6 +87,8 @@ while (1)
 void ATOSE_atose::isr_prefetch_abort(ATOSE_registers *registers)
 {
 debug << "Prefetch Abort" << ATOSE_debug::eoln;
+while (1)
+	;	/* hang */
 }
 
 /*
@@ -104,8 +97,10 @@ debug << "Prefetch Abort" << ATOSE_debug::eoln;
 */
 void ATOSE_atose::isr_data_abort(ATOSE_registers *registers)
 {
-debug << "Data Abort" << ATOSE_debug::eoln;
-while (1);
+debug.hex();
+debug << "Data Abort at address:0x" << (registers->r14_current - 8) << ATOSE_debug::eoln;
+while (1)
+	;	/* hang */
 }
 
 /*
@@ -128,6 +123,8 @@ while (1)
 void ATOSE_atose::isr_reserved(ATOSE_registers *registers)
 {
 debug << "Reserved Interrupt (it should not be possible for this to happen)" << ATOSE_debug::eoln;
+while (1)
+	;	/* hang */
 }
 
 /*
@@ -137,14 +134,68 @@ debug << "Reserved Interrupt (it should not be possible for this to happen)" << 
 void ATOSE_atose::isr_firq(ATOSE_registers *registers)
 {
 debug << "FIRQ" << ATOSE_debug::eoln;
+while (1)
+	;	/* hang */
 }
+
+
+
+
+
+
+
+
+
+/*
+*/
+uint32_t ATOSE_putc(ATOSE_registers *registers)
+{
+return ATOSE_atose::get_ATOSE()->debug.write_byte(registers->r1);
+}
+
+/*
+*/
+uint32_t ATOSE_spawn(ATOSE_registers *registers)
+{
+uint32_t answer;
+
+ATOSE_atose::get_ATOSE()->heap.assume_identity();
+answer = ATOSE_atose::get_ATOSE()->scheduler.create_process((const uint8_t *)registers->r1, registers->r2);
+ATOSE_atose::get_ATOSE()->heap.assume(&(ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->address_space));
+
+
+return answer;
+}
+
+typedef uint32_t(*ATOSE_system_method)(ATOSE_registers *);
+ATOSE_system_method ATOSE_call[] =
+{
+ATOSE_putc,
+ATOSE_spawn
+};
 
 /*
 	ATOSE_ATOSE::ISR_SWI()
 	----------------------
 */
-void ATOSE_atose::isr_swi(ATOSE_registers *registers)
+uint32_t ATOSE_atose::isr_swi(ATOSE_registers *registers)
 {
-debug << "SWI" << ATOSE_debug::eoln;
-}
+/*
+	First we need to determine whether or no the SWI is for us.  We do this by getting the SWI number,
+	that number is stored in the instruction just executed, which is stored at R14.  So we subtract 4 from
+	R14 to get the instruction then turn off the top bits to get the number
+*/
+if (( (*(uint32_t *)(registers->r14_current - 4)) & 0x00FFFFFF) != ATOSE_SWI)
+	return 0;
 
+/*
+	Illegal function call
+*/
+if (registers->r0 > ATOSE_END_OF_METHODS)
+	return 0;
+
+/*
+	Dispatch
+*/
+return (ATOSE_call[registers->r0])(registers);
+}
