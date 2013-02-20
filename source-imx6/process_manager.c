@@ -4,23 +4,22 @@
 */
 #include <stdint.h>
 #include "atose.h"
+#include "cpu_arm.h"
 #include "ascii_str.h"
-#include "process_manager.h"
 #include "elf32_ehdr.h"
 #include "elf32_phdr.h"
-
+#include "process_manager.h"
 
 /*
 	ATOSE_PROCESS_MANAGER::ATOSE_PROCESS_MANAGER()
 	----------------------------------------------
 */
-ATOSE_process_manager::ATOSE_process_manager(ATOSE_mmu *mmu) : active_process(mmu), idle(mmu)
+ATOSE_process_manager::ATOSE_process_manager(ATOSE_mmu *mmu) : process_allocator(mmu), idle(mmu)
 {
 this->mmu = mmu;
 active_head = active_tail = 0;
 current_process = 0;
 }
-
 
 /*
 	ATOSE_PROCESS_MANAGER::ELF_LOAD()
@@ -254,7 +253,6 @@ process->entry_point = (uint8_t *)header->e_entry;
 return SUCCESS;
 }
 
-
 /*
 	ATOSE_SCHEDULE::PUSH()
 	----------------------
@@ -320,7 +318,7 @@ return current_process = pull();
 	ATOSE_PROCESS_MANAGER::INITIALISE_PROCESS_REGISTERS()
 	-----------------------------------------------------
 */
-uint32_t ATOSE_process_manager::initialise_process(ATOSE_process *process, size_t entry_point)
+uint32_t ATOSE_process_manager::initialise_process(ATOSE_process *process, size_t entry_point, uint32_t mode)
 {
 /*
 	Set up the stack-pointer (ARM register R13)
@@ -332,12 +330,12 @@ process->execution_path.registers.r13 = (mmu->highest_address) & ((uint32_t)~0x0
 	R14_current) points once the scheduler schedules the process to be
 	run
 */
-process->execution_path.registers.r14_current = (uint32_t)(entry_point + 4);			// we add 4 because we'll enter as a consequence of leaving an IRQ which must substract 4 from the link register on return.
+process->execution_path.registers.r14_current = (uint32_t)(entry_point + 4);			// we add 4 because we'll enter as a consequence of leaving an IRQ which must subtract 4 from the link register on return.
 
 /*
 	When we do run we need to return to user-mode which is done by setting the CPSR register's low bits
 */
-process->execution_path.registers.cpsr = 0x80000150;
+process->execution_path.registers.cpsr = (0x80000150 & ~ATOSE_cpu_arm::MODE_BITS) | mode;
 
 /*
 	Add to the process queues (for the scheduler to sort out)
@@ -355,18 +353,25 @@ return SUCCESS;
 uint32_t ATOSE_process_manager::create_process(const uint8_t *buffer, uint32_t length)
 {
 uint32_t answer;
+ATOSE_process *new_process;
 
-if ((answer = elf_load(&active_process, buffer, length)) != SUCCESS)
+if ((new_process = process_allocator.malloc()) == NULL)
+	return ELF_BAD_OUT_OF_PROCESSES;
+
+if ((answer = elf_load(new_process, buffer, length)) != SUCCESS)
+	{
+	process_allocator.free(new_process);
 	return answer;
+	}
 else
-	return initialise_process(&active_process, (size_t)active_process.entry_point);
+	return initialise_process(new_process, (size_t)new_process->entry_point, ATOSE_cpu_arm::MODE_USER);
 }
 
 /*
-	ATOSE_PROCESS_MANAGER::CREATE_IDLE_PROCESS()
-	--------------------------------------------
+	ATOSE_PROCESS_MANAGER::CREATE_SYSTEM_PROCESS()
+	----------------------------------------------
 */
-uint32_t ATOSE_process_manager::create_idle_process(int (*start)(void))
+uint32_t ATOSE_process_manager::create_system_process(uint32_t (*start)(void))
 {
 /*
 	Use the minimal address space
@@ -374,5 +379,5 @@ uint32_t ATOSE_process_manager::create_idle_process(int (*start)(void))
 if (idle.address_space.create() == 0)
 	return ELF_BAD_ADDRESS_SPACE_FAIL;
 else
-	return initialise_process(&idle, (size_t)(start));
+	return initialise_process(&idle, (size_t)(start), ATOSE_cpu_arm::MODE_SYSTEM);
 }

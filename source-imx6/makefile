@@ -31,6 +31,7 @@ OBJECTS =						\
 	cpu_arm_imx6q.o				\
 	debug.o						\
 	host_usb.o					\
+	idle.o					\
 	interrupt.o					\
 	interrupt_arm_gic.o			\
 	kernel_malloc.o				\
@@ -39,6 +40,7 @@ OBJECTS =						\
 	mmu.o						\
 	mmu_page_list.o				\
 	process_manager.o			\
+	process_allocator.o			\
 	stack.o						\
 	timer_imx6q.o				\
 	uart_imx6q.o				\

@@ -12,9 +12,9 @@
 /*
 	The type of the page is stored in the bottom two bits
 */
-#define ARM_MMU_V5_PAGE_TYPE_FAULT   0x00
-#define ARM_MMU_V5_PAGE_TYPE_COURSE  0x01
-#define ARM_MMU_V5_PAGE_TYPE_SECTION 0x02
+#define ARM_MMU_V5_PAGE_TYPE_FAULT   0x00		// always fault
+#define ARM_MMU_V5_PAGE_TYPE_COURSE  0x01		// by version 7 this has become known as "Page Table"
+#define ARM_MMU_V5_PAGE_TYPE_SECTION 0x02		// 1MB pages
 #define ARM_MMU_V5_PAGE_TYPE_FILE    0x03
 
 /*
@@ -29,6 +29,12 @@
 #define ARM_MMU_V5_PAGE_NONCACHED_BUFFERED    (0x01 << 2)
 #define ARM_MMU_V5_PAGE_CACHED_WRITE_THROUGH  (0x02 << 2)
 #define ARM_MMU_V5_PAGE_CACHED_WRITE_BACK     (0x03 << 2)
+/*
+	By the time we get to ARM v7 there's a no-execute but that's
+	supposed to be applied to pages outside the code segment to
+	prevent malicious attack.
+*/
+#define ARM_MMU_V7_PAGE_SECTION_USER_NO_EXECUTE (1 << 4)
 
 /*
 	The domain bits (this is simply a 4 bit domain number)
@@ -78,7 +84,7 @@
 	02  Privileged: read write, User: read only
 	03  Privileged: read write, User: read write
 
-	We are concerned with sectons because they are 1MB in size and any smaller is 
+	We are concerned with sectons because they are 1MB in size and any smaller is
 	unlikely to be useful to us.
 */
 #define ARM_MMU_V5_PAGE_SECTION_USER_SPECIAL   (0x00 << 10)
@@ -86,12 +92,6 @@
 #define ARM_MMU_V5_PAGE_SECTION_USER_READONLY  (0x02 << 10)
 #define ARM_MMU_V5_PAGE_SECTION_USER_READWRITE (0x03 << 10)
 
-/*
-	By the time we get to ARM v7 there's a no-execute but that's
-	supposed to be applied to pages outside the code segment to
-	prevent malicious attack.
-*/
-#define ARM_MMU_V7_PAGE_SECTION_USER_NO_EXECUTE (1 << 4)
 
 /*
 	Bits in CP15 register 1

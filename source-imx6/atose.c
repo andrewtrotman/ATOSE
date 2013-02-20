@@ -4,12 +4,11 @@
 	Copyright (c) 2013 Andrew Trotman
 	Licensed BSD
 */
+#include "idle.h"
 #include "atose.h"
 #include "stack.h"
 #include "registers.h"
 #include "atose_api.h"
-
-#include "examples/hello.elf.c"
 
 /*
 	ATOSE_ATOSE::ATOSE_ATOSE()
@@ -21,28 +20,12 @@ set_ATOSE();
 }
 
 /*
-	IDLE()
-	------
-	This is the ATOSE idle process
-*/
-int idle(void)
-{
-ATOSE_api api;
-
-api.spawn(hello_elf, hello_elf_size);
-
-while (1)
-	api.write('A');
-
-return 0;
-}
-
-/*
 	ATOSE_ATOSE::RESET()
 	--------------------
 */
 void ATOSE_atose::reset(ATOSE_registers *registers)
 {
+ATOSE_api api;
 /*
 	No need to set up the stacks because that was done as part of the object creation
 	But we do need to set up the IRQ
@@ -60,7 +43,6 @@ interrupt_controller.enable(&process_clock, process_clock.get_interrup_id());
 process_clock.enable();
 debug << "done" << ATOSE_debug::eoln;
 
-
 debug << "Tell Interrupt controller about USB HOST...";
 //interrupt_controller.enable(&imx6q_host_usb, imx6q_host_usb.get_interrup_id());
 debug << "done" << ATOSE_debug::eoln;
@@ -71,14 +53,13 @@ debug << "done" << ATOSE_debug::eoln;
 
 debug  << "Start the IDLE process";
 heap.init();
-scheduler.create_idle_process(idle);
+scheduler.create_system_process(idle);
 debug << "done" << ATOSE_debug::eoln;
 
 debug << "Wait for startup" << ATOSE_debug::eoln;
 while (1)
 	debug << ".";
 }
-
 
 /*
 	ATOSE_ATOSE::ISR_PREFETCH_ABORT()

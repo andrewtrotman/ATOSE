@@ -32,17 +32,18 @@ public:
 	static const uint32_t domain = 0x02;
 
 private:
-	uint32_t page_count;										// the number of pages (is size page_size) we have 
+	uint32_t page_count;										// the number of pages (is size page_size) we have
 
 protected:
 	ATOSE_mmu_page_list free_list;
 	uint32_t *identity_page_table;								// a copy of the identity page table (used by the kernel)
 
 public:
-	uint32_t bad_page;											// flags to cuae a fault if used			(Fauly in any space)
+	uint32_t bad_page;											// flags to cuae a fault if used			(Fault in any space)
 	uint32_t user_data_page;									// flags for a data page of a user process  (ReadWriteExecute in user space)
 	uint32_t user_code_page;									// flags for a code page of a user process  (ReadOnly in User space)
 	uint32_t os_page;											// flags for ATOSE pages in the user space	(Fault in user space ReadWriteExecute in Kernel space)
+	uint32_t peripheral_page;									// flags for memory mapped device registers (fault in User Space, noncachable non-bufferable, etc)
 
 protected:
 	void invalidate_data_cache(void);

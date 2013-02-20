@@ -6,6 +6,9 @@
 
 #include "../atose_api.h"
 
+#ifndef CHARACTER
+#define CHARACTER 'B'
+#endif
 
 /*
 	MAIN()
@@ -16,7 +19,7 @@ int main(void)
 ATOSE_api api;
 
 for (;;)
-	api.write('B');
+	api.write(CHARACTER);
 
 return 0;
 }

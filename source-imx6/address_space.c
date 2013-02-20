@@ -1,7 +1,6 @@
 /*
 	ADDRESS_SPACE.C
 	---------------
-
 	In ATOSE we assume a model of a thread being the abstraction of the
 	CPU and the address space being the abstraction of the memory.  A
 	process, therefore consists of two seperat abstractions - one for the
@@ -36,19 +35,38 @@ page_table = ((uint32_t *)page->physical_address);
 page_list.push(page);		// mark the page as part of the process's list of pages
 
 /*
-	Place ATOSE at bottom of memory
-	On the i.MX6Q the bottom 256 MB of RAM is registers and on-chip RAM so we slice that out
-	of the address space.
+	Place ATOSE at bottom of memory on the i.MX6Q
+	On the i.MX6Q the bottom 1MB of of the address space is:
+		0x00000000 - 0x00017FFF  96 KB Boot ROM (ROMCP)
+		0x00018000 - 0x000FFFFF 928 KB Reserved
+		0x00100000 - 0x00103FFF  16 KB CAAM (16K secure RAM)
+	Then there's the register map going up to 0x10000000 (the 256MB mark) including
+		0x00900000 - 0x0093FFFF 256KN OCRAM
+		0x00940000 - 0x009FFFFF 0.75 MB OCRAM aliased
+	Its this on-chip RAM where we'll fit the ATIRE (interesting how, including alias, its 1MB (Section size)).  We can mark these pages as user no-access
+
+	On the i.MX6Q the bottom 256 MB of RAM is registers and on-chip RAM so we slice that out of the address space.
 */
-for (current = 0; current < 256; current++)
-	page_table[current] = (current << 20) | mmu->os_page;
+
+/*
+	The peripheral pages (register map) must be non-bufferable non-cachable
+*/
+for (current = 1; current < 256; current++)
+	page_table[current] = (current << 20) | mmu->peripheral_page;			// user access is forbidden
+
+/*
+	The ROM must be executable by the OS because otherwise an IRQ cannot be services, but no user read
+	The 1MB of OC-RAM including its alias can be cachable, buffereable, etc, but no user read
+*/
+page_table[0] = (0 << 20) | mmu->os_page;
+page_table[9] = (9 << 20) | mmu->os_page;
 
 /*
 	Mark all other pages to cause faults (except for the last page)
 */
 while (current < mmu->pages_in_address_space - 1)
 	{
-	page_table[current] =  mmu->bad_page;
+	page_table[current] =  mmu->bad_page;		// fault on access
 	current++;
 	}
 
@@ -141,6 +159,7 @@ uint8_t *ATOSE_address_space::add(void *address, size_t size, uint32_t permissio
 ATOSE_mmu_page *page;
 size_t base_page, last_page, which;
 uint64_t end;
+uint32_t rights;
 
 /*
 	Make sure we fit within the address space
@@ -166,8 +185,21 @@ for (which = base_page; which <= last_page; which++)
 		{
 		if ((page = mmu->pull()) == 0)
 			return NULL;		// We fail because there are no more pages to give
+
+		/*
+			Sort out the permissions
+		*/
+		if (permissions == NONE)
+			rights = mmu->bad_page;								// yea, well, no access at all is permitted
+		else if ((permissions & EXECUTE) != 0)
+			rights = mmu->user_code_page;						// execute implies READ but no WRITE
 		else
-			add_page((void *)(which * mmu->page_size), page, mmu->user_data_page);
+			rights = mmu->user_data_page;						// else we're a data page and all data pages are READ/WRITE but no EXECUTE
+
+		/*
+			add the page to the pool
+		*/
+		add_page((void *)(which * mmu->page_size), page, rights);
 		}
 	}
 

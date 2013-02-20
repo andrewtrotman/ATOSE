@@ -19,6 +19,19 @@ void ATOSE_mmu::init(void)
 uint32_t current;
 
 /*
+	Don't even ask what this does...  Just go read pages 2-47 to 2-48 of "ARM Cortex™-A9 processors r2 releases"
+*/
+asm volatile
+	(
+	"mrc p15, 0, r0, c15, c0, 1;"
+	"orr r0, r0, #0x40;"
+	"mcr p15, 0, r0, c15, c0, 1;"
+	:
+	:
+	: "r0"
+	);
+
+/*
 	Turn off the ROM and SYSTEM bits.  These bits appear to be
 	depricated in later versions of the ARM MMU anyway
 */
@@ -61,7 +74,7 @@ asm volatile
 /*
 	Set up a few constants we're going to need later
 */
-bad_page = 0;		// cause a fault
+bad_page = ARM_MMU_V5_PAGE_TYPE_FAULT;		// cause a fault
 
 /*
 	Operating System pages have the low bits set to no cache, no buffer
@@ -69,23 +82,20 @@ bad_page = 0;		// cause a fault
 	controller writes into these pages
 		(ARM_MMU_V5_PAGE_SECTION_USER_READONLY | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION)
 */
-//os_page = (ARM_MMU_V5_PAGE_SECTION_USER_READONLY | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION);
-os_page = (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_NONCACHED_NONBUFFERED | ARM_MMU_V5_PAGE_TYPE_SECTION);
+os_page = (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION);
 
 /*
 
 	Memory Mapped Register pages have the low bits set to no cache, no buffer, user forbidden:
 		(ARM_MMU_V5_PAGE_SECTION_USER_FORBIDDEN | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_NONCACHED_NONBUFFERED | ARM_MMU_V5_PAGE_TYPE_SECTION)
 */
-
-// not currently needed as the user cannot see the registers and the OS has full permissions everywhere
+peripheral_page = (ARM_MMU_V5_PAGE_SECTION_USER_FORBIDDEN | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_NONCACHED_NONBUFFERED | ARM_MMU_V5_PAGE_TYPE_SECTION);
 
 /*
 	User DATA pages are set to cache, buffer, user read write, no-execute:
 		 (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V7_PAGE_SECTION_USER_NO_EXECUTE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION)
 */
-//user_data_page = (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V7_PAGE_SECTION_USER_NO_EXECUTE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION);
-user_data_page = (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_NONCACHED_NONBUFFERED | ARM_MMU_V5_PAGE_TYPE_SECTION);
+user_data_page = (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V7_PAGE_SECTION_USER_NO_EXECUTE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION);
 
 /*
 	User CODE (probram) pages are set to cache, buffer, and user can read
@@ -93,7 +103,6 @@ user_data_page = (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V5_PAGE_DOMAI
 		(ARM_MMU_V5_PAGE_SECTION_USER_READONLY | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION)
 */
 user_code_page = (ARM_MMU_V5_PAGE_SECTION_USER_READONLY | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION);
-user_code_page = (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_NONCACHED_NONBUFFERED | ARM_MMU_V5_PAGE_TYPE_SECTION);
 
 /*
 	A page table can now be set up with: each page is 1MB in size (ARM V5 Sections), full permission to do anything
