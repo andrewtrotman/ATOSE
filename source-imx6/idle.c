@@ -16,6 +16,13 @@ uint32_t idle(void)
 {
 ATOSE_api api;
 
+api.write('[');
+api.write('I');
+api.write('D');
+api.write('L');
+api.write('E');
+api.write(']');
+
 api.spawn(hello1_elf, hello1_elf_size);
 api.spawn(hello2_elf, hello2_elf_size);
 

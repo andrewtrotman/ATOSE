@@ -14,11 +14,13 @@
 	ATOSE_PROCESS_MANAGER::ATOSE_PROCESS_MANAGER()
 	----------------------------------------------
 */
-ATOSE_process_manager::ATOSE_process_manager(ATOSE_mmu *mmu) : process_allocator(mmu), idle(mmu)
+ATOSE_process_manager::ATOSE_process_manager(ATOSE_mmu *mmu) : process_allocator(mmu)
 {
 this->mmu = mmu;
 active_head = active_tail = 0;
 current_process = 0;
+system_address_space = process_allocator.malloc_address_space();
+system_address_space->create_identity();
 }
 
 /*
@@ -168,7 +170,7 @@ for (which = 0; which < header_num; which++)
 /*
 	We passed all the initial tests so we create the address space
 */
-if (process->address_space.create() == 0)
+if (process->address_space->create() == 0)
 	return ELF_BAD_ADDRESS_SPACE_FAIL;
 
 /*
@@ -197,7 +199,7 @@ for (which = 0; which < header_num; which++)
 		As we're in the address space of the new process we the add() method returns
 		a pointer that is also in our address space so we can simply copy into it.
 	*/
-	into = process->address_space.add((void *)(current_header->p_vaddr), current_header->p_memsz, permissions);
+	into = process->address_space->add((void *)(current_header->p_vaddr), current_header->p_memsz, permissions);
 
 	/*
 		We might fail at this point for seveal reasons; for example, we
@@ -206,7 +208,7 @@ for (which = 0; which < header_num; which++)
 	*/
 	if (into == NULL)
 		{
-		process->address_space.destroy();
+		process->address_space->destroy();
 		return ELF_BAD_OUT_OF_PAGES;
 		}
 
@@ -220,7 +222,7 @@ for (which = 0; which < header_num; which++)
 	The address space we just created has ATOSE in it so we can
 	assume that address space and continue running from there.
 */
-mmu->assume(&process->address_space);
+mmu->assume(process->address_space);
 
 /*
 	Now load each executable file segment into the new address space
@@ -323,19 +325,19 @@ uint32_t ATOSE_process_manager::initialise_process(ATOSE_process *process, size_
 /*
 	Set up the stack-pointer (ARM register R13)
 */
-process->execution_path.registers.r13 = (mmu->highest_address) & ((uint32_t)~0x03);		// align it correctly
+process->execution_path->registers.r13 = (mmu->highest_address) & ((uint32_t)~0x03);		// align it correctly
 
 /*
 	The process will enter where-ever the link-register (ARM register
 	R14_current) points once the scheduler schedules the process to be
 	run
 */
-process->execution_path.registers.r14_current = (uint32_t)(entry_point + 4);			// we add 4 because we'll enter as a consequence of leaving an IRQ which must subtract 4 from the link register on return.
+process->execution_path->registers.r14_current = (uint32_t)(entry_point + 4);			// we add 4 because we'll enter as a consequence of leaving an IRQ which must subtract 4 from the link register on return.
 
 /*
 	When we do run we need to return to user-mode which is done by setting the CPSR register's low bits
 */
-process->execution_path.registers.cpsr = (0x80000150 & ~ATOSE_cpu_arm::MODE_BITS) | mode;
+process->execution_path->registers.cpsr = (0x80000150 & ~ATOSE_cpu_arm::MODE_BITS) | mode;
 
 /*
 	Add to the process queues (for the scheduler to sort out)
@@ -355,6 +357,7 @@ uint32_t ATOSE_process_manager::create_process(const uint8_t *buffer, uint32_t l
 uint32_t answer;
 ATOSE_process *new_process;
 
+
 if ((new_process = process_allocator.malloc()) == NULL)
 	return ELF_BAD_OUT_OF_PROCESSES;
 
@@ -363,21 +366,25 @@ if ((answer = elf_load(new_process, buffer, length)) != SUCCESS)
 	process_allocator.free(new_process);
 	return answer;
 	}
-else
-	return initialise_process(new_process, (size_t)new_process->entry_point, ATOSE_cpu_arm::MODE_USER);
+
+answer = initialise_process(new_process, (size_t)new_process->entry_point, ATOSE_cpu_arm::MODE_USER);
+
+return answer;
 }
 
 /*
-	ATOSE_PROCESS_MANAGER::CREATE_SYSTEM_PROCESS()
-	----------------------------------------------
+	ATOSE_PROCESS_MANAGER::CREATE_SYSTEM_THREAD()
+	---------------------------------------------
 */
-uint32_t ATOSE_process_manager::create_system_process(uint32_t (*start)(void))
+uint32_t ATOSE_process_manager::create_system_thread(uint32_t (*start)(void))
 {
-/*
-	Use the minimal address space
-*/
-if (idle.address_space.create() == 0)
-	return ELF_BAD_ADDRESS_SPACE_FAIL;
-else
-	return initialise_process(&idle, (size_t)(start), ATOSE_cpu_arm::MODE_SYSTEM);
+ATOSE_process *new_process;
+
+if ((new_process = process_allocator.malloc(system_address_space)) == NULL)
+	return ELF_BAD_OUT_OF_PROCESSES;
+
+system_address_space->get_reference();
+
+return initialise_process(new_process, (size_t)(start), ATOSE_cpu_arm::MODE_SYSTEM);
 }
+

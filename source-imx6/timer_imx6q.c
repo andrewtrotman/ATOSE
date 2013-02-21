@@ -138,7 +138,7 @@ if (current_process != next_process)
 		this way if we cause a context switch then we've not lost anything
 	*/
 	if (current_process != NULL)
-		memcpy(&current_process->execution_path.registers, registers, sizeof(*registers));
+		memcpy(&current_process->execution_path->registers, registers, sizeof(*registers));
 
 	/*
 		Context switch
@@ -148,12 +148,12 @@ if (current_process != next_process)
 		/*
 			Set the registers so that we fall back to the next context
 		*/
-		memcpy(registers, &next_process->execution_path.registers, sizeof(*registers));
+		memcpy(registers, &next_process->execution_path->registers, sizeof(*registers));
 
 		/*
 			Set the address space to fall back to the next context
 		*/
-		os->heap.assume(&next_process->address_space);
+		os->heap.assume(next_process->address_space);
 		}
 	}
 }

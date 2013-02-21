@@ -28,13 +28,17 @@ private:
 	ATOSE_mmu *mmu;
 	ATOSE_mmu_page_list page_list;
 	uint32_t *page_table;
-	uint32_t process_id;
+	uint32_t reference_count;
+
+public:
+	ATOSE_address_space *next;
 
 protected:
 	uint32_t add_page(void *virtual_address, ATOSE_mmu_page *page, uint32_t type);
 
 public:
-	ATOSE_address_space(ATOSE_mmu *mmu) { this->mmu = mmu; }
+	ATOSE_address_space() {}
+	void initialise(ATOSE_mmu *mmu) { this->mmu = mmu; reference_count = 0; }
 
 	ATOSE_address_space *create(void);
 	ATOSE_address_space *create_identity(void);
@@ -42,7 +46,8 @@ public:
 
 	uint8_t *add(void *address, size_t size, uint32_t permissions);
 	uint32_t *get_page_table(void) { return page_table; }
+	uint32_t get_reference_count(void) { return reference_count; }
+	ATOSE_address_space *get_reference(void) { reference_count++; return this; }
 } ;
 
-
-#endif /* ADDRESS_SPACE_H_ */
+#endif

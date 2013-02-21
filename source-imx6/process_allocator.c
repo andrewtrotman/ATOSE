@@ -16,17 +16,64 @@ ATOSE_process_allocator::ATOSE_process_allocator(ATOSE_mmu *mmu)
 uint32_t current;
 
 /*
-	Chain together all the free processes in the list with the "bottom" pointing to NULL
-	and top_of_free_list pointing to the "top".  Note that top and bottom are actually upside
-	down for convenience.
+	chain together each of the process objects
 */
-process_list = (ATOSE_process *)process_list_memory;
-top_of_free_list = NULL;
+free_processes_head = NULL;
 for (current = 0; current < MAX_PROCESSES; current++)
 	{
-	new (process_list + current) ATOSE_process(mmu);
-	process_list[current].next = top_of_free_list;
-	top_of_free_list = process_list + current;
+	process_list[current].next = free_processes_head;
+	free_processes_head = process_list + current;
+	}
+
+/*
+	chain together each of the address_space objects
+*/
+free_address_space_head = NULL;
+for (current = 0; current < MAX_ADDRESS_SPACES; current++)
+	{
+	address_space_list[current].next = free_address_space_head;
+	address_space_list[current].initialise(mmu);
+	free_address_space_head = address_space_list + current;
+	}
+
+/*
+	chain together each of the thread objects
+*/
+free_thread_head = NULL;
+for (current = 0; current < MAX_THREADS; current++)
+	{
+	thread_list[current].next = free_thread_head;
+	free_thread_head = thread_list + current;
+	}
+}
+
+/*
+	ATOSE_PROCESS_ALLOCATOR::MALLOC_ADDRESS_SPACE()
+	-----------------------------------------------
+*/
+ATOSE_address_space *ATOSE_process_allocator::malloc_address_space(void)
+{
+ATOSE_address_space *address_space;
+
+if ((address_space = free_address_space_head) != NULL)
+	free_address_space_head = free_address_space_head->next;
+
+return address_space;
+}
+
+/*
+	ATOSE_PROCESS_ALLOCATOR::FREE()
+	-------------------------------
+*/
+void ATOSE_process_allocator::free(ATOSE_address_space *space)
+{
+/*
+	Only destroy the object if the reference count drops to zero
+*/
+if (space->destroy() == 0)
+	{
+	space->next = free_address_space_head;
+	free_address_space_head = space;
 	}
 }
 
@@ -34,14 +81,44 @@ for (current = 0; current < MAX_PROCESSES; current++)
 	ATOSE_PROCESS_ALLOCATOR::MALLOC()
 	---------------------------------
 */
-ATOSE_process *ATOSE_process_allocator::malloc(void)
+ATOSE_process *ATOSE_process_allocator::malloc(ATOSE_address_space *space)
 {
-ATOSE_process *answer;
+ATOSE_process *process;
+ATOSE_address_space *address_space;
+ATOSE_thread *thread;
 
-if ((answer = top_of_free_list) != NULL)
-	top_of_free_list = top_of_free_list->next;
+/*
+	Make sure we have the resources to create a process
+*/
+if ((process = free_processes_head) == NULL)
+	return NULL;
+if ((thread = free_thread_head) == NULL)
+	return NULL;
 
-return answer;
+/*
+	Create an address space if we need to
+*/
+if ((address_space = space == NULL ? malloc_address_space() : space) == NULL)
+	return NULL;
+
+/*
+	We have all the resources so we can now use them
+*/
+free_processes_head = free_processes_head->next;
+free_thread_head = free_thread_head->next;
+
+/*
+	Build a process (Which is initially an address space and a thread) and return it
+*/
+process->address_space = address_space;
+process->execution_path = thread;
+
+/*
+	Tell the thread who owns us
+*/
+process->execution_path->initialise(process);
+
+return process;
 }
 
 /*
@@ -50,6 +127,29 @@ return answer;
 */
 void ATOSE_process_allocator::free(ATOSE_process *process)
 {
-process->next = top_of_free_list;
-top_of_free_list = process;
+/*
+	We're done with the thread object
+*/
+process->execution_path->next = free_thread_head;
+free_thread_head = process->execution_path;
+
+/*
+	We might be done with the address space, or we might not.  If its being used by other processes in the system then we cannot get rid of it.
+*/
+free(process->address_space);
+
+/*
+	We're done with the process object
+
+*/
+process->next = free_processes_head;
+free_processes_head = process;
 }
+
+
+
+
+
+
+
+

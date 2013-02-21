@@ -7,6 +7,7 @@
 	memory, one for the	CPU and one for memory.  This code represents
 	just the address space.
 */
+#include "atose.h"
 #include "mmu.h"
 #include "mmu_page.h"
 #include "address_space.h"
@@ -20,6 +21,9 @@ ATOSE_address_space *ATOSE_address_space::create(void)
 ATOSE_mmu_page *page, *stack_page;
 uint32_t current;
 
+if (reference_count != 0)
+	return this;
+
 /*
 	Get a page from the MMU and use that page as the page table. In that
 	page table we put the OS at the bottom (because that's were the
@@ -29,7 +33,7 @@ uint32_t current;
 	second page.
 */
 if ((page = mmu->pull()) == 0)
-	return 0;			// fail as we're of out of physical pages to allocate
+	return NULL;			// fail as we're of out of physical pages to allocate
 
 page_table = ((uint32_t *)page->physical_address);
 page_list.push(page);		// mark the page as part of the process's list of pages
@@ -88,15 +92,18 @@ return this;
 */
 ATOSE_address_space *ATOSE_address_space::create_identity(void)
 {
-/*
-	first create the address space
-*/
-create();
+if (reference_count == 0)
+	{
+	/*
+		first create the address space
+	*/
+	create();
 
-/*
-	then set the page table to the identity page table
-*/
-page_table = mmu->get_identity_page_table();
+	/*
+		then set the page table to the identity page table
+	*/
+	page_table = mmu->get_identity_page_table();
+	}
 
 return this;
 }
@@ -104,11 +111,23 @@ return this;
 /*
 	ATOSE_ADDRESS_SPACE::DESTROY()
 	------------------------------
-	returns 0 on success and anything else on failure
+	returns the current reference count (on 0 the pages are freed)
+
 */
 uint32_t ATOSE_address_space::destroy(void)
 {
 ATOSE_mmu_page *page;
+
+/*
+	Decrement the reference count
+*/
+reference_count--;
+
+/*
+	if other objectvs refer to this
+*/
+if (reference_count > 0)
+	return reference_count;
 
 /*
 	Hand all the memory back

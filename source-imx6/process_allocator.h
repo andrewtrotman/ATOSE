@@ -20,17 +20,27 @@ class ATOSE_process_allocator
 {
 private:
 	static const uint32_t MAX_PROCESSES = 10;
+	static const uint32_t MAX_ADDRESS_SPACES = 10;
+	static const uint32_t MAX_THREADS = 10;
 
 private:
-	uint8_t process_list_memory[MAX_PROCESSES * sizeof(ATOSE_process)];			// this is where the process_list is put because we use the placement new operator
-	ATOSE_process *process_list;
-	ATOSE_process *top_of_free_list;
+	ATOSE_process process_list[MAX_PROCESSES];
+	ATOSE_process *free_processes_head;
+
+	ATOSE_address_space address_space_list[MAX_ADDRESS_SPACES];
+	ATOSE_address_space *free_address_space_head;
+
+	ATOSE_thread thread_list[MAX_THREADS];
+	ATOSE_thread *free_thread_head;
 
 public:
 	ATOSE_process_allocator(ATOSE_mmu *mmu);
 
-	ATOSE_process *malloc();
+	ATOSE_process *malloc(ATOSE_address_space *space = NULL);
 	void free(ATOSE_process *process);
+
+	ATOSE_address_space *malloc_address_space();
+	void free(ATOSE_address_space *space);
 } ;
 
 #endif

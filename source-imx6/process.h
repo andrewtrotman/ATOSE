@@ -19,12 +19,9 @@ class ATOSE_process
 {
 public:
 	ATOSE_process *next;
-	ATOSE_address_space address_space;
-	ATOSE_thread execution_path;
+	ATOSE_address_space *address_space;
+	ATOSE_thread *execution_path;
 	uint8_t *entry_point;					// initial process entry point
-
-public:
-	ATOSE_process(ATOSE_mmu *mmu) : address_space(mmu), execution_path(this) {}
 } ;
 
-#endif /* PROCESS_H_ */
+#endif

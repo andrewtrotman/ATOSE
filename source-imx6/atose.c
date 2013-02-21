@@ -26,6 +26,8 @@ set_ATOSE();
 void ATOSE_atose::reset(ATOSE_registers *registers)
 {
 ATOSE_api api;
+
+//debug << "ATOSE SIZE:" << sizeof(ATOSE_atose) << "\r\n";
 /*
 	No need to set up the stacks because that was done as part of the object creation
 	But we do need to set up the IRQ
@@ -53,7 +55,7 @@ debug << "done" << ATOSE_debug::eoln;
 
 debug  << "Start the IDLE process";
 heap.init();
-scheduler.create_system_process(idle);
+scheduler.create_system_thread(idle);
 debug << "done" << ATOSE_debug::eoln;
 
 debug << "Wait for startup" << ATOSE_debug::eoln;
@@ -142,7 +144,7 @@ uint32_t answer;
 
 ATOSE_atose::get_ATOSE()->heap.assume_identity();
 answer = ATOSE_atose::get_ATOSE()->scheduler.create_process((const uint8_t *)registers->r1, registers->r2);
-ATOSE_atose::get_ATOSE()->heap.assume(&(ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->address_space));
+ATOSE_atose::get_ATOSE()->heap.assume(ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->address_space);
 
 
 return answer;
