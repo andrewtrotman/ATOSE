@@ -11,6 +11,7 @@
 #include <stdint.h>
 
 #include "process.h"
+#include "semaphore.h"
 
 /*
 	class ATOSE_PROCESS_ALLOCATOR
@@ -22,6 +23,7 @@ private:
 	static const uint32_t MAX_PROCESSES = 10;
 	static const uint32_t MAX_ADDRESS_SPACES = 10;
 	static const uint32_t MAX_THREADS = 10;
+	static const uint32_t MAX_SEMAPHORES = 10;
 
 private:
 	ATOSE_process process_list[MAX_PROCESSES];
@@ -33,6 +35,9 @@ private:
 	ATOSE_thread thread_list[MAX_THREADS];
 	ATOSE_thread *free_thread_head;
 
+	ATOSE_semaphore semaphore_list[MAX_SEMAPHORES];
+	ATOSE_semaphore *free_semaphore_head;
+
 public:
 	ATOSE_process_allocator(ATOSE_mmu *mmu);
 
@@ -41,6 +46,9 @@ public:
 
 	ATOSE_address_space *malloc_address_space();
 	void free(ATOSE_address_space *space);
+
+	ATOSE_semaphore *malloc_semaphore();
+	void free(ATOSE_semaphore *semaphore);
 } ;
 
 #endif

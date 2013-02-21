@@ -114,11 +114,6 @@ if (got == IMX_INT_SPURIOUS)
    return;
 
 /*
-	Save the pointer to the current registers because some device driver might want to access them.
-*/
-ATOSE_atose::get_ATOSE()->registers_of_interrupted_process = registers;
-
-/*
 	Dispatch to the device driver
 */
 if (device[got] != NULL)

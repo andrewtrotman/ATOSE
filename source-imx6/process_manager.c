@@ -10,16 +10,17 @@
 #include "elf32_phdr.h"
 #include "process_manager.h"
 
+
 /*
 	ATOSE_PROCESS_MANAGER::ATOSE_PROCESS_MANAGER()
 	----------------------------------------------
 */
-ATOSE_process_manager::ATOSE_process_manager(ATOSE_mmu *mmu) : process_allocator(mmu)
+ATOSE_process_manager::ATOSE_process_manager(ATOSE_mmu *mmu, ATOSE_process_allocator *process_allocator)
 {
 this->mmu = mmu;
-active_head = active_tail = 0;
+active_head = active_tail = NULL;
 current_process = 0;
-system_address_space = process_allocator.malloc_address_space();
+system_address_space = process_allocator->malloc_address_space();
 system_address_space->create_identity();
 }
 
@@ -357,13 +358,12 @@ uint32_t ATOSE_process_manager::create_process(const uint8_t *buffer, uint32_t l
 uint32_t answer;
 ATOSE_process *new_process;
 
-
-if ((new_process = process_allocator.malloc()) == NULL)
+if ((new_process = ATOSE_atose::get_ATOSE()->process_allocator.malloc()) == NULL)
 	return ELF_BAD_OUT_OF_PROCESSES;
 
 if ((answer = elf_load(new_process, buffer, length)) != SUCCESS)
 	{
-	process_allocator.free(new_process);
+	ATOSE_atose::get_ATOSE()->process_allocator.free(new_process);
 	return answer;
 	}
 
@@ -380,7 +380,7 @@ uint32_t ATOSE_process_manager::create_system_thread(uint32_t (*start)(void))
 {
 ATOSE_process *new_process;
 
-if ((new_process = process_allocator.malloc(system_address_space)) == NULL)
+if ((new_process = ATOSE_atose::get_ATOSE()->process_allocator.malloc(system_address_space)) == NULL)
 	return ELF_BAD_OUT_OF_PROCESSES;
 
 system_address_space->get_reference();
@@ -388,3 +388,49 @@ system_address_space->get_reference();
 return initialise_process(new_process, (size_t)(start), ATOSE_cpu_arm::MODE_SYSTEM);
 }
 
+/*
+	ATOSE_PROCESS_MANAGER::CONTEXT_SWITCH()
+	---------------------------------------
+*/
+uint32_t ATOSE_process_manager::context_switch(ATOSE_registers *registers)
+{
+ATOSE_process *current_process, *next_process;
+
+/*
+	What's running and what's next to run?
+*/
+current_process = get_current_process();
+next_process = get_next_process() ;
+
+/*
+	if the current process is the next process then there is no work to do
+*/
+if (current_process != next_process)
+	{
+	ATOSE_atose::get_ATOSE()->debug << "switch";
+	/*
+		If we're running a process then copy the registers into its register space
+		this way if we cause a context switch then we've not lost anything
+	*/
+	if (current_process != NULL)
+		memcpy(&current_process->execution_path->registers, registers, sizeof(*registers));
+
+	/*
+		Context switch
+	*/
+	if (next_process != NULL)
+		{
+		/*
+			Set the registers so that we fall back to the next context
+		*/
+		memcpy(registers, &next_process->execution_path->registers, sizeof(*registers));
+
+		/*
+			Set the address space to fall back to the next context, but only if we aren't a thread of the same address space
+		*/
+		if (next_process->address_space != current_process->address_space)
+			ATOSE_atose::get_ATOSE()->heap.assume(next_process->address_space);
+		}
+	}
+return 0;
+}

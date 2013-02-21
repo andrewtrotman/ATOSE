@@ -45,6 +45,16 @@ for (current = 0; current < MAX_THREADS; current++)
 	thread_list[current].next = free_thread_head;
 	free_thread_head = thread_list + current;
 	}
+
+/*
+	chain together each of the semaphore objects
+*/
+free_semaphore_head = NULL;
+for (current = 0; current < MAX_SEMAPHORES; current++)
+	{
+	semaphore_list[current].next = free_semaphore_head;
+	free_semaphore_head = semaphore_list + current;
+	}
 }
 
 /*
@@ -146,6 +156,29 @@ process->next = free_processes_head;
 free_processes_head = process;
 }
 
+/*
+	ATOSE_PROCESS_ALLOCATOR::MALLOC_SEMAPHORE()
+	-------------------------------------------
+*/
+ATOSE_semaphore *ATOSE_process_allocator::malloc_semaphore(void)
+{
+ATOSE_semaphore *semaphore;
+
+if ((semaphore = free_semaphore_head) != NULL)
+	free_semaphore_head = free_semaphore_head->next;
+
+return semaphore;
+}
+
+/*
+	ATOSE_PROCESS_ALLOCATOR::FREE()
+	-------------------------------
+*/
+void ATOSE_process_allocator::free(ATOSE_semaphore *semaphore)
+{
+semaphore->next = free_semaphore_head;
+free_semaphore_head = semaphore;
+}
 
 
 

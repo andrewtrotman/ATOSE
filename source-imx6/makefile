@@ -41,6 +41,7 @@ OBJECTS =						\
 	mmu_page_list.o				\
 	process_manager.o			\
 	process_allocator.o			\
+	semaphore.o					\
 	stack.o						\
 	timer_imx6q.o				\
 	uart_imx6q.o				\

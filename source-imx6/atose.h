@@ -45,6 +45,7 @@ public:
 	/*
 		A few references for syntactic purposes (i.e. standard methods to refer to these objects regardless of subclassing)
 	*/
+	ATOSE_process_allocator process_allocator;
 	ATOSE_process_manager scheduler;
 	ATOSE_timer &process_clock;
 	ATOSE_mmu &heap;
@@ -52,7 +53,6 @@ public:
 	ATOSE_cpu_arm &cpu;
 	ATOSE_interrupt &interrupt_controller;
 //	ATOSE_usb &usb;
-	ATOSE_registers *registers_of_interrupted_process;
 
 private:
 	void set_ATOSE(void) { extern ATOSE_atose *ATOSE_pointer; ATOSE_pointer = this; }
