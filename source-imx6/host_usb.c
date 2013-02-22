@@ -21,6 +21,7 @@
 #include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsepit.h"
 
 #include "atose.h"
+#include "atose_api.h"
 #include "host_usb.h"
 #include "ascii_str.h"
 
@@ -363,6 +364,18 @@ return IMX_INT_USBOH3_UH1;
 */
 void ATOSE_host_usb::enable(void)
 {
+/*
+	Initialise the semaphore
+*/
+ATOSE_atose::get_ATOSE()->debug << "CREATE SEMAPHORE\r\n";
+semaphore = ATOSE_api::semaphore_create();
+
+/*
+	Initialise the worker thread
+*/
+uint32_t ATOSE_host_usb_device_manager(void);
+ATOSE_atose::get_ATOSE()->scheduler.create_system_thread(ATOSE_host_usb_device_manager);
+
 #ifdef SABRE_LITE
 	/*
 		Turn on the USB Hub on the SABRE Lite board.
@@ -555,21 +568,21 @@ HW_USBC_UH1_ASYNCLISTADDR_WR((uint32_t)&queue_head);
 */
 HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() | BM_USBC_UH1_USBCMD_ASE);
 while(!(HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_AS))
-	;	/* do nothing */
+	;	/* do nothing */	
 
 #ifdef NEVER
-		/*
-			Wait for the request to finish
-		*/
-		while(!(HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_UI));
-			HW_USBC_UH1_USBSTS_WR(HW_USBC_UH1_USBSTS_RD() | BM_USBC_UH1_USBSTS_UI);
+/*
+	Wait for the request to finish
+*/
+while(!(HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_UI));
+	HW_USBC_UH1_USBSTS_WR(HW_USBC_UH1_USBSTS_RD() | BM_USBC_UH1_USBSTS_UI);
 
-		/*
-			Disable the Async list
-		*/
-		HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() & (~BM_USBC_UH1_USBCMD_ASE));
-		while(HW_USBC_UH1_USBCMD_RD() & BM_USBC_UH1_USBCMD_ASE)
-			;	/* nothing */
+/*
+	Disable the Async list
+*/
+HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() & (~BM_USBC_UH1_USBCMD_ASE));
+while(HW_USBC_UH1_USBCMD_RD() & BM_USBC_UH1_USBCMD_ASE)
+	;	/* nothing */
 #endif
 }
 
@@ -580,9 +593,6 @@ while(!(HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_AS))
 void ATOSE_host_usb::acknowledge(ATOSE_registers *registers)
 {
 hw_usbc_uog_usbsts_t usb_status;
-
-static ATOSE_usb_setup_data setup_packet;
-static ATOSE_usb_standard_device_descriptor descriptor;
 
 /*
 	Acknowledge all the interrupts
@@ -617,81 +627,73 @@ if (usb_status.B.PCI)
 	while(!(HW_USBC_UH1_PORTSC1_RD() & BM_USBC_UH1_PORTSC1_CCS))
 		; /* nothing */
 
-	/*
-		Reset the USB bus
-	*/
-	usb_bus_reset();
-
-	/*
-		The first request should be a setup packet asking for the device descriptor.
-	*/
-	setup_packet.bmRequestType.all = 0x80;
-	setup_packet.bRequest = ATOSE_usb::REQUEST_GET_DESCRIPTOR;
-	setup_packet.wValue_high = ATOSE_usb::DESCRIPTOR_TYPE_DEVICE;
-	setup_packet.wValue_low = 0;
-	setup_packet.wIndex = 0;
-	setup_packet.wLength = 0x12;
-
-	send_setup_packet_to_device(0, 0, &setup_packet, &descriptor);
-#ifdef NEVER
-	setup_packet.wLength = sizeof(descriptor) <= descriptor.bLength ? sizeof(descriptor) :  descriptor.bLength;
-	send_setup_packet_to_device(0, 0, &setup_packet, &descriptor);
-
-	debug_print_this("bLength            :", descriptor.bLength);
-	debug_print_this("bDescriptorType    :", descriptor.bDescriptorType);
-	debug_print_this("bcdUSB             :", descriptor.bcdUSB);
-	debug_print_this("bDeviceClass       :", descriptor.bDeviceClass);
-	debug_print_this("bDeviceSubClass    :", descriptor.bDeviceSubClass);
-	debug_print_this("bDeviceProtocol    :", descriptor.bDeviceProtocol);
-	debug_print_this("bMaxPacketSize0    :", descriptor.bMaxPacketSize0);
-	debug_print_this("idVendor           :", descriptor.idVendor);
-	debug_print_this("idProduct          :", descriptor.idProduct);
-	debug_print_this("bcdDevice          :", descriptor.bcdDevice);
-	debug_print_this("iManufacturer      :", descriptor.iManufacturer);
-	debug_print_this("iProduct           :", descriptor.iProduct);
-	debug_print_this("iSerialNumber      :", descriptor.iSerialNumber);
-	debug_print_this("bNumConfigurations :", descriptor.bNumConfigurations);
-#endif
+	ATOSE_api::semaphore_signal(semaphore);
 	HW_USBC_UH1_USBSTS.B.PCI = 1;
+
+	debug_print_string("USB PCI Finished\r\n");
 	}
 }
 
+/*
+	ATOSE_HOST_USB_DEVICE_MANAGER()
+	-------------------------------
+*/
+uint32_t ATOSE_host_usb_device_manager(void)
+{
+ATOSE_atose::get_ATOSE()->imx6q_host_usb.device_manager();
 
+while (1);
+return 0;
+}
 
-
-
-#ifdef NEVER
 /*
 	ATOSE_HOST_USB::DEVICE_MANAGER()
 	--------------------------------
 */
-void ATOSE_host_usb::manage(void)
+void ATOSE_host_usb::device_manager(void)
 {
-wait_for_connect_or_disconnect();
-sent_setup(packet, &descriptor);
-sent_setup(packet, &descriptor);
-switch (device_type)
-	{
-	case HUB:
-		special_stuff();
-		break;
-	case KEYBOARD:
-		special_stuff();
-		break;
-	case MOUSE:
-		special_stuff();
-		break;
-	case iMX6Q:
-		special_stuff();
-		break;
-	case DISK:
-		special_stuff();
-		break;
-	default:
-		give_it_an_id();
-		forget_about_it();
-		break;
-	}
-}
+static ATOSE_usb_setup_data setup_packet;
+static ATOSE_usb_standard_device_descriptor descriptor;
 
-#endif
+/*
+	Wait for a connect event
+*/
+ATOSE_api::semaphore_wait(semaphore);
+
+/*
+	Reset the USB bus
+*/
+usb_bus_reset();
+
+/*
+	The first request should be a setup packet asking for the device descriptor.
+*/
+setup_packet.bmRequestType.all = 0x80;
+setup_packet.bRequest = ATOSE_usb::REQUEST_GET_DESCRIPTOR;
+setup_packet.wValue_high = ATOSE_usb::DESCRIPTOR_TYPE_DEVICE;
+setup_packet.wValue_low = 0;
+setup_packet.wIndex = 0;
+setup_packet.wLength = 0x12;
+
+send_setup_packet_to_device(0, 0, &setup_packet, &descriptor);
+
+while(1);
+
+setup_packet.wLength = sizeof(descriptor) <= descriptor.bLength ? sizeof(descriptor) :  descriptor.bLength;
+send_setup_packet_to_device(0, 0, &setup_packet, &descriptor);
+
+debug_print_this("bLength            :", descriptor.bLength);
+debug_print_this("bDescriptorType    :", descriptor.bDescriptorType);
+debug_print_this("bcdUSB             :", descriptor.bcdUSB);
+debug_print_this("bDeviceClass       :", descriptor.bDeviceClass);
+debug_print_this("bDeviceSubClass    :", descriptor.bDeviceSubClass);
+debug_print_this("bDeviceProtocol    :", descriptor.bDeviceProtocol);
+debug_print_this("bMaxPacketSize0    :", descriptor.bMaxPacketSize0);
+debug_print_this("idVendor           :", descriptor.idVendor);
+debug_print_this("idProduct          :", descriptor.idProduct);
+debug_print_this("bcdDevice          :", descriptor.bcdDevice);
+debug_print_this("iManufacturer      :", descriptor.iManufacturer);
+debug_print_this("iProduct           :", descriptor.iProduct);
+debug_print_this("iSerialNumber      :", descriptor.iSerialNumber);
+debug_print_this("bNumConfigurations :", descriptor.bNumConfigurations);
+}

@@ -45,7 +45,10 @@ public:
 	uint32_t destroy(void);
 
 	uint8_t *add(void *address, size_t size, uint32_t permissions);
+	ATOSE_mmu_page *add_to_identity(void);
+
 	uint32_t *get_page_table(void) { return page_table; }
+
 	uint32_t get_reference_count(void) { return reference_count; }
 	ATOSE_address_space *get_reference(void) { reference_count++; return this; }
 } ;

@@ -35,6 +35,7 @@ ATOSE_api api;
 	But we do need to set up the IRQ
 */
 cpu.set_interrupt_handlers(this);
+debug << "\033[1;1H\033[40;1;37m\033[2J";
 debug << "ATOSE up and running" << ATOSE_debug::eoln;
 
 debug << "Enable USB...(disabled)...";
@@ -48,7 +49,8 @@ process_clock.enable();
 debug << "done" << ATOSE_debug::eoln;
 
 debug << "Tell Interrupt controller about USB HOST...";
-//interrupt_controller.enable(&imx6q_host_usb, imx6q_host_usb.get_interrup_id());
+interrupt_controller.enable(&imx6q_host_usb, imx6q_host_usb.get_interrup_id());
+imx6q_host_usb.enable();
 debug << "done" << ATOSE_debug::eoln;
 
 debug << "enable IRQ...";
@@ -57,8 +59,9 @@ debug << "done" << ATOSE_debug::eoln;
 
 debug  << "Start the IDLE process";
 heap.init();
-scheduler.create_system_thread(idle);
+//scheduler.create_system_thread(idle);
 debug << "done" << ATOSE_debug::eoln;
+
 
 debug << "Wait for startup" << ATOSE_debug::eoln;
 while (1)
@@ -207,7 +210,12 @@ return answer;
 */
 uint32_t ATOSE_semaphore_create(ATOSE_registers *registers)
 {
-return (uint32_t)ATOSE_atose::get_ATOSE()->process_allocator.malloc_semaphore();
+ATOSE_semaphore *semaphore;
+
+semaphore = ATOSE_atose::get_ATOSE()->process_allocator.malloc_semaphore();
+semaphore->clear();
+
+return registers->r0 = (uint32_t)semaphore;
 }
 
 /*

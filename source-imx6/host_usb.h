@@ -20,6 +20,9 @@ class ATOSE_usb_standard_device_descriptor;
 */
 class ATOSE_host_usb : public ATOSE_device_driver
 {
+private:
+	uint32_t semaphore;
+
 protected:
 	void usb_bus_reset(void);
 	void initialise_queuehead(ATOSE_usb_ehci_queue_head *queue_head, uint32_t device, uint32_t endpoint);
@@ -33,6 +36,8 @@ public:
 	virtual void disable(void) {}
 	virtual void acknowledge(ATOSE_registers *registers);
 	virtual uint32_t get_interrup_id(void);
+
+	void device_manager(void);
 } ;
 
 #endif /* HOST_USB_H_ */

@@ -34,7 +34,7 @@ protected:
 	/*
 		Set up a process ready to run
 	*/
-	uint32_t initialise_process(ATOSE_process *process, size_t entry_point, uint32_t mode);
+	uint32_t initialise_process(ATOSE_process *process, size_t entry_point, uint32_t mode, uint32_t top_of_stack);
 
 public:
 	ATOSE_process_manager(ATOSE_mmu *mmu, ATOSE_process_allocator *process_allocator);

@@ -39,6 +39,7 @@ private:
 	ATOSE_mmu_imx6q imx6q_heap;
 	ATOSE_timer_imx6q imx6q_process_clock;
 //	ATOSE_usb_imx6q imx6q_usb;
+public:
 	ATOSE_host_usb imx6q_host_usb;
 
 public:

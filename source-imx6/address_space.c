@@ -227,3 +227,21 @@ for (which = base_page; which <= last_page; which++)
 */
 return (uint8_t *)address;
 }
+
+/*
+	ATOSE_ADDRESS_SPACE::ADD_TO_IDENTITY()
+	--------------------------------------
+*/
+ATOSE_mmu_page *ATOSE_address_space::add_to_identity(void)
+{
+ATOSE_mmu_page *page;
+
+
+if ((page = mmu->pull()) == 0)
+	return NULL;
+
+page_list.push(page);
+
+return page;
+}
+

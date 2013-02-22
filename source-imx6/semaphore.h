@@ -30,6 +30,8 @@ private:
 public:
 	ATOSE_semaphore() {}
 
+	void initialise(void) { value = 0; sleepers = NULL; }
+
 	void clear(void);
 	void wait(ATOSE_registers *registers);
 	void signal(void);

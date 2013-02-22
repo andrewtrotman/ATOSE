@@ -52,6 +52,7 @@ for (current = 0; current < MAX_THREADS; current++)
 free_semaphore_head = NULL;
 for (current = 0; current < MAX_SEMAPHORES; current++)
 	{
+	semaphore_list[current].initialise();
 	semaphore_list[current].next = free_semaphore_head;
 	free_semaphore_head = semaphore_list + current;
 	}
@@ -179,10 +180,3 @@ void ATOSE_process_allocator::free(ATOSE_semaphore *semaphore)
 semaphore->next = free_semaphore_head;
 free_semaphore_head = semaphore;
 }
-
-
-
-
-
-
-

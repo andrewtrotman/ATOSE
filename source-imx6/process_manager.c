@@ -5,11 +5,11 @@
 #include <stdint.h>
 #include "atose.h"
 #include "cpu_arm.h"
+#include "mmu_page.h"
 #include "ascii_str.h"
 #include "elf32_ehdr.h"
 #include "elf32_phdr.h"
 #include "process_manager.h"
-
 
 /*
 	ATOSE_PROCESS_MANAGER::ATOSE_PROCESS_MANAGER()
@@ -321,12 +321,12 @@ return current_process = pull();
 	ATOSE_PROCESS_MANAGER::INITIALISE_PROCESS_REGISTERS()
 	-----------------------------------------------------
 */
-uint32_t ATOSE_process_manager::initialise_process(ATOSE_process *process, size_t entry_point, uint32_t mode)
+uint32_t ATOSE_process_manager::initialise_process(ATOSE_process *process, size_t entry_point, uint32_t mode, uint32_t top_of_stack)
 {
 /*
 	Set up the stack-pointer (ARM register R13)
 */
-process->execution_path->registers.r13 = (mmu->highest_address) & ((uint32_t)~0x03);		// align it correctly
+process->execution_path->registers.r13 = top_of_stack & ((uint32_t)~0x03);		// align it correctly
 
 /*
 	The process will enter where-ever the link-register (ARM register
@@ -367,7 +367,7 @@ if ((answer = elf_load(new_process, buffer, length)) != SUCCESS)
 	return answer;
 	}
 
-answer = initialise_process(new_process, (size_t)new_process->entry_point, ATOSE_cpu_arm::MODE_USER);
+answer = initialise_process(new_process, (size_t)new_process->entry_point, ATOSE_cpu_arm::MODE_USER, mmu->highest_address);
 
 return answer;
 }
@@ -379,13 +379,23 @@ return answer;
 uint32_t ATOSE_process_manager::create_system_thread(uint32_t (*start)(void))
 {
 ATOSE_process *new_process;
+ATOSE_mmu_page *page;
 
 if ((new_process = ATOSE_atose::get_ATOSE()->process_allocator.malloc(system_address_space)) == NULL)
 	return ELF_BAD_OUT_OF_PROCESSES;
 
+/*
+	Add one to the address-space's reference count
+*/
 system_address_space->get_reference();
 
-return initialise_process(new_process, (size_t)(start), ATOSE_cpu_arm::MODE_SYSTEM);
+/*
+	Give it a local stack
+*/
+
+page = system_address_space->add_to_identity();
+
+return initialise_process(new_process, (size_t)(start), ATOSE_cpu_arm::MODE_SYSTEM, (uint32_t)(page->physical_address + page->page_size));
 }
 
 /*
@@ -407,7 +417,7 @@ next_process = get_next_process() ;
 */
 if (current_process != next_process)
 	{
-	ATOSE_atose::get_ATOSE()->debug << "switch";
+//	ATOSE_atose::get_ATOSE()->debug << "switch";
 	/*
 		If we're running a process then copy the registers into its register space
 		this way if we cause a context switch then we've not lost anything
