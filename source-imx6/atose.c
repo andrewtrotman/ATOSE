@@ -36,36 +36,28 @@ ATOSE_api api;
 */
 cpu.set_interrupt_handlers(this);
 debug << "\033[1;1H\033[40;1;37m\033[2J";
-debug << "ATOSE up and running" << ATOSE_debug::eoln;
+debug << "ATOSE version i" << ATOSE_debug::eoln;
 
-debug << "Enable USB...(disabled)...";
+heap.init();		// and turn on the MMU
+
 //usb.enable();
 //interrupt_controller.enable(&usb, usb.get_interrup_id());
-debug << "done" << ATOSE_debug::eoln;
 
-debug << "Tell Interrupt controller about TIMER...";
 interrupt_controller.enable(&process_clock, process_clock.get_interrup_id());
 process_clock.enable();
-debug << "done" << ATOSE_debug::eoln;
 
-debug << "Tell Interrupt controller about USB HOST...";
-interrupt_controller.enable(&imx6q_host_usb, imx6q_host_usb.get_interrup_id());
-imx6q_host_usb.enable();
-debug << "done" << ATOSE_debug::eoln;
+//debug  << "Start the IDLE process";
+scheduler.create_system_thread(idle);
+//debug << "done" << ATOSE_debug::eoln;
 
-debug << "enable IRQ...";
+//interrupt_controller.enable(&imx6q_host_usb, imx6q_host_usb.get_interrup_id());
+//imx6q_host_usb.enable();
+
 cpu.enable_irq();
-debug << "done" << ATOSE_debug::eoln;
-
-debug  << "Start the IDLE process";
-heap.init();
-//scheduler.create_system_thread(idle);
-debug << "done" << ATOSE_debug::eoln;
-
 
 debug << "Wait for startup" << ATOSE_debug::eoln;
 while (1)
-	debug << ".";
+	;	// this will never happen because once we enable IRQ we'll get an event to switch processes
 }
 
 /*
@@ -160,6 +152,11 @@ ATOSE_semaphore_wait
 uint32_t ATOSE_atose::isr_swi(ATOSE_registers *registers)
 {
 /*
+	Disable interrupts to prevent re-entrancy
+*/
+//ATOSE_atose::get_ATOSE()->cpu.disable_irq();			unnecessary as this happens by default
+
+/*
 	First we need to determine whether or no the SWI is for us.  We do this by getting the SWI number,
 	that number is stored in the instruction just executed, which is stored at R14.  So we subtract 4 from
 	R14 to get the instruction then turn off the top bits to get the number
@@ -176,9 +173,15 @@ if (registers->r0 > ATOSE_END_OF_METHODS)
 /*
 	Dispatch
 */
-return (ATOSE_call[registers->r0])(registers);
-}
+ATOSE_call[registers->r0](registers);
 
+/*
+	Context switch
+*/
+ATOSE_atose::get_ATOSE()->scheduler.context_switch(registers);
+
+return 0;
+}
 
 /*
 	ATOSE_PUTC()
@@ -212,6 +215,8 @@ uint32_t ATOSE_semaphore_create(ATOSE_registers *registers)
 {
 ATOSE_semaphore *semaphore;
 
+ATOSE_atose::get_ATOSE()->debug << "SEMAPHORE_CREATE\r\n";
+
 semaphore = ATOSE_atose::get_ATOSE()->process_allocator.malloc_semaphore();
 semaphore->clear();
 
@@ -224,6 +229,8 @@ return registers->r0 = (uint32_t)semaphore;
 */
 uint32_t ATOSE_semaphore_clear(ATOSE_registers *registers)
 {
+ATOSE_atose::get_ATOSE()->debug << "SEMAPHORE_CLEAR\r\n";
+
 ((ATOSE_semaphore *)registers->r1)->clear();
 
 return 0;
@@ -235,8 +242,11 @@ return 0;
 */
 uint32_t ATOSE_semaphore_signal(ATOSE_registers *registers)
 {
+ATOSE_atose::get_ATOSE()->debug << "SEMAPHORE_SIGNAL\r\n";
+
 ((ATOSE_semaphore *)registers->r1)->signal();
 
+ATOSE_atose::get_ATOSE()->debug << "DONE\r\n";
 return 0;
 }
 
@@ -246,7 +256,8 @@ return 0;
 */
 uint32_t ATOSE_semaphore_wait(ATOSE_registers *registers)
 {
-((ATOSE_semaphore *)registers->r1)->wait(registers);
+ATOSE_atose::get_ATOSE()->debug << "SEMAPHORE_WAIT\r\n";
+((ATOSE_semaphore *)registers->r1)->wait();
 
 return 0;
 }

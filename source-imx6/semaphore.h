@@ -25,15 +25,13 @@ public:
 
 private:
 	void wake_one(void);
-	void sleep_one(ATOSE_registers *registers);
+	void sleep_one(void);
 
 public:
 	ATOSE_semaphore() {}
 
-	void initialise(void) { value = 0; sleepers = NULL; }
-
 	void clear(void);
-	void wait(ATOSE_registers *registers);
+	void wait(void);
 	void signal(void);
 } ;
 

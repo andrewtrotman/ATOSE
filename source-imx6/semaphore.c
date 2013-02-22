@@ -25,23 +25,21 @@ ATOSE_atose::get_ATOSE()->scheduler.push(got);
 	ATOSE_SEMAPHORE::SLEEP_ONE()
 	----------------------------
 */
-void ATOSE_semaphore::sleep_one(ATOSE_registers *registers)
+void ATOSE_semaphore::sleep_one(void)
 {
 ATOSE_atose *os;
+ATOSE_process *process;
 
 os = ATOSE_atose::get_ATOSE();
 
 /*
 	pull the current process from the process queue
 */
-os->scheduler.get_current_process()->next = sleepers;
-sleepers = os->scheduler.get_current_process();
+process = os->scheduler.get_current_process();
 os->scheduler.set_current_process(NULL);
 
-/*
-	move on to the next process
-*/
-os->scheduler.context_switch(registers);
+process->next = sleepers;
+sleepers = process;
 }
 
 /*
@@ -58,12 +56,12 @@ sleepers = NULL;
 	ATOSE_SEMAPHORE::WAIT()
 	-----------------------
 */
-void ATOSE_semaphore::wait(ATOSE_registers *registers)
+void ATOSE_semaphore::wait(void)
 {
 value--;
 
 if (value < 0)
-	sleep_one(registers);
+	sleep_one();
 }
 
 /*
@@ -77,4 +75,3 @@ value++;
 if (value >= 0)
 	wake_one();
 }
-

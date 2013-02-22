@@ -24,7 +24,7 @@ private:
 	*/
 	static const int STACK_SIZE_FIRQ = 4;
 	static const int STACK_SIZE_IRQ = 1024;
-	static const int STACK_SIZE_SUPERVISOR = 128;				// used for SWI instructions
+	static const int STACK_SIZE_SUPERVISOR = 1024;				// used for SWI instructions
 	static const int STACK_SIZE_ABORT = 4;
 	static const int STACK_SIZE_UNDEFINED = 4;
 	static const int STACK_SIZE_SYSTEM = 1024;					// and user

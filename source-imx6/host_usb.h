@@ -13,7 +13,7 @@ class ATOSE_usb_ehci_queue_head;
 class ATOSE_usb_ehci_queue_element_transfer_descriptor;
 class ATOSE_usb_setup_data;
 class ATOSE_usb_standard_device_descriptor;
-
+class ATOSE_usb_standard_configuration_descriptor;
 /*
 	class ATOSE_HOST_USB
 	--------------------
@@ -27,7 +27,13 @@ protected:
 	void usb_bus_reset(void);
 	void initialise_queuehead(ATOSE_usb_ehci_queue_head *queue_head, uint32_t device, uint32_t endpoint);
 	void initialise_transfer_descriptor(ATOSE_usb_ehci_queue_element_transfer_descriptor *descriptor, uint32_t transaction_type, char *data, uint32_t data_length);
-	void send_setup_packet_to_device(uint32_t device, uint32_t endpoint, ATOSE_usb_setup_data *packet, ATOSE_usb_standard_device_descriptor *descriptor);
+
+	void send_setup_packet_to_device(uint32_t device, uint32_t endpoint, ATOSE_usb_setup_data *packet, void *descriptor, uint8_t size);
+
+	void wait_for_connection(void);
+	ATOSE_usb_standard_device_descriptor *get_device_descriptor(ATOSE_usb_standard_device_descriptor *descriptor);
+	ATOSE_usb_standard_configuration_descriptor *get_configuration_descriptor(uint32_t address, ATOSE_usb_standard_configuration_descriptor *descriptor);
+	void set_address(uint32_t address);
 
 public:
 	ATOSE_host_usb();

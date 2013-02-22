@@ -284,7 +284,7 @@ if (active_tail == NULL)
 /*
 	ATOSE_SCHEDULE::PULL()
 	----------------------
-	the process list is a queue
+	The process list is a queue
 */
 ATOSE_process *ATOSE_process_manager::pull(void)
 {
@@ -318,8 +318,8 @@ return current_process = pull();
 }
 
 /*
-	ATOSE_PROCESS_MANAGER::INITIALISE_PROCESS_REGISTERS()
-	-----------------------------------------------------
+	ATOSE_PROCESS_MANAGER::INITIALISE_PROCESS()
+	-------------------------------------------
 */
 uint32_t ATOSE_process_manager::initialise_process(ATOSE_process *process, size_t entry_point, uint32_t mode, uint32_t top_of_stack)
 {
@@ -367,6 +367,8 @@ if ((answer = elf_load(new_process, buffer, length)) != SUCCESS)
 	return answer;
 	}
 
+ATOSE_atose::get_ATOSE()->debug << "[created process:" << (uint32_t)new_process << "(stack:" << (uint32_t)mmu->highest_address << "]\r\n";
+
 answer = initialise_process(new_process, (size_t)new_process->entry_point, ATOSE_cpu_arm::MODE_USER, mmu->highest_address);
 
 return answer;
@@ -392,8 +394,10 @@ system_address_space->get_reference();
 /*
 	Give it a local stack
 */
-
 page = system_address_space->add_to_identity();
+
+ATOSE_atose::get_ATOSE()->debug.hex();
+ATOSE_atose::get_ATOSE()->debug << "[created thread:" << (uint32_t)new_process << "(stack:" << (uint32_t)(page->physical_address + page->page_size) << "]\r\n";
 
 return initialise_process(new_process, (size_t)(start), ATOSE_cpu_arm::MODE_SYSTEM, (uint32_t)(page->physical_address + page->page_size));
 }
@@ -410,14 +414,17 @@ ATOSE_process *current_process, *next_process;
 	What's running and what's next to run?
 */
 current_process = get_current_process();
-next_process = get_next_process() ;
+next_process = get_next_process();
+
+if (current_process == next_process && next_process == NULL)
+	ATOSE_atose::get_ATOSE()->debug << "[NULL NULL]";
 
 /*
 	if the current process is the next process then there is no work to do
 */
 if (current_process != next_process)
 	{
-//	ATOSE_atose::get_ATOSE()->debug << "switch";
+	ATOSE_atose::get_ATOSE()->debug << "[switch to:" << (uint32_t)next_process << "]\r\n";
 	/*
 		If we're running a process then copy the registers into its register space
 		this way if we cause a context switch then we've not lost anything
@@ -442,5 +449,6 @@ if (current_process != next_process)
 			ATOSE_atose::get_ATOSE()->heap.assume(next_process->address_space);
 		}
 	}
+
 return 0;
 }

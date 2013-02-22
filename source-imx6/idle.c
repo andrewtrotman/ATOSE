@@ -23,11 +23,26 @@ api.write('L');
 api.write('E');
 api.write(']');
 
+
+api.write('.');
 api.spawn(hello1_elf, hello1_elf_size);
+api.write('.');
 api.spawn(hello2_elf, hello2_elf_size);
+api.write('.');
 
 while (1)
 	api.write('A');
+
+
+#ifdef NEVER
+while (1)
+	{
+	/*
+		The idle process is nothing more than a spinner
+	*/
+	;/* nothing */
+	}
+#endif
 
 return 0;
 }

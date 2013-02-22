@@ -58,6 +58,7 @@ public:
 		The different device classes we know about
 	*/
 	static const uint8_t DEVICE_CLASS_CDC = 0x02;
+	static const uint8_t DEVICE_CLASS_HUB = 0x09;
 
 	/*
 		Standard USB methods on endpoint 0

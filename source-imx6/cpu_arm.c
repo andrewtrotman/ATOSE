@@ -37,21 +37,3 @@ asm volatile
 	:"r"(save_cpsr)
 	);
 }
-
-/*
-	ATOSE_CPU_ARM::ENABLE_IRQ()
-	---------------------------
-*/
-void ATOSE_cpu_arm::enable_irq(void)
-{
-set_cpsr(get_cpsr() & ~0x80);
-}
-
-/*
-	ATOSE_CPU_ARM::IRQ_HANDLER()
-	----------------------------
-*/
-void ATOSE_cpu_arm::irq_handler(void)
-{
-}
-

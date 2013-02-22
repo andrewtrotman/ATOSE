@@ -40,12 +40,12 @@ public:
 private:
 	uint32_t get_cpsr(void);
 	void set_cpsr(uint32_t new_cpsr);
-	static void irq_handler(void);
 
 public:
 	ATOSE_cpu_arm() {};
 	virtual void set_interrupt_handlers(void *address) = 0;
-	virtual void enable_irq(void);
+	void enable_irq(void) 						{ asm volatile ("cpsie i":::); }
+	void disable_irq(void) 						{ asm volatile ("cpsid i":::); }
 	virtual void delay_us(uint32_t time_in_us) = 0;
 } ;
 
