@@ -14,6 +14,8 @@ class ATOSE_usb_ehci_queue_element_transfer_descriptor;
 class ATOSE_usb_setup_data;
 class ATOSE_usb_standard_device_descriptor;
 class ATOSE_usb_standard_configuration_descriptor;
+class ATOSE_semaphore;
+
 /*
 	class ATOSE_HOST_USB
 	--------------------
@@ -21,7 +23,8 @@ class ATOSE_usb_standard_configuration_descriptor;
 class ATOSE_host_usb : public ATOSE_device_driver
 {
 private:
-	uint32_t semaphore;
+	ATOSE_semaphore *semaphore;
+	uint32_t semaphore_handle;
 
 protected:
 	void usb_bus_reset(void);
@@ -32,8 +35,9 @@ protected:
 
 	void wait_for_connection(void);
 	ATOSE_usb_standard_device_descriptor *get_device_descriptor(ATOSE_usb_standard_device_descriptor *descriptor);
-	ATOSE_usb_standard_configuration_descriptor *get_configuration_descriptor(uint32_t address, ATOSE_usb_standard_configuration_descriptor *descriptor);
+	ATOSE_usb_standard_configuration_descriptor *get_configuration_descriptor(uint32_t address, ATOSE_usb_standard_configuration_descriptor *descriptor, uint32_t size = 0);
 	void set_address(uint32_t address);
+	void set_configuration(uint32_t address, uint32_t configuration);
 
 public:
 	ATOSE_host_usb();

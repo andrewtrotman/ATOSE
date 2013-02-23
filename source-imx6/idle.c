@@ -16,25 +16,24 @@ uint32_t idle(void)
 {
 ATOSE_api api;
 
-api.write('[');
-api.write('I');
-api.write('D');
-api.write('L');
-api.write('E');
-api.write(']');
-
-
-api.write('.');
-api.spawn(hello1_elf, hello1_elf_size);
-api.write('.');
-api.spawn(hello2_elf, hello2_elf_size);
-api.write('.');
-
-while (1)
-	api.write('A');
-
-
 #ifdef NEVER
+	api.write('[');
+	api.write('I');
+	api.write('D');
+	api.write('L');
+	api.write('E');
+	api.write(']');
+
+	api.write('.');
+	api.spawn(hello1_elf, hello1_elf_size);
+	api.write('.');
+	api.spawn(hello2_elf, hello2_elf_size);
+	api.write('.');
+
+	while (1)
+		api.write('A');
+
+#endif
 while (1)
 	{
 	/*
@@ -42,7 +41,6 @@ while (1)
 	*/
 	;/* nothing */
 	}
-#endif
 
 return 0;
 }

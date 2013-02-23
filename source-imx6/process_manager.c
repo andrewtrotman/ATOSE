@@ -333,7 +333,7 @@ process->execution_path->registers.r13 = top_of_stack & ((uint32_t)~0x03);		// a
 	R14_current) points once the scheduler schedules the process to be
 	run
 */
-process->execution_path->registers.r14_current = (uint32_t)(entry_point + 4);			// we add 4 because we'll enter as a consequence of leaving an IRQ which must subtract 4 from the link register on return.
+process->execution_path->registers.r14_current = (uint32_t)entry_point;
 
 /*
 	When we do run we need to return to user-mode which is done by setting the CPSR register's low bits
@@ -367,8 +367,6 @@ if ((answer = elf_load(new_process, buffer, length)) != SUCCESS)
 	return answer;
 	}
 
-ATOSE_atose::get_ATOSE()->debug << "[created process:" << (uint32_t)new_process << "(stack:" << (uint32_t)mmu->highest_address << "]\r\n";
-
 answer = initialise_process(new_process, (size_t)new_process->entry_point, ATOSE_cpu_arm::MODE_USER, mmu->highest_address);
 
 return answer;
@@ -396,9 +394,6 @@ system_address_space->get_reference();
 */
 page = system_address_space->add_to_identity();
 
-ATOSE_atose::get_ATOSE()->debug.hex();
-ATOSE_atose::get_ATOSE()->debug << "[created thread:" << (uint32_t)new_process << "(stack:" << (uint32_t)(page->physical_address + page->page_size) << "]\r\n";
-
 return initialise_process(new_process, (size_t)(start), ATOSE_cpu_arm::MODE_SYSTEM, (uint32_t)(page->physical_address + page->page_size));
 }
 
@@ -424,7 +419,6 @@ if (current_process == next_process && next_process == NULL)
 */
 if (current_process != next_process)
 	{
-	ATOSE_atose::get_ATOSE()->debug << "[switch to:" << (uint32_t)next_process << "]\r\n";
 	/*
 		If we're running a process then copy the registers into its register space
 		this way if we cause a context switch then we've not lost anything

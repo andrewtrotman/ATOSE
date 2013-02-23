@@ -114,8 +114,13 @@ HW_GPT_SR.U = HW_GPT_SR.U;
 
 /*
 	Cause a context switch
+	Now, internally we store the true return address.  To get that from an IRQ we must subtract 4 from the
+	link pointer.  But when we return from and IRQ we subtract four from the link pointer to we need to
+	add four once we get the new process's registers back out
 */
+registers->r14_current -= 4;
 ATOSE_atose::get_ATOSE()->scheduler.context_switch(registers);
+registers->r14_current += 4;
 }
 
 /*

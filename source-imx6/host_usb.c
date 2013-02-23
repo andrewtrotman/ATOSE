@@ -24,9 +24,11 @@
 #include "atose_api.h"
 #include "host_usb.h"
 #include "ascii_str.h"
-
 #include "usb_ehci_queue_head.h"
+#include "usb_standard_hub_descriptor.h"
 #include "usb_standard_device_descriptor.h"
+#include "usb_standard_endpoint_descriptor.h"
+#include "usb_standard_interface_descriptor.h"
 #include "usb_standard_configuration_descriptor.h"
 #include "usb_ehci_queue_head_endpoint_capabilities.h"
 #include "usb_ehci_queue_element_transfer_descriptor.h"
@@ -368,7 +370,9 @@ void ATOSE_host_usb::enable(void)
 /*
 	Initialise the semaphore
 */
-semaphore = ATOSE_api::semaphore_create();
+semaphore = ATOSE_atose::get_ATOSE()->process_allocator.malloc_semaphore();
+semaphore->clear();
+semaphore_handle = (uint32_t)semaphore;
 
 /*
 	Initialise the worker thread
@@ -548,7 +552,7 @@ HW_USBC_UH1_USBSTS.U = usb_status.U;
 if (usb_status.B.UI)
 	{
 	debug_print_string("USB INT\r\n");
-	ATOSE_api::semaphore_signal(semaphore);
+	semaphore->signal();
 	}
 
 /*
@@ -571,7 +575,7 @@ if (usb_status.B.PCI)
 	while(!(HW_USBC_UH1_PORTSC1_RD() & BM_USBC_UH1_PORTSC1_CCS))
 		; /* nothing */
 
-	ATOSE_api::semaphore_signal(semaphore);
+	semaphore->signal();
 	HW_USBC_UH1_USBSTS.B.PCI = 1;
 	}
 }
@@ -585,21 +589,24 @@ void ATOSE_host_usb::send_setup_packet_to_device(uint32_t device, uint32_t endpo
 /*
 	Initialise the queuehead and bung it in the Async list
 */
-initialise_queuehead(&queue_head, 0, 0);
+initialise_queuehead(&queue_head, device, endpoint);
 
 /*
 	Initialise the descriptors
 */
 initialise_transfer_descriptor(&global_qTD1, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_SETUP, (char *)packet, sizeof(*packet));
 initialise_transfer_descriptor(&global_qTD2, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_IN, (char *)descriptor, size);
-initialise_transfer_descriptor(&global_qTD3, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_OUT, 0, 0);
-
-/*
-	Create the chain and interrupt on completion
-*/
 global_qTD1.next_qtd_pointer = &global_qTD2;
-global_qTD2.next_qtd_pointer = &global_qTD3;
-global_qTD3.token.bit.ioc = 1;
+
+if (descriptor == NULL)
+	global_qTD2.token.bit.ioc = 1;
+else
+	{
+	initialise_transfer_descriptor(&global_qTD3, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_OUT, 0, 0);
+
+	global_qTD2.next_qtd_pointer = &global_qTD3;
+	global_qTD3.token.bit.ioc = 1;
+	}
 
 /*
 	Shove the descriptors into the queuehead
@@ -618,8 +625,8 @@ HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() | BM_USBC_UH1_USBCMD_ASE);
 while(!(HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_AS))
 	;	/* do nothing */
 
-//debug_print_string("WAITONSEMAPHORE\r\n");
-ATOSE_api::semaphore_wait(semaphore);
+debug_print_string("WAITONSEND\r\n");
+ATOSE_api::semaphore_wait(semaphore_handle);
 }
 
 /*
@@ -643,12 +650,14 @@ void ATOSE_host_usb::wait_for_connection(void)
 /*
 	Wait for a connect event
 */
-ATOSE_api::semaphore_wait(semaphore);
+debug_print_string("WAITONCONNECTION\r\n");
+ATOSE_api::semaphore_wait(semaphore_handle);
 
 /*
 	Reset the USB bus
 */
 usb_bus_reset();
+ATOSE_api::semaphore_wait(semaphore_handle);
 }
 
 /*
@@ -681,7 +690,7 @@ return descriptor;
 	ATOSE_HOST_USB::GET_CONFIGURATION_DESCRIPTOR()
 	----------------------------------------------
 */
-ATOSE_usb_standard_configuration_descriptor *ATOSE_host_usb::get_configuration_descriptor(uint32_t address, ATOSE_usb_standard_configuration_descriptor *descriptor)
+ATOSE_usb_standard_configuration_descriptor *ATOSE_host_usb::get_configuration_descriptor(uint32_t address, ATOSE_usb_standard_configuration_descriptor *descriptor, uint32_t size)
 {
 ATOSE_usb_setup_data setup_packet;
 
@@ -690,9 +699,9 @@ setup_packet.bRequest = ATOSE_usb::REQUEST_GET_DESCRIPTOR;
 setup_packet.wValue_high = ATOSE_usb::DESCRIPTOR_TYPE_CONFIGURATION;
 setup_packet.wValue_low = 0;
 setup_packet.wIndex = 0;
-setup_packet.wLength = sizeof(*descriptor);
+setup_packet.wLength = size == 0 ? sizeof(*descriptor) : size;
 
-send_setup_packet_to_device(address, 0, &setup_packet, descriptor, sizeof(*descriptor));
+send_setup_packet_to_device(address, 0, &setup_packet, descriptor, setup_packet.wLength);
 
 return descriptor;
 }
@@ -706,8 +715,25 @@ void ATOSE_host_usb::set_address(uint32_t address)
 ATOSE_usb_setup_data setup_packet;
 
 setup_packet.bmRequestType.all = 0x00;
-setup_packet.bRequest = ATOSE_usb::REQUEST_GET_DESCRIPTOR;
+setup_packet.bRequest = ATOSE_usb::REQUEST_SET_ADDRESS;
 setup_packet.wValue = address;
+setup_packet.wIndex = 0;
+setup_packet.wLength = 0;
+
+send_setup_packet_to_device(0, 0, &setup_packet, 0, 0);
+}
+
+/*
+	ATOSE_HOST_USB::SET_CONFIGURATION()
+	-----------------------------------
+*/
+void ATOSE_host_usb::set_configuration(uint32_t address, uint32_t configuration)
+{
+ATOSE_usb_setup_data setup_packet;
+
+setup_packet.bmRequestType.all = 0x00;
+setup_packet.bRequest = ATOSE_usb::REQUEST_SET_CONFIGURATION;
+setup_packet.wValue = configuration;
 setup_packet.wIndex = 0;
 setup_packet.wLength = 0;
 
@@ -745,9 +771,6 @@ debug_print_this("iProduct           :", device_descriptor.iProduct);
 debug_print_this("iSerialNumber      :", device_descriptor.iSerialNumber);
 debug_print_this("bNumConfigurations :", device_descriptor.bNumConfigurations);
 
-while (1);
-
-#ifdef NEVER
 /*
 	We know about some classes of device including USB Hubs
 */
@@ -757,9 +780,96 @@ if (device_descriptor.bDeviceClass == ATOSE_usb::DEVICE_CLASS_HUB)
 		We're a USB Hub
 	*/
 	debug_print_string("Set Address\r\n");
-	set_address(1);
+	set_address(3);
+
 	debug_print_string("GET CONFIG DESCRIPTOR\r\n");
-	get_configuration_descriptor(1, &configuration_descriptor);
+	get_configuration_descriptor(3, &configuration_descriptor);
+
+	debug_print_this("bLength            :", configuration_descriptor.bLength);
+	debug_print_this("bDescriptorType    :", configuration_descriptor.bDescriptorType);
+	debug_print_this("wTotalLength       :", configuration_descriptor.wTotalLength);
+	debug_print_this("bNumInterfaces     :", configuration_descriptor.bNumInterfaces);
+	debug_print_this("bConfigurationValue:", configuration_descriptor.bConfigurationValue);
+	debug_print_this("iConfiguration     :", configuration_descriptor.iConfiguration);
+	debug_print_this("bmAttributes       :", configuration_descriptor.bmAttributes);
+	debug_print_this("bMaxPower          :", configuration_descriptor.bMaxPower);
+
+	debug_print_string("SET CONFIGURATION\r\n");
+	set_configuration(3, 1);
+
+	static uint8_t buffer[1024];
+	debug_print_string("GET_CONFIGURATION_DESCRIPTOR\r\n");
+	get_configuration_descriptor(3, (ATOSE_usb_standard_configuration_descriptor *)buffer, configuration_descriptor.wTotalLength);
+	void dump_configuration_descriptor(uint8_t *descriptor);
+	dump_configuration_descriptor(buffer);
 	}
-#endif
 }
+
+/*
+	DUMP_CONFIGURATION_DESCRIPTOR()
+	-------------------------------
+*/
+void dump_configuration_descriptor(uint8_t *descriptor)
+{
+ATOSE_usb_standard_endpoint_descriptor *endpoint_descriptor;
+ATOSE_usb_standard_interface_descriptor *interface_descriptor;
+ATOSE_usb_standard_configuration_descriptor *configuration_descriptor;
+uint8_t *end;
+
+configuration_descriptor = (ATOSE_usb_standard_configuration_descriptor *)descriptor;
+end = descriptor + configuration_descriptor->wTotalLength;
+while (descriptor < end)
+	{
+	configuration_descriptor = (ATOSE_usb_standard_configuration_descriptor *)descriptor;
+	descriptor += configuration_descriptor->bLength;
+	if (configuration_descriptor->bDescriptorType == ATOSE_usb::DESCRIPTOR_TYPE_CONFIGURATION)
+		{
+		debug_print_string("CONFIGURATION\r\n");
+		debug_print_this("bLength            :", configuration_descriptor->bLength);
+		debug_print_this("bDescriptorType    :", configuration_descriptor->bDescriptorType);
+		debug_print_this("wTotalLength       :", configuration_descriptor->wTotalLength);
+		debug_print_this("bNumInterfaces     :", configuration_descriptor->bNumInterfaces);
+		debug_print_this("bConfigurationValue:", configuration_descriptor->bConfigurationValue);
+		debug_print_this("iConfiguration     :", configuration_descriptor->iConfiguration);
+		debug_print_this("bmAttributes       :", configuration_descriptor->bmAttributes);
+		debug_print_this("bMaxPower          :", configuration_descriptor->bMaxPower);
+		}
+	else if (configuration_descriptor->bDescriptorType == ATOSE_usb::DESCRIPTOR_TYPE_INTERFACE)
+		{
+		interface_descriptor = (ATOSE_usb_standard_interface_descriptor *)configuration_descriptor;
+
+		debug_print_string("INTERFACE\r\n");
+		debug_print_this("bLength            :", interface_descriptor->bLength);
+		debug_print_this("bDescriptorType    :", interface_descriptor->bDescriptorType);
+		debug_print_this("bInterfaceNumber   :", interface_descriptor->bInterfaceNumber);
+		debug_print_this("bAlternateSetting  :", interface_descriptor->bAlternateSetting);
+		debug_print_this("bNumEndpoints      :", interface_descriptor->bNumEndpoints);
+		debug_print_this("bInterfaceClass    :", interface_descriptor->bInterfaceClass);
+		debug_print_this("bInterfaceSubClass :", interface_descriptor->bInterfaceSubClass);
+		debug_print_this("bInterfaceProtocol :", interface_descriptor->bInterfaceProtocol);
+		debug_print_this("iInterface         :", interface_descriptor->iInterface);
+		}
+
+	else if (configuration_descriptor->bDescriptorType == ATOSE_usb::DESCRIPTOR_TYPE_ENDPOINT)
+		{
+		endpoint_descriptor = (ATOSE_usb_standard_endpoint_descriptor *)configuration_descriptor;
+
+		debug_print_string("ENDPOINT\r\n");
+		debug_print_this("bLength            :", endpoint_descriptor->bLength);
+		debug_print_this("bDescriptorType    :", endpoint_descriptor->bDescriptorType);
+		debug_print_this("bEndpointAddress   :", endpoint_descriptor->bEndpointAddress);
+		debug_print_this("bmAttributes       :", endpoint_descriptor->bmAttributes);
+		debug_print_this("wMaxPacketSize     :", endpoint_descriptor->wMaxPacketSize);
+		debug_print_this("bInterval          :", endpoint_descriptor->bInterval);
+		}
+
+	else
+		{
+		debug_print_string("UNKNOWN\r\n");
+		debug_print_this("bLength            :", configuration_descriptor->bLength);
+		debug_print_this("bDescriptorType    :", configuration_descriptor->bDescriptorType);
+		return;
+		}
+	}
+}
+

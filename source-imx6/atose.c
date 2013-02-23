@@ -46,16 +46,20 @@ heap.init();		// and turn on the MMU
 interrupt_controller.enable(&process_clock, process_clock.get_interrup_id());
 process_clock.enable();
 
+
 //debug  << "Start the IDLE process";
 scheduler.create_system_thread(idle);
 //debug << "done" << ATOSE_debug::eoln;
 
-//interrupt_controller.enable(&imx6q_host_usb, imx6q_host_usb.get_interrup_id());
-//imx6q_host_usb.enable();
+interrupt_controller.enable(&imx6q_host_usb, imx6q_host_usb.get_interrup_id());
+imx6q_host_usb.enable();
+
+//debug << "Enable IRQ" << ATOSE_debug::eoln;
 
 cpu.enable_irq();
 
 debug << "Wait for startup" << ATOSE_debug::eoln;
+
 while (1)
 	;	// this will never happen because once we enable IRQ we'll get an event to switch processes
 }
@@ -215,8 +219,6 @@ uint32_t ATOSE_semaphore_create(ATOSE_registers *registers)
 {
 ATOSE_semaphore *semaphore;
 
-ATOSE_atose::get_ATOSE()->debug << "SEMAPHORE_CREATE\r\n";
-
 semaphore = ATOSE_atose::get_ATOSE()->process_allocator.malloc_semaphore();
 semaphore->clear();
 
@@ -229,8 +231,6 @@ return registers->r0 = (uint32_t)semaphore;
 */
 uint32_t ATOSE_semaphore_clear(ATOSE_registers *registers)
 {
-ATOSE_atose::get_ATOSE()->debug << "SEMAPHORE_CLEAR\r\n";
-
 ((ATOSE_semaphore *)registers->r1)->clear();
 
 return 0;
@@ -242,11 +242,7 @@ return 0;
 */
 uint32_t ATOSE_semaphore_signal(ATOSE_registers *registers)
 {
-ATOSE_atose::get_ATOSE()->debug << "SEMAPHORE_SIGNAL\r\n";
-
 ((ATOSE_semaphore *)registers->r1)->signal();
-
-ATOSE_atose::get_ATOSE()->debug << "DONE\r\n";
 return 0;
 }
 
@@ -256,7 +252,6 @@ return 0;
 */
 uint32_t ATOSE_semaphore_wait(ATOSE_registers *registers)
 {
-ATOSE_atose::get_ATOSE()->debug << "SEMAPHORE_WAIT\r\n";
 ((ATOSE_semaphore *)registers->r1)->wait();
 
 return 0;
