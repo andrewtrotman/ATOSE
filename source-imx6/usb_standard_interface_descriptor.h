@@ -23,6 +23,15 @@ public:
 	*/
 	static const uint8_t CLASS_CDC = 0x02;
 	static const uint8_t CLASS_DATA = 0x0A;
+	static const uint8_t CLASS_HUB = 0x09;
+
+	/*
+		USB Hub protocols.  A "Transaction Translator" or "TT" is a device that slows transmission speeds down from
+		USB 2.0 (and presumably above) to the slower speeds needed for USB 1 and USB 1.1.  The more the merrier.
+	*/
+	static const uint8_t PROTOCOL_HUB_TRANSACTION_TRANSLATOR_NONE = 0x00;
+	static const uint8_t PROTOCOL_HUB_TRANSACTION_TRANSLATOR_ONE = 0x01;
+	static const uint8_t PROTOCOL_HUB_TRANSACTION_TRANSLATOR_MANY = 0x02;
 
 public:
 	uint8_t bLength;

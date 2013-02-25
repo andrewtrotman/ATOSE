@@ -156,11 +156,6 @@ ATOSE_semaphore_wait
 uint32_t ATOSE_atose::isr_swi(ATOSE_registers *registers)
 {
 /*
-	Disable interrupts to prevent re-entrancy
-*/
-//ATOSE_atose::get_ATOSE()->cpu.disable_irq();			unnecessary as this happens by default
-
-/*
 	First we need to determine whether or no the SWI is for us.  We do this by getting the SWI number,
 	that number is stored in the instruction just executed, which is stored at R14.  So we subtract 4 from
 	R14 to get the instruction then turn off the top bits to get the number
@@ -175,6 +170,11 @@ if (registers->r0 > ATOSE_END_OF_METHODS)
 	return 0;
 
 /*
+	Save the state of the registers
+*/
+memcpy(&ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->execution_path->registers, registers, sizeof(*registers));
+
+/*
 	Dispatch
 */
 ATOSE_call[registers->r0](registers);
@@ -182,6 +182,7 @@ ATOSE_call[registers->r0](registers);
 /*
 	Context switch
 */
+
 ATOSE_atose::get_ATOSE()->scheduler.context_switch(registers);
 
 return 0;

@@ -53,6 +53,8 @@ public:
 	static const uint8_t DESCRIPTOR_TYPE_OTHER_SPEED_CONFIGURATION = 0x07;
 	static const uint8_t DESCRIPTOR_TYPE_INTERFACE_POWER = 0x08;
 	static const uint8_t DESCRIPTOR_TYPE_CS_INTERFACE = 0x24;
+	static const uint8_t DESCRIPTOR_TYPE_HUB = 0x29;
+
 
 	/*
 		The different device classes we know about
