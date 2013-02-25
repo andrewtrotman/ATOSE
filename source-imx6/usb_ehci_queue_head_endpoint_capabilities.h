@@ -28,7 +28,7 @@ public:
 			{
 			unsigned u_frame_s_mask : 8;
 			unsigned u_frame_c_mask : 8;
-			unsigned hib_addr       : 7;
+			unsigned hub_addr       : 7;
 			unsigned port_number    : 7;
 			unsigned mult           : 2;
 			} bit __attribute__ ((packed));

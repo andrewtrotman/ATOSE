@@ -30,6 +30,8 @@ public:
 	static const uint32_t C_PORT_RESET = 20;
 	static const uint32_t PORT_TEST = 21;
 	static const uint32_t PORT_INDICATOR = 22;
+
+	static const uint32_t REQUEST_RESET_TT = 0x09;
 } ;
 
 #endif /* USB_HUB_H_ */
