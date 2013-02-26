@@ -801,6 +801,101 @@ debug_print_string("DONE\r\n");
 }
 
 /*
+	ATOSE_HOST_USB::SPLIT_READ_FROM_INTERRUPT_PORT()
+	------------------------------------------------
+*/
+void ATOSE_host_usb::split_read_from_interrupt_port(uint32_t device, uint32_t endpoint, void *buffer, uint8_t size)
+{
+/*
+	Disable the periodic list
+*/
+HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() &(~BM_USBC_UH1_USBCMD_PSE));
+while(HW_USBC_UH1_USBCMD_RD() & BM_USBC_UH1_USBCMD_PSE)
+	;	/* nothing */
+
+/*
+	Initialise the queuehead and set the poll-rate to once every 8 frames
+*/
+initialise_queuehead(&queue_head, device, endpoint);
+queue_head.capabilities.bit.u_frame_s_mask = 0xFF;
+queue_head.characteristics.bit.h = 0;
+queue_head.queue_head_horizontal_link_pointer.bit.t = 1;		// terminate the list
+/*
+	transaction translation happens at hub with address 3 and on it's port 1.
+*/
+queue_head.capabilities.bit.hub_addr = 3;
+queue_head.capabilities.bit.port_number = 1;
+
+/*
+	Initialise the descriptors
+*/
+initialise_transfer_descriptor(&global_qTD1, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_IN, (char *)buffer, size);
+global_qTD1.token.bit.ioc = 1;
+
+/*
+	Shove the descriptors into the queuehead
+*/
+queue_head.next_qtd_pointer = &global_qTD1;
+
+/*
+	We want a short frame list - 8 members.
+*/
+#define USB_USBCMD_FS_8                  (0x800C)
+HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() | USB_USBCMD_FS_8);
+
+/*
+	Put this queue element into the list
+*/
+periodic_schedule[0] = (ATOSE_usb_ehci_queue_head *)(((uint32_t)&queue_head) | ATOSE_usb_ehci_queue_head_horizontal_link_pointer::QUEUE_HEAD); // we're a queuehead;
+
+/*
+	Empty the remainder of the periodic list
+*/
+periodic_schedule[1] = (ATOSE_usb_ehci_queue_head *)1;		// Terminator
+periodic_schedule[2] = (ATOSE_usb_ehci_queue_head *)1;		// Terminator
+periodic_schedule[3] = (ATOSE_usb_ehci_queue_head *)1;		// Terminator
+periodic_schedule[4] = (ATOSE_usb_ehci_queue_head *)1;		// Terminator
+periodic_schedule[5] = (ATOSE_usb_ehci_queue_head *)1;		// Terminator
+periodic_schedule[6] = (ATOSE_usb_ehci_queue_head *)1;		// Terminator
+periodic_schedule[7] = (ATOSE_usb_ehci_queue_head *)1;		// Terminator
+
+/*
+	Give the queue list to the USB controller
+*/
+HW_USBC_UH1_PERIODICLISTBASE_WR((uint32_t)(&periodic_schedule[0]));
+HW_USBC_UH1_FRINDEX_WR(0);
+
+/*
+	Start the schedule and wait for it to get going
+*/
+HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() | BM_USBC_UH1_USBCMD_PSE);
+while(!(HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_PS))
+	; /* nothing */
+
+
+debug_print_string("WAITONGETFROMINTERRUPTPORT\r\n");
+/*
+	Wait for completion
+*/
+while(!(HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_UI))
+	; /* nothing */
+debug_print_string("DONE\r\n");
+
+HW_USBC_UH1_USBSTS_WR(HW_USBC_UH1_USBSTS_RD() | BM_USBC_UH1_USBSTS_UI);
+debug_print_string("DONE the next line\r\n");
+
+
+#ifdef NEVER
+debug_print_string("WAITONGETFROMINTERRUPTPORT\r\n");
+ATOSE_api::semaphore_wait(semaphore_handle);
+debug_print_string("DONE\r\n");
+#endif
+}
+
+
+
+
+/*
 	ATOSE_HOST_USB_DEVICE_MANAGER()
 	-------------------------------
 */
@@ -1228,6 +1323,13 @@ if (device_descriptor.bDeviceClass == ATOSE_usb::DEVICE_CLASS_HUB)
 
 				set_split_address(device_address);
 				set_split_configuration(device_address, 1);
+
+				/*
+					Can we get interrupt data from it yet?
+				*/
+				split_read_from_interrupt_port(device_address, 1, buffer, 4);
+				debug_dump_buffer(buffer, 0, 4);
+
 
 				velocity = GO_FAST;
 				}

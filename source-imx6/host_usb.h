@@ -55,6 +55,8 @@ protected:
 	void set_split_address(uint32_t address);
 	void set_split_configuration(uint32_t address, uint32_t which);
 
+	void split_read_from_interrupt_port(uint32_t device, uint32_t endpoint, void *buffer, uint8_t size);
+
 public:
 	ATOSE_host_usb();
 
