@@ -405,9 +405,6 @@ ATOSE_atose::get_ATOSE()->scheduler.create_system_thread(ATOSE_host_usb_device_m
 static ATOSE_usb_ehci_queue_element_transfer_descriptor global_qTD1 __attribute__ ((aligned(64)));
 static ATOSE_usb_ehci_queue_element_transfer_descriptor global_qTD2 __attribute__ ((aligned(64)));
 static ATOSE_usb_ehci_queue_element_transfer_descriptor global_qTD3 __attribute__ ((aligned(64)));
-static ATOSE_usb_ehci_queue_element_transfer_descriptor global_qTD4 __attribute__ ((aligned(64)));
-static ATOSE_usb_ehci_queue_element_transfer_descriptor global_qTD5 __attribute__ ((aligned(64)));
-static ATOSE_usb_ehci_queue_element_transfer_descriptor global_qTD6 __attribute__ ((aligned(64)));
 
 /*
    The i.MX6Q SDK (iMX6_Platform_SDK\sdk\drivers\usb\src\usbh_drv.c) alligns on 64-byte
@@ -614,6 +611,7 @@ while(HW_USBC_UH1_USBCMD_RD() & BM_USBC_UH1_USBCMD_ASE)
 	Initialise the queuehead and bung it in the Async list
 */
 initialise_queuehead(&queue_head, device, endpoint);
+queue_head.characteristics.bit.c = 1;
 
 /*
 	Initialise the descriptors
@@ -666,34 +664,33 @@ while(HW_USBC_UH1_USBCMD_RD() & BM_USBC_UH1_USBCMD_ASE)
 	;	/* nothing */
 
 /*
-	Initialise the queuehead
+	Initialise the queuehead and bung it in the Async list
 */
 initialise_queuehead(&queue_head, device, endpoint);
 queue_head.characteristics.bit.c = 1;
-//queue_head.capabilities.bit.u_frame_s_mask = 0x55;
-//queue_head.capabilities.bit.u_frame_c_mask = 0xAA;
+
+/*
+	transaction translation happens at hub with address 3 and on it's port 1.
+*/
+queue_head.capabilities.bit.hub_addr = 3;
+queue_head.capabilities.bit.port_number = 1;
 
 /*
 	Initialise the descriptors
 */
 initialise_transfer_descriptor(&global_qTD1, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_SETUP, (char *)packet, sizeof(*packet));
-initialise_transfer_descriptor(&global_qTD2, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_SETUP, (char *)packet, sizeof(*packet));
-global_qTD2.token.bit.status |= ATOSE_usb_ehci_queue_element_transfer_descriptor_token::STATUS_SPLIT_TRANSACTION_STATE;
-
-initialise_transfer_descriptor(&global_qTD3, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_IN, (char *)descriptor, size);
-initialise_transfer_descriptor(&global_qTD4, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_IN, (char *)descriptor, size);
-global_qTD4.token.bit.status |= ATOSE_usb_ehci_queue_element_transfer_descriptor_token::STATUS_SPLIT_TRANSACTION_STATE;
-
-initialise_transfer_descriptor(&global_qTD5, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_OUT, 0, 0);
-initialise_transfer_descriptor(&global_qTD6, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_OUT, 0, 0);
-global_qTD6.token.bit.status |= ATOSE_usb_ehci_queue_element_transfer_descriptor_token::STATUS_SPLIT_TRANSACTION_STATE;
-
+initialise_transfer_descriptor(&global_qTD2, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_IN, (char *)descriptor, size);
 global_qTD1.next_qtd_pointer = &global_qTD2;
-global_qTD2.next_qtd_pointer = &global_qTD3;
-global_qTD3.next_qtd_pointer = &global_qTD4;
-global_qTD4.next_qtd_pointer = &global_qTD5;
-global_qTD5.next_qtd_pointer = &global_qTD6;
-global_qTD6.token.bit.ioc = 1;
+
+if (descriptor == NULL)
+	global_qTD2.token.bit.ioc = 1;
+else
+	{
+	initialise_transfer_descriptor(&global_qTD3, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_OUT, 0, 0);
+
+	global_qTD2.next_qtd_pointer = &global_qTD3;
+	global_qTD3.token.bit.ioc = 1;
+	}
 
 /*
 	Shove the descriptors into the queuehead
@@ -711,14 +708,6 @@ HW_USBC_UH1_ASYNCLISTADDR_WR((uint32_t)&queue_head);
 HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() | BM_USBC_UH1_USBCMD_ASE);
 while(!(HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_AS))
 	;	/* do nothing */
-
-ATOSE_atose::get_ATOSE()->cpu.delay_us(1000000);
-debug_print_this("global_qTD1.token.bit.status", global_qTD1.token.bit.status);
-debug_print_this("global_qTD2.token.bit.status", global_qTD2.token.bit.status);
-debug_print_this("global_qTD3.token.bit.status", global_qTD3.token.bit.status);
-debug_print_this("global_qTD4.token.bit.status", global_qTD4.token.bit.status);
-debug_print_this("global_qTD5.token.bit.status", global_qTD5.token.bit.status);
-debug_print_this("global_qTD6.token.bit.status", global_qTD6.token.bit.status);
 
 ATOSE_api::semaphore_wait(semaphore_handle);
 }
@@ -932,6 +921,24 @@ send_setup_packet_to_device(0, 0, &setup_packet, 0, 0);
 }
 
 /*
+	ATOSE_HOST_USB::SET_SPLIT_ADDRESS()
+	-----------------------------------
+*/
+void ATOSE_host_usb::set_split_address(uint32_t address)
+{
+ATOSE_usb_setup_data setup_packet;
+
+setup_packet.bmRequestType.all = 0x00;
+setup_packet.bRequest = ATOSE_usb::REQUEST_SET_ADDRESS;
+setup_packet.wValue = address;
+setup_packet.wIndex = 0;
+setup_packet.wLength = 0;
+
+send_split_setup_packet_to_device(0, 0, &setup_packet, 0, 0);
+}
+
+
+/*
 	ATOSE_HOST_USB::HUB_SET_INTERFACE()
 	-----------------------------------
 */
@@ -964,6 +971,23 @@ setup_packet.wIndex = 0;
 setup_packet.wLength = 0;
 
 send_setup_packet_to_device(address, 0, &setup_packet, 0, 0);
+}
+
+/*
+	ATOSE_HOST_USB::SET_SPLIT_CONFIGURATION()
+	-----------------------------------------
+*/
+void ATOSE_host_usb::set_split_configuration(uint32_t address, uint32_t configuration)
+{
+ATOSE_usb_setup_data setup_packet;
+
+setup_packet.bmRequestType.all = 0x00;
+setup_packet.bRequest = ATOSE_usb::REQUEST_SET_CONFIGURATION;
+setup_packet.wValue = configuration;
+setup_packet.wIndex = 0;
+setup_packet.wLength = 0;
+
+send_split_setup_packet_to_device(address, 0, &setup_packet, 0, 0);
 }
 
 
@@ -1137,7 +1161,8 @@ dump_device_descriptor(&device_descriptor);
 */
 if (device_descriptor.bDeviceClass == ATOSE_usb::DEVICE_CLASS_HUB)
 	{
-	device_address = address = 3;
+	address = 3;
+	device_address = address + 1;
 	debug_print_string("Set Address\r\n");
 	set_address(address);
 
@@ -1167,19 +1192,13 @@ if (device_descriptor.bDeviceClass == ATOSE_usb::DEVICE_CLASS_HUB)
 	for (uint32_t port = 1; port <= hub_descriptor.bNbrPorts; port++)
 		{
 		debug_print_this("Power port:", port);
-
 		set_port_feature(address, port, ATOSE_usb_hub::PORT_POWER);
 		ATOSE_atose::get_ATOSE()->cpu.delay_us(200000);
-		}
 
-	for (uint32_t port = 1; port <= hub_descriptor.bNbrPorts; port++)
-		{
-		debug_print_this("get port status:", port);
 		get_port_status(address, port, buffer);
 		void dump_port_status(uint8_t *descriptor);
 		debug_print_this("\r\nPORT: ", port);
 		dump_port_status(buffer);
-
 
 		uint16_t des, *d;
 		d = (uint16_t *)buffer;
@@ -1191,57 +1210,36 @@ if (device_descriptor.bDeviceClass == ATOSE_usb::DEVICE_CLASS_HUB)
 				get the descriptor
 			*/
 			debug_print_string("           FOUND A NEW DEVICE, GETS ITS DESCRIPTOR\r\n");
-			ATOSE_atose::get_ATOSE()->cpu.delay_us(100000);
 
-			debug_print_string("reset\r\n");
 			set_port_feature(address, port, ATOSE_usb_hub::PORT_RESET);
+			ATOSE_atose::get_ATOSE()->cpu.delay_us(20000);
 
-			ATOSE_atose::get_ATOSE()->cpu.delay_us(100000);
-
-			debug_print_this("get port status:", port);
-			get_port_status(address, port, buffer);
-			void dump_port_status(uint8_t *descriptor);
-			debug_print_this("\r\nPORT: ", port);
-			dump_port_status(buffer);
-
-			debug_print_string("clear C_PORT_CONNECTION\r\n");
 			clear_port_feature(address, port, ATOSE_usb_hub::C_PORT_CONNECTION);
-			ATOSE_atose::get_ATOSE()->cpu.delay_us(100000);
-
-			debug_print_this("get port status:", port);
-			get_port_status(address, port, buffer);
-			void dump_port_status(uint8_t *descriptor);
-			debug_print_this("\r\nPORT: ", port);
-			dump_port_status(buffer);
-
-
-			debug_print_string("clear C_PORT_RESET\r\n");
 			clear_port_feature(address, port, ATOSE_usb_hub::C_PORT_RESET);
-			ATOSE_atose::get_ATOSE()->cpu.delay_us(100000);
 
-			/*
-				Re-examine port
-			*/
-			debug_print_this("PORT: ", port);
-			get_port_status(address, port, buffer);
-			dump_port_status(buffer);
-
-
-velocity = GO_SLOW;
 			memset(&device_descriptor, 0 , sizeof(device_descriptor));
-			debug_print_string("get device descriptor\r\n");
-			get_split_device_descriptor(&device_descriptor);
-			ATOSE_atose::get_ATOSE()->cpu.delay_us(1000000);
-			dump_device_descriptor(&device_descriptor);
-velocity = GO_FAST;
 
-			debug_print_this("global_qTD1.token.bit.status", global_qTD1.token.bit.status);
-			debug_print_this("global_qTD2.token.bit.status", global_qTD2.token.bit.status);
-			debug_print_this("global_qTD3.token.bit.status", global_qTD3.token.bit.status);
-			debug_print_this("global_qTD4.token.bit.status", global_qTD4.token.bit.status);
-			debug_print_this("global_qTD5.token.bit.status", global_qTD5.token.bit.status);
-			debug_print_this("global_qTD6.token.bit.status", global_qTD6.token.bit.status);
+			if ((des & (1 << 9)) != 0)
+				{
+				velocity = GO_SLOW;
 
+				get_split_device_descriptor(&device_descriptor);
+				dump_device_descriptor(&device_descriptor);
+
+				set_split_address(device_address);
+				set_split_configuration(device_address, 1);
+
+				velocity = GO_FAST;
+				}
+			else
+				{
+				get_device_descriptor(&device_descriptor);
+				dump_device_descriptor(&device_descriptor);
+
+				set_address(device_address);
+				set_configuration(device_address, 1);
+				}
+			device_address++;
 			}
 		}
 #ifdef NEVER

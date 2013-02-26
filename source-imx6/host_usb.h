@@ -52,6 +52,9 @@ protected:
 	void clear_port_feature(uint32_t address, uint32_t port, uint32_t feature);
 	void reset_tt(uint32_t address, uint32_t port);
 
+	void set_split_address(uint32_t address);
+	void set_split_configuration(uint32_t address, uint32_t which);
+
 public:
 	ATOSE_host_usb();
 
