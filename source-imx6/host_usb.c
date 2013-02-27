@@ -26,7 +26,7 @@
 #include "atose_api.h"
 #include "ascii_str.h"
 #include "usb_ehci_queue_head.h"
-#include "usb_hub_port_status.h"
+#include "usb_hub_port_status_and_change.h"
 #include "usb_standard_hub_descriptor.h"
 #include "usb_standard_device_descriptor.h"
 #include "usb_standard_endpoint_descriptor.h"
@@ -94,8 +94,6 @@ HW_UART_UFCR(DEFAULT_UART).B.RFDIV = 0x04;		/* divide input clock by 2 */
 HW_UART_UBIR(DEFAULT_UART).U = 0x0F;
 HW_UART_UBMR(DEFAULT_UART).U = (PLL3_FREQUENCY / (HW_CCM_CSCDR1.B.UART_CLK_PODF + 1)) / (2 * BAUD_RATE);		// UBMR should be 0x015B once set
 }
-
-
 
 /*
 	DEBUG_PUTC()
@@ -386,6 +384,20 @@ memset(device_list, 0, sizeof(device_list));
 device_list[0].dead = true;
 
 /*
+	Initialise a blank queuehead so that we can get the controller up and running
+	then start the controller
+*/
+initialise_queuehead(&empty_queue_head, &device_list[0], 0);
+
+/*
+	Pass the queuehead on to the i.MX6Q and wait for it to start up
+*/
+HW_USBC_UH1_ASYNCLISTADDR_WR((uint32_t)&empty_queue_head);
+HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() | BM_USBC_UH1_USBCMD_ASE);
+while(!(HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_AS))
+	;	/* do nothing */
+
+/*
 	Initialise the semaphore
 */
 semaphore = ATOSE_atose::get_ATOSE()->process_allocator.malloc_semaphore();
@@ -409,70 +421,72 @@ ATOSE_atose::get_ATOSE()->scheduler.create_system_thread(ATOSE_host_usb_device_m
 }
 
 /*
-	========================
-	========================
-	========================
+	ATOSE_HOST_USB::ACKNOWLEDGE()
+	-----------------------------
 */
+void ATOSE_host_usb::acknowledge(ATOSE_registers *registers)
+{
+hw_usbc_uog_usbsts_t usb_status;
+
+/*
+	Acknowledge all the interrupts
+*/
+usb_status.U = HW_USBC_UH1_USBSTS.U;
+HW_USBC_UH1_USBSTS.U = usb_status.U;
+
+/*
+	USBINT (as it's know) After initialisation and under normal operation we expect only this case.
+*/
+if (usb_status.B.UI)
+	{
+//	debug_print_string("USB INT\r\n");
+	semaphore->signal();
+	}
+
+/*
+	USB Reset Interrupt
+*/
+if (usb_status.B.URI)
+	{
+//	debug_print_string("USB RESET\r\n");
+	}
+
+/*
+	USB Port Change Interrupt
+*/
+if (usb_status.B.PCI)
+	{
+//	debug_print_string("USB PCI\r\n");
+	/*
+		Wait for the connect to finish
+	*/
+	while(!(HW_USBC_UH1_PORTSC1_RD() & BM_USBC_UH1_PORTSC1_CCS))
+		; /* nothing */
+
+	semaphore->signal();
+	HW_USBC_UH1_USBSTS.B.PCI = 1;
+	}
+}
 
 /*
 	ATOSE_HOST_USB::::USB_BUS_RESET()
 	---------------------------------
 */
-void ATOSE_host_usb::usb_bus_reset(void)
+uint32_t ATOSE_host_usb::usb_bus_reset(void)
 {
 /*
-	Tell the controller to perform the Port Reset
+	Tell the controller to perform the Port Reset and wait for completion
 */
 HW_USBC_UH1_PORTSC1_WR(HW_USBC_UH1_PORTSC1_RD() | BM_USBC_UH1_PORTSC1_PR);
-
-/*
-	And wait for it to finish
-*/
 while(HW_USBC_UH1_PORTSC1_RD() & BM_USBC_UH1_PORTSC1_PR)
 	; /* do nothing */
-}
 
 /*
-	ATOSE_HOST_USB::INITIALISE_QUEUEHEAD()
-	--------------------------------------
+	Wait for the interrupt
 */
-void ATOSE_host_usb::initialise_queuehead(ATOSE_usb_ehci_queue_head *queue_head, uint32_t device, uint32_t endpoint)
-{
-/*
-	Set everything to zero
-*/
-memset(queue_head, 0, sizeof(queue_head));
+ATOSE_api::semaphore_wait(semaphore_handle);
 
-/*
-	Create a circular list of just this one queuehead
-*/
-queue_head->queue_head_horizontal_link_pointer.all = queue_head;		// point to self
-queue_head->queue_head_horizontal_link_pointer.bit.typ = ATOSE_usb_ehci_queue_head_horizontal_link_pointer::QUEUE_HEAD;	// we're a queuehead
-queue_head->characteristics.bit.h = 1;				// we're the head of the list
-
-/*
-	Set the port speed and packet size (which is based on the port speed)
-*/
-queue_head->characteristics.bit.ep = HW_USBC_UH1_PORTSC1.B.PSPD;	// port speed
-queue_head->characteristics.bit.maximum_packet_length = (queue_head->characteristics.bit.ep == 0x01 ? 0x08 : 0x40);		// 0x08 for LOW-speed else 0x40
-
-queue_head->characteristics.bit.dtc = 1;
-
-/*
-	We're for a particular endpoint on a particular device (but we probably don't know what those are yet)
-*/
-queue_head->characteristics.bit.device_address = device;
-queue_head->characteristics.bit.endpt = endpoint;
-
-/*
-	One transaction per micro-frame
-*/
-queue_head->capabilities.bit.mult = ATOSE_usb_ehci_queue_head_endpoint_capabilities::TRANSACTIONS_ONE;
-
-/*
-	we don't yet have a descriptor so we mark the descriptors as dead-ends
-*/
-queue_head->next_qtd_pointer = queue_head->alternate_next_qtd_pointer = (ATOSE_usb_ehci_queue_element_transfer_descriptor *)ATOSE_usb_ehci_queue_element_transfer_descriptor::TERMINATOR;
+return 0;
 }
 
 /*
@@ -582,68 +596,13 @@ for (block = 1; block < ATOSE_usb_ehci_queue_element_transfer_descriptor::BUFFER
 }
 
 /*
-	ATOSE_HOST_USB::ACKNOWLEDGE()
-	-----------------------------
-*/
-void ATOSE_host_usb::acknowledge(ATOSE_registers *registers)
-{
-hw_usbc_uog_usbsts_t usb_status;
-
-/*
-	Acknowledge all the interrupts
-*/
-usb_status.U = HW_USBC_UH1_USBSTS.U;
-HW_USBC_UH1_USBSTS.U = usb_status.U;
-
-/*
-	USBINT (as it's know) After initialisation and under normal operation we expect only this case.
-*/
-if (usb_status.B.UI)
-	{
-//	debug_print_string("USB INT\r\n");
-	semaphore->signal();
-	}
-
-/*
-	USB Reset Interrupt
-*/
-if (usb_status.B.URI)
-	{
-//	debug_print_string("USB RESET\r\n");
-	}
-
-/*
-	USB Port Change Interrupt
-*/
-if (usb_status.B.PCI)
-	{
-//	debug_print_string("USB PCI\r\n");
-	/*
-		Wait for the connect to finish
-	*/
-	while(!(HW_USBC_UH1_PORTSC1_RD() & BM_USBC_UH1_PORTSC1_CCS))
-		; /* nothing */
-
-	semaphore->signal();
-	HW_USBC_UH1_USBSTS.B.PCI = 1;
-	}
-}
-
-/*
 	ATOSE_HOST_USB::SEND_SETUP_PACKET()
 	-----------------------------------
 	return:
 		0 on success
 */
-int32_t ATOSE_host_usb::send_setup_packet(ATOSE_host_usb_device *device, uint32_t endpoint, ATOSE_usb_setup_data *packet, void *descriptor, uint8_t size)
+uint32_t ATOSE_host_usb::send_setup_packet(ATOSE_host_usb_device *device, uint8_t endpoint, ATOSE_usb_setup_data *packet, void *descriptor, uint8_t size)
 {
-/*
-	Turn off the ASYNC list first
-*/
-HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() & (~BM_USBC_UH1_USBCMD_ASE));
-while(HW_USBC_UH1_USBCMD_RD() & BM_USBC_UH1_USBCMD_ASE)
-	;	/* nothing */
-
 /*
 	Initialise the queuehead and bung it in the Async list
 */
@@ -673,201 +632,161 @@ else
 queue_head.next_qtd_pointer = &transfer_descriptor_1;
 
 /*
-	Pass the queuehead on the to the i.MX6Q
+	What we're going to do here is to replace the currently running
+	blank queuehead with our one that has work to do.  We then wait for
+	completion and then put the blank queuehead back
 */
-HW_USBC_UH1_ASYNCLISTADDR_WR((uint32_t)&queue_head);
-
-/*
-	Enable the Async list and wait for it to start
-*/
-HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() | BM_USBC_UH1_USBCMD_ASE);
-while(!(HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_AS))
-	;	/* do nothing */
+queue_head.characteristics.bit.h = 0;				// we're not the head of the list
+queue_head.queue_head_horizontal_link_pointer.all = &empty_queue_head;
+queue_head.queue_head_horizontal_link_pointer.bit.typ = ATOSE_usb_ehci_queue_head_horizontal_link_pointer::QUEUE_HEAD;
+empty_queue_head.queue_head_horizontal_link_pointer.all = (ATOSE_usb_ehci_queue_head *)((uint32_t)&queue_head | ATOSE_usb_ehci_queue_head_horizontal_link_pointer::QUEUE_HEAD);
 
 ATOSE_api::semaphore_wait(semaphore_handle);
+
+empty_queue_head.queue_head_horizontal_link_pointer.all = (ATOSE_usb_ehci_queue_head *)((uint32_t)&empty_queue_head | ATOSE_usb_ehci_queue_head_horizontal_link_pointer::QUEUE_HEAD);
+/*
+	pages 5251 and 5253 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012"
+	explain how to remove something from the queuehead once the task is complete.  They read:
+
+	"At the point software has removed
+	one or more queue heads from the asynchronous schedule, it is unknown whether the host
+	controller has a cached pointer to them. Similarly, it is unknown how long the host
+	controller might retain the cached information, as it is implementation dependent and
+	may be affected by the actual dynamics of the schedule load. Therefore, once software
+	has removed a queue head from the asynchronous list, it must retain the coherency of the
+	queue head (link pointers, and so on). It cannot disturb the removed queue heads until it
+	knows that the host controller does not have a local copy of a pointer to any of the
+	removed data structures."
+
+	"The handshake is implemented with three bits in the host controller. The first bit is a
+	command bit (Interrupt on Async Advance Doorbell bit in the USB_USBCMD register)
+	that allows software to inform the host controller that something has been removed from
+	its asynchronous schedule. The second bit is a status bit (Interrupt on Async Advance bit
+	in the USB_USBSTS register) that the host controller sets after it has released all on-chip
+	state that may potentially reference one of the data structures just removed. When the
+	host controller sets this status bit to one, it also sets the command bit to zero. The third bit
+	is an interrupt enable (Interrupt on Async Advance bit in the USB_USBINTR register)
+	that is matched with the status bit. If the status bit is one and the interrupt enable bit is
+	one, then the host controller asserts a hardware interrupt."
+
+	"Software may re-use the memory associated with the removed queue heads after it
+	observes the Interrupt on Async Advance status bit is set to one, following assertion of
+	the doorbell. Software should acknowledge the Interrupt on Async Advance status as
+	indicated in the USB_USBSTS register, before using the doorbell handshake again."
+*/
+HW_USBC_UH1_USBCMD.B.IAA = 1;										// ring the doorbell
+while (HW_USBC_UH1_USBSTS.B.AAI != 1)							// wait for the acknowledge
+	;	/* nothing */
+HW_USBC_UH1_USBSTS.B.AAI = 1;										// clear the doorbell
+
+/*
+	Yay, success!
+*/
+return 0;
+}
+
+
+/*
+	========================
+	========================
+	========================
+*/
+
+/*
+	ATOSE_HOST_USB::READ_INTERRUPT_PACKET()
+	---------------------------------------
+	The Interrupt end points don't use the aync list, they use the periodic frame list!!
+*/
+uint32_t ATOSE_host_usb::read_interrupt_packet(ATOSE_host_usb_device *device, uint32_t endpoint, void *buffer, uint8_t size)
+{
+/*
+	Disable the periodic list
+*/
+HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() &(~BM_USBC_UH1_USBCMD_PSE));
+while(HW_USBC_UH1_USBCMD_RD() & BM_USBC_UH1_USBCMD_PSE)
+	;	/* nothing */
+
+/*
+	Initialise the queuehead and set the poll-rate
+*/
+initialise_queuehead(&queue_head, device, endpoint);
+queue_head.capabilities.bit.u_frame_s_mask = 0xFF;
+queue_head.characteristics.bit.h = 0;
+queue_head.queue_head_horizontal_link_pointer.bit.t = 1;		// terminate the list
+
+/*
+	Initialise the descriptors
+*/
+initialise_transfer_descriptor(&transfer_descriptor_1, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_IN, (char *)buffer, size);
+transfer_descriptor_1.token.bit.ioc = 1;
+
+/*
+	Shove the descriptors into the queuehead
+*/
+queue_head.next_qtd_pointer = &transfer_descriptor_1;
+
+/*
+	We want a short frame list - 8 members.
+*/
+#define USB_USBCMD_FS_8                  (0x800C)
+HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() | USB_USBCMD_FS_8);
+
+/*
+	Put this queue element into the list
+*/
+periodic_schedule[0] = (ATOSE_usb_ehci_queue_head *)(((uint32_t)&queue_head) | ATOSE_usb_ehci_queue_head_horizontal_link_pointer::QUEUE_HEAD); // we're a queuehead;
+
+/*
+	Empty the remainder of the periodic list
+*/
+periodic_schedule[1] = (ATOSE_usb_ehci_queue_head *)1;		// Terminator
+periodic_schedule[2] = (ATOSE_usb_ehci_queue_head *)1;		// Terminator
+periodic_schedule[3] = (ATOSE_usb_ehci_queue_head *)1;		// Terminator
+periodic_schedule[4] = (ATOSE_usb_ehci_queue_head *)1;		// Terminator
+periodic_schedule[5] = (ATOSE_usb_ehci_queue_head *)1;		// Terminator
+periodic_schedule[6] = (ATOSE_usb_ehci_queue_head *)1;		// Terminator
+periodic_schedule[7] = (ATOSE_usb_ehci_queue_head *)1;		// Terminator
+
+/*
+	Give the queue list to the USB controller
+*/
+HW_USBC_UH1_PERIODICLISTBASE_WR((uint32_t)(&periodic_schedule[0]));
+HW_USBC_UH1_FRINDEX_WR(0);
+
+/*
+	Start the schedule and wait for it to get going
+*/
+HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() | BM_USBC_UH1_USBCMD_PSE);
+while(!(HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_PS))
+	; /* nothing */
+
+
+debug_print_string("WAITONGETFROMINTERRUPTPORT\r\n");
+/*
+	Wait for completion
+*/
+while(!(HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_UI))
+	; /* nothing */
+debug_print_string("DONE\r\n");
+
+HW_USBC_UH1_USBSTS_WR(HW_USBC_UH1_USBSTS_RD() | BM_USBC_UH1_USBSTS_UI);
+debug_print_string("DONE the next line\r\n");
+
+
+#ifdef NEVER
+debug_print_string("WAITONGETFROMINTERRUPTPORT\r\n");
+ATOSE_api::semaphore_wait(semaphore_handle);
+debug_print_string("DONE\r\n");
+#endif
 
 return 0;
 }
 
 /*
-	ATOSE_HOST_USB::READ_FROM_INTERRUPT_PORT()
-	------------------------------------------
-	The Interrupt end points don't use the aync list, they use the periodic frame list!!
+	========================
+	========================
+	========================
 */
-void ATOSE_host_usb::read_from_interrupt_port(uint32_t device, uint32_t endpoint, void *buffer, uint8_t size)
-{
-/*
-	Disable the periodic list
-*/
-HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() &(~BM_USBC_UH1_USBCMD_PSE));
-while(HW_USBC_UH1_USBCMD_RD() & BM_USBC_UH1_USBCMD_PSE)
-	;	/* nothing */
-
-/*
-	Initialise the queuehead and set the poll-rate to once every 8 frames
-*/
-initialise_queuehead(&queue_head, device, endpoint);
-queue_head.capabilities.bit.u_frame_s_mask = 0xFF;
-queue_head.characteristics.bit.h = 0;
-queue_head.queue_head_horizontal_link_pointer.bit.t = 1;		// terminate the list
-
-/*
-	Initialise the descriptors
-*/
-initialise_transfer_descriptor(&transfer_descriptor_1, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_IN, (char *)buffer, size);
-transfer_descriptor_1.token.bit.ioc = 1;
-
-/*
-	Shove the descriptors into the queuehead
-*/
-queue_head.next_qtd_pointer = &transfer_descriptor_1;
-
-/*
-	We want a short frame list - 8 members.
-*/
-#define USB_USBCMD_FS_8                  (0x800C)
-HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() | USB_USBCMD_FS_8);
-
-/*
-	Put this queue element into the list
-*/
-periodic_schedule[0] = (ATOSE_usb_ehci_queue_head *)(((uint32_t)&queue_head) | ATOSE_usb_ehci_queue_head_horizontal_link_pointer::QUEUE_HEAD); // we're a queuehead;
-
-/*
-	Empty the remainder of the periodic list
-*/
-periodic_schedule[1] = (ATOSE_usb_ehci_queue_head *)1;		// Terminator
-periodic_schedule[2] = (ATOSE_usb_ehci_queue_head *)1;		// Terminator
-periodic_schedule[3] = (ATOSE_usb_ehci_queue_head *)1;		// Terminator
-periodic_schedule[4] = (ATOSE_usb_ehci_queue_head *)1;		// Terminator
-periodic_schedule[5] = (ATOSE_usb_ehci_queue_head *)1;		// Terminator
-periodic_schedule[6] = (ATOSE_usb_ehci_queue_head *)1;		// Terminator
-periodic_schedule[7] = (ATOSE_usb_ehci_queue_head *)1;		// Terminator
-
-/*
-	Give the queue list to the USB controller
-*/
-HW_USBC_UH1_PERIODICLISTBASE_WR((uint32_t)(&periodic_schedule[0]));
-HW_USBC_UH1_FRINDEX_WR(0);
-
-/*
-	Start the schedule and wait for it to get going
-*/
-HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() | BM_USBC_UH1_USBCMD_PSE);
-while(!(HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_PS))
-	; /* nothing */
-
-
-debug_print_string("WAITONGETFROMINTERRUPTPORT\r\n");
-/*
-	Wait for completion
-*/
-while(!(HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_UI))
-	; /* nothing */
-debug_print_string("DONE\r\n");
-
-HW_USBC_UH1_USBSTS_WR(HW_USBC_UH1_USBSTS_RD() | BM_USBC_UH1_USBSTS_UI);
-debug_print_string("DONE the next line\r\n");
-
-
-#ifdef NEVER
-debug_print_string("WAITONGETFROMINTERRUPTPORT\r\n");
-ATOSE_api::semaphore_wait(semaphore_handle);
-debug_print_string("DONE\r\n");
-#endif
-}
-
-/*
-	ATOSE_HOST_USB::SPLIT_READ_FROM_INTERRUPT_PORT()
-	------------------------------------------------
-*/
-void ATOSE_host_usb::split_read_from_interrupt_port(uint32_t device, uint32_t endpoint, void *buffer, uint8_t size)
-{
-/*
-	Disable the periodic list
-*/
-HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() &(~BM_USBC_UH1_USBCMD_PSE));
-while(HW_USBC_UH1_USBCMD_RD() & BM_USBC_UH1_USBCMD_PSE)
-	;	/* nothing */
-
-/*
-	Initialise the queuehead and set the poll-rate to once every 8 frames
-*/
-initialise_queuehead(&queue_head, device, endpoint);
-queue_head.capabilities.bit.u_frame_s_mask = 0xFF;
-queue_head.characteristics.bit.h = 0;
-queue_head.queue_head_horizontal_link_pointer.bit.t = 1;		// terminate the list
-/*
-	transaction translation happens at hub with address 3 and on it's port 1.
-*/
-queue_head.capabilities.bit.hub_addr = 3;
-queue_head.capabilities.bit.port_number = 1;
-
-/*
-	Initialise the descriptors
-*/
-initialise_transfer_descriptor(&transfer_descriptor_1, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_IN, (char *)buffer, size);
-transfer_descriptor_1.token.bit.ioc = 1;
-
-/*
-	Shove the descriptors into the queuehead
-*/
-queue_head.next_qtd_pointer = &transfer_descriptor_1;
-
-/*
-	We want a short frame list - 8 members.
-*/
-#define USB_USBCMD_FS_8                  (0x800C)
-HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() | USB_USBCMD_FS_8);
-
-/*
-	Put this queue element into the list
-*/
-periodic_schedule[0] = (ATOSE_usb_ehci_queue_head *)(((uint32_t)&queue_head) | ATOSE_usb_ehci_queue_head_horizontal_link_pointer::QUEUE_HEAD); // we're a queuehead;
-
-/*
-	Empty the remainder of the periodic list
-*/
-periodic_schedule[1] = (ATOSE_usb_ehci_queue_head *)1;		// Terminator
-periodic_schedule[2] = (ATOSE_usb_ehci_queue_head *)1;		// Terminator
-periodic_schedule[3] = (ATOSE_usb_ehci_queue_head *)1;		// Terminator
-periodic_schedule[4] = (ATOSE_usb_ehci_queue_head *)1;		// Terminator
-periodic_schedule[5] = (ATOSE_usb_ehci_queue_head *)1;		// Terminator
-periodic_schedule[6] = (ATOSE_usb_ehci_queue_head *)1;		// Terminator
-periodic_schedule[7] = (ATOSE_usb_ehci_queue_head *)1;		// Terminator
-
-/*
-	Give the queue list to the USB controller
-*/
-HW_USBC_UH1_PERIODICLISTBASE_WR((uint32_t)(&periodic_schedule[0]));
-HW_USBC_UH1_FRINDEX_WR(0);
-
-/*
-	Start the schedule and wait for it to get going
-*/
-HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() | BM_USBC_UH1_USBCMD_PSE);
-while(!(HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_PS))
-	; /* nothing */
-
-
-debug_print_string("WAITONGETFROMINTERRUPTPORT\r\n");
-/*
-	Wait for completion
-*/
-while(!(HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_UI))
-	; /* nothing */
-debug_print_string("DONE\r\n");
-
-HW_USBC_UH1_USBSTS_WR(HW_USBC_UH1_USBSTS_RD() | BM_USBC_UH1_USBSTS_UI);
-debug_print_string("DONE the next line\r\n");
-
-
-#ifdef NEVER
-debug_print_string("WAITONGETFROMINTERRUPTPORT\r\n");
-ATOSE_api::semaphore_wait(semaphore_handle);
-debug_print_string("DONE\r\n");
-#endif
-}
 
 /*
 	ATOSE_HOST_USB_DEVICE_MANAGER()
@@ -885,7 +804,7 @@ return 0;
 	ATOSE_HOST_USB::WAIT_FOR_CONNECTION()
 	-------------------------------------
 */
-void ATOSE_host_usb::wait_for_connection(void)
+uint32_t ATOSE_host_usb::wait_for_connection(void)
 {
 /*
 	Wait for a connect event
@@ -895,17 +814,218 @@ ATOSE_api::semaphore_wait(semaphore_handle);
 /*
 	Reset the USB bus
 */
-usb_bus_reset();
-ATOSE_api::semaphore_wait(semaphore_handle);
+return usb_bus_reset();
+}
+
+/*
+	ATOSE_HOST_USB::ENUMERATE()
+	---------------------------
+*/
+ATOSE_host_usb_device *ATOSE_host_usb::enumerate(uint8_t parent, uint8_t transaction_translator_address, uint8_t transaction_translator_port, uint8_t my_velocity)
+{
+uint8_t buffer[256];			// no real reason for 256, I just doubt it'll get longer than that.  Oh, an if you plug too many USB hubs into each other I don't want a crash
+uint32_t port;
+ATOSE_usb_standard_device_descriptor device_descriptor;
+ATOSE_usb_standard_configuration_descriptor *configuration_descriptor;
+ATOSE_usb_standard_interface_descriptor *interface_descriptor;
+ATOSE_host_usb_device *current;
+ATOSE_usb_standard_hub_descriptor hub_descriptor;
+ATOSE_usb_hub_port_status_and_change status;
+uint8_t address, child_velocity;
+
+/*
+	make room for us and mark us as something we don't know about
+*/
+address = device_list_length;
+device_list_length++;
+current = device_list + address;
+current->dead = true;
+current->ehci = this;
+current->address = 0;
+
+/*
+	Set up speed translation through the transaction translator (if necessary) so that we get the device's descriptor
+*/
+current->port_velocity = my_velocity;
+current->transaction_translator_address = transaction_translator_address;
+current->transaction_translator_port = transaction_translator_port;
+
+/*
+	Get the device descriptor and fill out our local copies of them
+*/
+if (current->get_device_descriptor(&device_descriptor) != 0)
+	return NULL;		// if we can't read the descriptor then something is seriously broken
+
+current->vendor_id = device_descriptor.idVendor;
+current->product_id = device_descriptor.idProduct;
+current->device_id = device_descriptor.bcdDevice;
+current->device_class = device_descriptor.bDeviceClass;
+current->device_subclass = device_descriptor.bDeviceSubClass;
+current->device_protocol = device_descriptor.bDeviceProtocol;
+current->max_packet_size = device_descriptor.bMaxPacketSize0;
+current->parent_address = parent;
+
+/*
+	USB class 0x00 is reserved and means "Use class code info from Interface Descriptors".
+	For the complete list of classes see "USB Class Codes December 7, 2011" here:
+	http://www.usb.org/developers/defined_class
+*/
+if (current->device_class == 0 && device_descriptor.bNumConfigurations == 1)
+	{
+	configuration_descriptor = (ATOSE_usb_standard_configuration_descriptor *)buffer;
+	if (current->get_configuration_descriptor(configuration_descriptor, sizeof(buffer)) != 0)
+		return NULL;
+	interface_descriptor = (ATOSE_usb_standard_interface_descriptor *)(configuration_descriptor + 1);
+
+	if (interface_descriptor->bDescriptorType == ATOSE_usb::DESCRIPTOR_TYPE_INTERFACE)
+		{
+		current->device_class = interface_descriptor->bInterfaceClass;
+		current->device_subclass = interface_descriptor->bInterfaceSubClass;
+		current->device_protocol = interface_descriptor->bInterfaceProtocol;
+		}
+
+	void dump_configuration_descriptor(uint8_t *descriptor);
+	if (current->device_class == 8)
+		dump_configuration_descriptor(buffer);
+	}
+
+/*
+	Set the address of the device.
+	Note that when we call the set_address() method the address is currently 0.  We only
+	change its internal address once the method returns.  This is essential as the device
+	is device 0 on the USB bus until set_address() returns. If we change the order of these
+	two lines then the message will be sent to the wrong device.
+*/
+if (current->set_address(address) != 0)
+	return NULL;
+current->address = address;
+
+/*
+	Find out about its configurations.  If there's only one then use it
+*/
+if (device_descriptor.bNumConfigurations == 1)
+	{
+	if (current->set_configuration(1) != 0)
+		return NULL;
+	}
+else
+	return NULL;
+
+current->dead = false;
+
+/*
+	If we're a USB hub we power it up
+*/
+if (current->device_class == ATOSE_usb::DEVICE_CLASS_HUB)
+	{
+	if (current->get_hub_descriptor(&hub_descriptor) != 0)
+		return NULL;
+
+	current->hub_ports = hub_descriptor.bNbrPorts;
+
+	for (port = 1; port <= current->hub_ports; port++)
+		{
+		/*
+			Power up the port
+		*/
+		if (current->set_port_feature(port, ATOSE_usb_hub::PORT_POWER) == 0)
+			{
+			if (current->get_port_status(port, &status) == 0)
+				{
+				if (status.status.port_connection)
+					{
+					/*
+						Reset the port
+					*/
+					current->set_port_feature(port, ATOSE_usb_hub::PORT_RESET);
+					current->clear_port_feature(port, ATOSE_usb_hub::C_PORT_CONNECTION);
+					current->clear_port_feature(port, ATOSE_usb_hub::C_PORT_RESET);
+
+					/*
+						At this point (as bizzar as this is gonna sound), devices attached to the port can choose to change their speeds.
+						I have observed this happening, and we can't just ignore it because otherwise we end up using a transaction translator
+						when we shouldn't and it all goes to pot.
+					*/
+					if (current->get_port_status(port, &status) == 0)
+						{
+						/*
+							Do that recursive thing (enumerate my children)
+							If the child is USB 1.1 and I'm USB 2.0 then I'm the translator, else my translator is my child's translator
+						*/
+						child_velocity = status.status.port_low_speed ? ATOSE_host_usb_device::VELOCITY_LOW : status.status.port_high_speed ? ATOSE_host_usb_device::VELOCITY_HIGH : ATOSE_host_usb_device::VELOCITY_FULL;
+						if (my_velocity == ATOSE_host_usb_device::VELOCITY_HIGH && (child_velocity == ATOSE_host_usb_device::VELOCITY_LOW || child_velocity == ATOSE_host_usb_device::VELOCITY_FULL))
+							enumerate(current->address, current->address, port, child_velocity);
+						else
+							enumerate(current->address, transaction_translator_address, transaction_translator_port, child_velocity);
+						}
+					}
+				}
+			}
+		}
+	}
+
+current->dead = false;
+
+return current;
+}
+
+/*
+	ATOSE_HOST_USB::DEVICE_MANAGER()
+	--------------------------------
+*/
+void ATOSE_host_usb::device_manager(void)
+{
+/*
+	Wait for a connection then enumerate the USB bus
+*/
+wait_for_connection();
+enumerate(0, 0, 0, HW_USBC_UH1_PORTSC1.B.PSPD);
+
+debug_print_string("  VID      PID      CLASS    SUBCLASS PROTOCOL\r\n");
+for (uint32_t current = 1; current < device_list_length; current++)
+	{
+	debug_print_string(device_list[current].dead ? "X " : "  ");
+	if (!device_list[current].dead)
+		{
+		debug_print_hex(device_list[current].vendor_id);
+		debug_print_string(" ");
+		debug_print_hex(device_list[current].product_id);
+		debug_print_string(" ");
+		debug_print_hex(device_list[current].device_class);
+		debug_print_string(" ");
+		debug_print_hex(device_list[current].device_subclass);
+		debug_print_string(" ");
+		debug_print_hex(device_list[current].device_protocol);
+		debug_print_string(" ");
+		if (device_list[current].device_class == 8 && device_list[current].device_subclass == 6 && device_list[current].device_protocol == 0x50)
+			{
+			debug_print_string("DISK");
+			/*
+				We're a disk so we're going to do some extra stuff
+			*/
+			}
+		}
+	debug_print_string("\r\n");
+	}
+
+
+
+#ifdef NEVER
+	debug_print_string("GET STATUS FROM I-PORT\r\n");
+	hub_connect_status(address, endpoint, buffer, 1);
+	debug_print_string("DONE\r\n");
+#endif
+
+debug_print_string("END OF ENUMERATION\r\n");
 }
 
 /*
 	ATOSE_HOST_USB::HUB_CONNECT_STATUS()
 	------------------------------------
 */
-void ATOSE_host_usb::hub_connect_status(uint32_t address, uint32_t endpoint, uint8_t *buffer, uint32_t bytes)
+void ATOSE_host_usb::hub_connect_status(ATOSE_host_usb_device *device, uint32_t endpoint, uint8_t *buffer, uint32_t bytes)
 {
-read_from_interrupt_port(address, endpoint, buffer, bytes);
+read_interrupt_packet(device, endpoint, buffer, bytes);
 }
 
 /*
@@ -950,182 +1070,6 @@ while (descriptor < end)
 			}
 		}
 	}
-}
-
-/*
-	ATOSE_HOST_USB::ENUMERATE()
-	---------------------------
-*/
-ATOSE_host_usb_device *ATOSE_host_usb::enumerate(uint8_t parent, uint8_t transaction_translator_address, uint8_t transaction_translator_port, uint8_t my_velocity)
-{
-uint8_t buffer[256];			// no real reason for 256, I just doubt it'll get longer than that
-uint8_t address, child_velocity;
-uint32_t port, port_status;
-ATOSE_usb_standard_device_descriptor device_descriptor;
-ATOSE_usb_standard_configuration_descriptor *configuration_descriptor;
-ATOSE_usb_standard_interface_descriptor *interface_descriptor;
-ATOSE_host_usb_device *current;
-ATOSE_usb_standard_hub_descriptor hub_descriptor;
-ATOSE_usb_hub_port_status *status;
-
-/*
-	make room for us and mark us as something we don't know about
-*/
-address = device_list_length;
-device_list_length++;
-current = device_list + address;
-current->dead = true;
-current->ehci = this;
-current->address = 0;
-
-/*
-	Set up speed translation through the transaction translator (if necessary) so that we get the device's descriptor
-*/
-current->port_velocity = my_velocity;
-current->transaction_translator_address = transaction_translator_address;
-current->transaction_translator_port = transaction_translator_port;
-
-/*
-	Get the device descriptor
-*/
-current->get_device_descriptor(&device_descriptor);
-
-/*
-	Fill in our local copies of these
-*/
-current->vendor_id = device_descriptor.idVendor;
-current->product_id = device_descriptor.idProduct;
-current->device_id = device_descriptor.bcdDevice;
-current->device_class = device_descriptor.bDeviceClass;
-current->device_subclass = device_descriptor.bDeviceSubClass;
-current->device_protocol = device_descriptor.bDeviceProtocol;
-current->max_packet_size = device_descriptor.bMaxPacketSize0;
-current->parent_address = parent;
-
-/*
-	USB class 0x00 is reserved and means "Use class code info from Interface Descriptors".
-	For the complete list of classes see "USB Class Codes December 7, 2011" here:
-	http://www.usb.org/developers/defined_class
-*/
-if (current->device_class == 0 && device_descriptor.bNumConfigurations == 1)
-	{
-	configuration_descriptor = (ATOSE_usb_standard_configuration_descriptor *)buffer;
-	current->get_configuration_descriptor(configuration_descriptor, sizeof(buffer));
-	interface_descriptor = (ATOSE_usb_standard_interface_descriptor *)(configuration_descriptor + 1);
-
-	if (interface_descriptor->bDescriptorType == ATOSE_usb::DESCRIPTOR_TYPE_INTERFACE)
-		{
-		current->device_class = interface_descriptor->bInterfaceClass;
-		current->device_subclass = interface_descriptor->bInterfaceSubClass;
-		current->device_protocol = interface_descriptor->bInterfaceProtocol;
-		}
-	}
-
-/*
-	Set the address of the device.
-	Note that when we call the set_address() method the address is currently 0.  We only
-	change its internal address once the method returns.  This is essential as the device
-	is device 0 on the USB bus until set_address() returns. If we change the order of these
-	two lines then the message will be sent to the wrong device.
-*/
-current->set_address(address);
-current->address = address;
-
-/*
-	Find out about its configurations
-*/
-if (device_descriptor.bNumConfigurations == 1)
-	current->set_configuration(1);
-else
-	return NULL;
-
-current->dead = false;
-
-/*
-	If we're a USB hub we power it up
-*/
-if (current->device_class == ATOSE_usb::DEVICE_CLASS_HUB)
-	{
-	current->get_hub_descriptor(&hub_descriptor);
-	current->hub_ports = hub_descriptor.bNbrPorts;
-
-	for (port = 1; port <= current->hub_ports; port++)
-		{
-		/*
-			Power up the port and wait the mandatory period
-		*/
-		current->set_port_feature(port, ATOSE_usb_hub::PORT_POWER);
-		ATOSE_atose::get_ATOSE()->cpu.delay_us(200000);
-
-		current->get_port_status(port, &port_status);
-
-		status = (ATOSE_usb_hub_port_status *)&port_status;
-		if (status->port_connection)
-			{
-			/*
-				Reset the port
-			*/
-			current->set_port_feature(port, ATOSE_usb_hub::PORT_RESET);
-			current->clear_port_feature(port, ATOSE_usb_hub::C_PORT_CONNECTION);
-			current->clear_port_feature(port, ATOSE_usb_hub::C_PORT_RESET);
-			/*
-				At this point (as bizzar as this is gonna sound), devices attached to the port can choose to change their speeds.
-				I have observed this happening, and we can't just ignore it because otherwise we end up using a transaction translator
-				when we shouldn't and it all goes to pot.
-			*/
-			current->get_port_status(port, &port_status);
-
-			/*
-				Do that recursive thing (enumerate my children)
-				If the child is USB 1.1 and I'm USB 2.0 then I'm the translator, else my translator is my child's translator
-			*/
-			child_velocity = status->port_low_speed ? ATOSE_host_usb_device::VELOCITY_LOW : status->port_high_speed ? ATOSE_host_usb_device::VELOCITY_HIGH : ATOSE_host_usb_device::VELOCITY_FULL;
-			if (my_velocity == ATOSE_host_usb_device::VELOCITY_HIGH && (child_velocity == ATOSE_host_usb_device::VELOCITY_LOW || child_velocity == ATOSE_host_usb_device::VELOCITY_FULL))
-				enumerate(current->address, current->address, port, child_velocity);
-			else
-				enumerate(current->address, transaction_translator_address, transaction_translator_port, child_velocity);
-			}
-		}
-	}
-
-return current;
-}
-
-/*
-	ATOSE_HOST_USB::DEVICE_MANAGER()
-	--------------------------------
-*/
-void ATOSE_host_usb::device_manager(void)
-{
-/*
-	Wait for the connection
-*/
-wait_for_connection();
-
-/*
-	What's our velocity?
-*/
-enumerate(0, 0, 0, HW_USBC_UH1_PORTSC1.B.PSPD);
-
-debug_print_string("  VID      PID      CLASS\r\n");
-for (uint32_t current = 1; current < device_list_length; current++)
-	{
-	debug_print_string(device_list[current].dead ? "X " : "  ");
-	debug_print_hex(device_list[current].vendor_id);
-	debug_print_string(" ");
-	debug_print_hex(device_list[current].product_id);
-	debug_print_string(" ");
-	debug_print_hex(device_list[current].device_class);
-	debug_print_string("\r\n");
-	}
-
-#ifdef NEVER
-	debug_print_string("GET STATUS FROM I-PORT\r\n");
-	hub_connect_status(address, endpoint, buffer, 1);
-	debug_print_string("DONE\r\n");
-#endif
-
-debug_print_string("END OF ENUMERATION\r\n");
 }
 
 /*

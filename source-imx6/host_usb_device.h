@@ -10,6 +10,7 @@
 
 class ATOSE_host_usb;
 class ATOSE_usb_standard_hub_descriptor;
+class ATOSE_usb_hub_port_status_and_change;
 class ATOSE_usb_standard_device_descriptor;
 class ATOSE_usb_standard_configuration_descriptor;
 
@@ -74,8 +75,8 @@ public:
 
 protected:
 
-	int32_t send_setup_packet(uint8_t type = 0, uint8_t request = 0, uint16_t value = 0, uint16_t index = 0, uint16_t length = 0, void *buffer = NULL);
-	int32_t get_descriptor(uint8_t target, uint16_t type, void *descriptor, uint32_t descriptor_length);
+	uint32_t send_setup_packet(uint8_t type = 0, uint8_t request = 0, uint16_t value = 0, uint16_t index = 0, uint16_t length = 0, void *buffer = NULL);
+	uint32_t get_descriptor(uint8_t target, uint16_t type, void *descriptor, uint32_t descriptor_length);
 
 public:
 	ATOSE_host_usb_device() {}
@@ -83,18 +84,23 @@ public:
 	/*
 		Device methods
 	*/
-	int32_t get_device_descriptor(ATOSE_usb_standard_device_descriptor *descriptor);
-	int32_t get_configuration_descriptor(ATOSE_usb_standard_configuration_descriptor *descriptor, uint16_t length = 0);
-	int32_t set_address(uint32_t address);
-	int32_t set_configuration(uint32_t configuration);
+	uint32_t get_device_descriptor(ATOSE_usb_standard_device_descriptor *descriptor);
+	uint32_t get_configuration_descriptor(ATOSE_usb_standard_configuration_descriptor *descriptor, uint16_t length = 0);
+	uint32_t set_address(uint32_t address);
+	uint32_t set_configuration(uint32_t configuration);
 
 	/*
 		Hub methods
 	*/
-	int32_t get_hub_descriptor(ATOSE_usb_standard_hub_descriptor *descriptor);
-	int32_t set_port_feature(uint32_t port, uint32_t feature);
-	int32_t clear_port_feature(uint32_t port, uint32_t feature);
-	int32_t get_port_status(uint32_t port, uint32_t *answer);
+	uint32_t get_hub_descriptor(ATOSE_usb_standard_hub_descriptor *descriptor);
+	uint32_t set_port_feature(uint32_t port, uint32_t feature);
+	uint32_t clear_port_feature(uint32_t port, uint32_t feature);
+	uint32_t get_port_status(uint32_t port, ATOSE_usb_hub_port_status_and_change *answer);
+
+	/*
+		Experimental disk stuff
+	*/
+	void get_disk_inquiry(void);
 };
 
 #endif

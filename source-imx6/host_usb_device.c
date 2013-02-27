@@ -16,7 +16,7 @@
 	------------------------------------------
 	return 0 on success
 */
-int32_t ATOSE_host_usb_device::send_setup_packet(uint8_t type, uint8_t request, uint16_t value, uint16_t index, uint16_t length, void *buffer)
+uint32_t ATOSE_host_usb_device::send_setup_packet(uint8_t type, uint8_t request, uint16_t value, uint16_t index, uint16_t length, void *buffer)
 {
 ATOSE_usb_setup_data setup_packet;
 
@@ -35,7 +35,7 @@ return ehci->send_setup_packet(this, 0, &setup_packet, buffer, length);
 	return 0 on success
 
 */
-int32_t ATOSE_host_usb_device::get_descriptor(uint8_t target, uint16_t type, void *descriptor, uint32_t descriptor_length)
+uint32_t ATOSE_host_usb_device::get_descriptor(uint8_t target, uint16_t type, void *descriptor, uint32_t descriptor_length)
 {
 uint16_t length = 0x12;
 uint32_t error;
@@ -58,7 +58,7 @@ return send_setup_packet(target, ATOSE_usb::REQUEST_GET_DESCRIPTOR, type << 8, 0
 	----------------------------------------------
 	return 0 on success
 */
-int32_t ATOSE_host_usb_device::get_device_descriptor(ATOSE_usb_standard_device_descriptor *descriptor)
+uint32_t ATOSE_host_usb_device::get_device_descriptor(ATOSE_usb_standard_device_descriptor *descriptor)
 {
 return get_descriptor(0x80, ATOSE_usb::DESCRIPTOR_TYPE_DEVICE, descriptor, sizeof(*descriptor));
 }
@@ -68,7 +68,7 @@ return get_descriptor(0x80, ATOSE_usb::DESCRIPTOR_TYPE_DEVICE, descriptor, sizeo
 	-----------------------------------------------------
 	return 0 on success
 */
-int32_t ATOSE_host_usb_device::get_configuration_descriptor(ATOSE_usb_standard_configuration_descriptor *descriptor, uint16_t length)
+uint32_t ATOSE_host_usb_device::get_configuration_descriptor(ATOSE_usb_standard_configuration_descriptor *descriptor, uint16_t length)
 {
 uint32_t error;
 /*
@@ -92,7 +92,7 @@ return send_setup_packet(0x80, ATOSE_usb::REQUEST_GET_DESCRIPTOR, ATOSE_usb::DES
 	-------------------------------------------
 	returns 0 on success
 */
-int32_t ATOSE_host_usb_device::get_hub_descriptor(ATOSE_usb_standard_hub_descriptor *descriptor)
+uint32_t ATOSE_host_usb_device::get_hub_descriptor(ATOSE_usb_standard_hub_descriptor *descriptor)
 {
 return get_descriptor(0xA0, ATOSE_usb::DESCRIPTOR_TYPE_HUB, descriptor, sizeof(*descriptor));
 }
@@ -102,7 +102,7 @@ return get_descriptor(0xA0, ATOSE_usb::DESCRIPTOR_TYPE_HUB, descriptor, sizeof(*
 	------------------------------------
 	return 0 on success
 */
-int32_t ATOSE_host_usb_device::set_address(uint32_t new_address)
+uint32_t ATOSE_host_usb_device::set_address(uint32_t new_address)
 {
 return send_setup_packet(0, ATOSE_usb::REQUEST_SET_ADDRESS, new_address);
 }
@@ -112,7 +112,7 @@ return send_setup_packet(0, ATOSE_usb::REQUEST_SET_ADDRESS, new_address);
 	------------------------------------------
 	return 0 on success
 */
-int32_t ATOSE_host_usb_device::set_configuration(uint32_t configuration)
+uint32_t ATOSE_host_usb_device::set_configuration(uint32_t configuration)
 {
 return send_setup_packet(0, ATOSE_usb::REQUEST_SET_CONFIGURATION, configuration);
 }
@@ -122,7 +122,7 @@ return send_setup_packet(0, ATOSE_usb::REQUEST_SET_CONFIGURATION, configuration)
 	-----------------------------------------
 	return 0 on success
 */
-int32_t ATOSE_host_usb_device::set_port_feature(uint32_t port, uint32_t feature)
+uint32_t ATOSE_host_usb_device::set_port_feature(uint32_t port, uint32_t feature)
 {
 return send_setup_packet(0x23, ATOSE_usb::REQUEST_SET_FEATURE, feature, port);
 }
@@ -132,7 +132,7 @@ return send_setup_packet(0x23, ATOSE_usb::REQUEST_SET_FEATURE, feature, port);
 	-------------------------------------------
 	return 0 on success
 */
-int32_t ATOSE_host_usb_device::clear_port_feature(uint32_t port, uint32_t feature)
+uint32_t ATOSE_host_usb_device::clear_port_feature(uint32_t port, uint32_t feature)
 {
 return send_setup_packet(0x23, ATOSE_usb::REQUEST_CLEAR_FEATURE, feature, port);
 }
@@ -142,8 +142,60 @@ return send_setup_packet(0x23, ATOSE_usb::REQUEST_CLEAR_FEATURE, feature, port);
 	----------------------------------------
 	return 0 on success
 */
-int32_t ATOSE_host_usb_device::get_port_status(uint32_t port, uint32_t *answer)
+uint32_t ATOSE_host_usb_device::get_port_status(uint32_t port, ATOSE_usb_hub_port_status_and_change *answer)
 {
 return send_setup_packet(0xA3, ATOSE_usb::REQUEST_GET_STATUS, 0, port, 4, answer);
 }
 
+
+
+
+
+
+/*
+	============
+	============  DISK STUFF
+	============
+*/
+
+#include "usb_disk_command_block_wrapper.h"
+
+struct info
+{
+uint8_t code;
+uint8_t evpd;
+uint8_t page_code;
+uint8_t allocation_length_high;
+uint8_t allocation_length_low;
+uint8_t control;
+} __attribute__ ((packed));
+
+void ATOSE_host_usb_device::get_disk_inquiry(void)
+{
+uint8_t endpoint_out = 1;
+uint8_t endpoint_in = 2;
+
+uint8_t buffer[0xFF];
+info *request;
+ATOSE_usb_disk_command_block_wrapper command;
+
+command.dCBWSignature = ATOSE_usb_disk_command_block_wrapper::SIGNATURE;
+command.dCBWTag = 0x12345678;
+command.dCBWDataTransferLength = 0xFF;			// bytes to recv
+command.bCBWLUN = 0;
+command.bmCBWFlags = ATOSE_usb_disk_command_block_wrapper::FLAG_DIRECTION_IN;
+command.bCBWCBLength = sizeof(request);
+
+request = (info *)&command.CBWCB[0];
+request->code = 0x12;
+request->evpd = 0;
+request->page_code = 0;
+request->allocation_length_high = 0;
+request->allocation_length_low = 0xFF;
+request->control = 0;
+
+ehci->send_and_recieve_packet(this, endpoint_out, &command, sizeof(request) + 16, endpoint_in, buffer, sizeof(buffer));
+
+void debug_dump_buffer(unsigned char *buffer, uint32_t address, uint64_t bytes);
+debug_dump_buffer(buffer, 0, sizeof(buffer));
+}
