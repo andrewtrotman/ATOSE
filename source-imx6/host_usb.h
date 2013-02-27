@@ -9,9 +9,9 @@
 
 #include "device_driver.h"
 #include "host_usb_device.h"
+#include "usb_ehci_queue_element_transfer_descriptor.h"
+#include "usb_ehci_queue_head.h"
 
-class ATOSE_usb_ehci_queue_head;
-class ATOSE_usb_ehci_queue_element_transfer_descriptor;
 class ATOSE_usb_setup_data;
 class ATOSE_usb_standard_device_descriptor;
 class ATOSE_usb_standard_configuration_descriptor;
@@ -28,9 +28,30 @@ private:
 	static const uint32_t MAX_USB_DEVICES = 128;
 
 private:
+	/*
+	   The i.MX6Q SDK (iMX6_Platform_SDK\sdk\drivers\usb\src\usbh_drv.c) alligns on 64-byte
+		boundaries (see usbh_qh_init()).  We stick with 32 because that's what ECHI says
+	*/
+	ATOSE_usb_ehci_queue_head queue_head __attribute__ ((aligned(32)));
+
+	/*
+		Although the reference manual allignes transfer descriptors on 32-byte boundaries, the
+		i.MX6Q SDK (iMX6_Platform_SDK\sdk\drivers\usb\src\usbh_drv.c) alligns them on 64-byte
+		boundaries (see usbh_qtd_init()).  We'll stick with 32 because it seems to work.
+	*/
+	ATOSE_usb_ehci_queue_element_transfer_descriptor transfer_descriptor_1 __attribute__ ((aligned(32)));
+	ATOSE_usb_ehci_queue_element_transfer_descriptor transfer_descriptor_2 __attribute__ ((aligned(32)));
+	ATOSE_usb_ehci_queue_element_transfer_descriptor transfer_descriptor_3 __attribute__ ((aligned(32)));
+
+	/*
+		We need the semaphore to communicate between the system process and the IRQ
+	*/
 	ATOSE_semaphore *semaphore;
 	uint32_t semaphore_handle;
 
+	/*
+		As this code represents a port (essentially a USB Bus), we have some set of attached devices
+	*/
 	ATOSE_host_usb_device device_list[MAX_USB_DEVICES];
 	uint32_t device_list_length;
 
@@ -61,7 +82,7 @@ public:
 
 	void device_manager(void);
 
-	void *send_setup_packet(ATOSE_host_usb_device *device, uint32_t endpoint, ATOSE_usb_setup_data *packet, void *descriptor, uint8_t size);
+	int32_t send_setup_packet(ATOSE_host_usb_device *device, uint32_t endpoint, ATOSE_usb_setup_data *packet, void *descriptor, uint8_t size);
 } ;
 
 #endif /* HOST_USB_H_ */

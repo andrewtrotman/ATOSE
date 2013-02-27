@@ -38,10 +38,19 @@
 #include "usb_ehci_queue_head_endpoint_characteristics.h"
 
 #include "../systems/iMX6_Platform_SDK/sdk/drivers/gpio/gpio.h"
-#define INVALID_PARAMETER (-1)
 #include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/iomux_register.h"
 #include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/iomux_define.h"
 
+
+/*
+	=====================================================
+	=====================================================
+	=====================================================
+*/
+/*
+	The periodic schedule, used for interrupt transfers.  It must lie on a 4K boundary
+*/
+static ATOSE_usb_ehci_queue_head *periodic_schedule[8] __attribute__ ((aligned (4096)));
 /*
 	=====================================================
 	=====================================================
@@ -373,6 +382,8 @@ void ATOSE_host_usb::enable(void)
 	Stuff what we do need, like, to work and stuff.
 */
 device_list_length = 1;		// device "0" is reserved by the USB spec for uninitialised devices
+memset(device_list, 0, sizeof(device_list));
+device_list[0].dead = true;
 
 /*
 	Initialise the semaphore
@@ -402,27 +413,6 @@ ATOSE_atose::get_ATOSE()->scheduler.create_system_thread(ATOSE_host_usb_device_m
 	========================
 	========================
 */
-
-/*
-	Although the reference manual allignes transfer descriptors on 32-byte boundaries, the
-	i.MX6Q SDK (iMX6_Platform_SDK\sdk\drivers\usb\src\usbh_drv.c) alligns them on 64-byte
-	boundaries (see usbh_qtd_init()).
-*/
-static ATOSE_usb_ehci_queue_element_transfer_descriptor global_qTD1 __attribute__ ((aligned(64)));
-static ATOSE_usb_ehci_queue_element_transfer_descriptor global_qTD2 __attribute__ ((aligned(64)));
-static ATOSE_usb_ehci_queue_element_transfer_descriptor global_qTD3 __attribute__ ((aligned(64)));
-
-/*
-   The i.MX6Q SDK (iMX6_Platform_SDK\sdk\drivers\usb\src\usbh_drv.c) alligns on 64-byte
-	boundaries (see usbh_qh_init()), so we do the same here.
-*/
-static ATOSE_usb_ehci_queue_head queue_head __attribute__ ((aligned(64)));
-
-/*
-	The periodic schedule, used for interrupt transfers.  It must lie on a 4K boundary
-*/
-static ATOSE_usb_ehci_queue_head *periodic_schedule[8] __attribute__ ((aligned (4096)));
-
 
 /*
 	ATOSE_HOST_USB::::USB_BUS_RESET()
@@ -642,8 +632,10 @@ if (usb_status.B.PCI)
 /*
 	ATOSE_HOST_USB::SEND_SETUP_PACKET()
 	-----------------------------------
+	return:
+		0 on success
 */
-void *ATOSE_host_usb::send_setup_packet(ATOSE_host_usb_device *device, uint32_t endpoint, ATOSE_usb_setup_data *packet, void *descriptor, uint8_t size)
+int32_t ATOSE_host_usb::send_setup_packet(ATOSE_host_usb_device *device, uint32_t endpoint, ATOSE_usb_setup_data *packet, void *descriptor, uint8_t size)
 {
 /*
 	Turn off the ASYNC list first
@@ -661,24 +653,24 @@ queue_head.characteristics.bit.c = 1;
 /*
 	Initialise the descriptors
 */
-initialise_transfer_descriptor(&global_qTD1, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_SETUP, (char *)packet, sizeof(*packet));
-initialise_transfer_descriptor(&global_qTD2, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_IN, (char *)descriptor, size);
-global_qTD1.next_qtd_pointer = &global_qTD2;
+initialise_transfer_descriptor(&transfer_descriptor_1, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_SETUP, (char *)packet, sizeof(*packet));
+initialise_transfer_descriptor(&transfer_descriptor_2, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_IN, (char *)descriptor, size);
+transfer_descriptor_1.next_qtd_pointer = &transfer_descriptor_2;
 
 if (descriptor == NULL)
-	global_qTD2.token.bit.ioc = 1;
+	transfer_descriptor_2.token.bit.ioc = 1;
 else
 	{
-	initialise_transfer_descriptor(&global_qTD3, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_OUT, 0, 0);
+	initialise_transfer_descriptor(&transfer_descriptor_3, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_OUT, 0, 0);
 
-	global_qTD2.next_qtd_pointer = &global_qTD3;
-	global_qTD3.token.bit.ioc = 1;
+	transfer_descriptor_2.next_qtd_pointer = &transfer_descriptor_3;
+	transfer_descriptor_3.token.bit.ioc = 1;
 	}
 
 /*
 	Shove the descriptors into the queuehead
 */
-queue_head.next_qtd_pointer = &global_qTD1;
+queue_head.next_qtd_pointer = &transfer_descriptor_1;
 
 /*
 	Pass the queuehead on the to the i.MX6Q
@@ -694,7 +686,7 @@ while(!(HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_AS))
 
 ATOSE_api::semaphore_wait(semaphore_handle);
 
-return descriptor;
+return 0;
 }
 
 /*
@@ -722,13 +714,13 @@ queue_head.queue_head_horizontal_link_pointer.bit.t = 1;		// terminate the list
 /*
 	Initialise the descriptors
 */
-initialise_transfer_descriptor(&global_qTD1, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_IN, (char *)buffer, size);
-global_qTD1.token.bit.ioc = 1;
+initialise_transfer_descriptor(&transfer_descriptor_1, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_IN, (char *)buffer, size);
+transfer_descriptor_1.token.bit.ioc = 1;
 
 /*
 	Shove the descriptors into the queuehead
 */
-queue_head.next_qtd_pointer = &global_qTD1;
+queue_head.next_qtd_pointer = &transfer_descriptor_1;
 
 /*
 	We want a short frame list - 8 members.
@@ -814,13 +806,13 @@ queue_head.capabilities.bit.port_number = 1;
 /*
 	Initialise the descriptors
 */
-initialise_transfer_descriptor(&global_qTD1, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_IN, (char *)buffer, size);
-global_qTD1.token.bit.ioc = 1;
+initialise_transfer_descriptor(&transfer_descriptor_1, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_IN, (char *)buffer, size);
+transfer_descriptor_1.token.bit.ioc = 1;
 
 /*
 	Shove the descriptors into the queuehead
 */
-queue_head.next_qtd_pointer = &global_qTD1;
+queue_head.next_qtd_pointer = &transfer_descriptor_1;
 
 /*
 	We want a short frame list - 8 members.
@@ -966,9 +958,12 @@ while (descriptor < end)
 */
 ATOSE_host_usb_device *ATOSE_host_usb::enumerate(uint8_t parent, uint8_t transaction_translator_address, uint8_t transaction_translator_port, uint8_t my_velocity)
 {
+uint8_t buffer[256];			// no real reason for 256, I just doubt it'll get longer than that
 uint8_t address, child_velocity;
 uint32_t port, port_status;
 ATOSE_usb_standard_device_descriptor device_descriptor;
+ATOSE_usb_standard_configuration_descriptor *configuration_descriptor;
+ATOSE_usb_standard_interface_descriptor *interface_descriptor;
 ATOSE_host_usb_device *current;
 ATOSE_usb_standard_hub_descriptor hub_descriptor;
 ATOSE_usb_hub_port_status *status;
@@ -1008,6 +1003,25 @@ current->max_packet_size = device_descriptor.bMaxPacketSize0;
 current->parent_address = parent;
 
 /*
+	USB class 0x00 is reserved and means "Use class code info from Interface Descriptors".
+	For the complete list of classes see "USB Class Codes December 7, 2011" here:
+	http://www.usb.org/developers/defined_class
+*/
+if (current->device_class == 0 && device_descriptor.bNumConfigurations == 1)
+	{
+	configuration_descriptor = (ATOSE_usb_standard_configuration_descriptor *)buffer;
+	current->get_configuration_descriptor(configuration_descriptor, sizeof(buffer));
+	interface_descriptor = (ATOSE_usb_standard_interface_descriptor *)(configuration_descriptor + 1);
+
+	if (interface_descriptor->bDescriptorType == ATOSE_usb::DESCRIPTOR_TYPE_INTERFACE)
+		{
+		current->device_class = interface_descriptor->bInterfaceClass;
+		current->device_subclass = interface_descriptor->bInterfaceSubClass;
+		current->device_protocol = interface_descriptor->bInterfaceProtocol;
+		}
+	}
+
+/*
 	Set the address of the device.
 	Note that when we call the set_address() method the address is currently 0.  We only
 	change its internal address once the method returns.  This is essential as the device
@@ -1041,6 +1055,8 @@ if (current->device_class == ATOSE_usb::DEVICE_CLASS_HUB)
 			Power up the port and wait the mandatory period
 		*/
 		current->set_port_feature(port, ATOSE_usb_hub::PORT_POWER);
+		ATOSE_atose::get_ATOSE()->cpu.delay_us(200000);
+
 		current->get_port_status(port, &port_status);
 
 		status = (ATOSE_usb_hub_port_status *)&port_status;
@@ -1091,9 +1107,10 @@ wait_for_connection();
 */
 enumerate(0, 0, 0, HW_USBC_UH1_PORTSC1.B.PSPD);
 
-debug_print_string("VID      PID      CLASS\r\n");
-for (uint32_t current = 0; current < device_list_length; current++)
+debug_print_string("  VID      PID      CLASS\r\n");
+for (uint32_t current = 1; current < device_list_length; current++)
 	{
+	debug_print_string(device_list[current].dead ? "X " : "  ");
 	debug_print_hex(device_list[current].vendor_id);
 	debug_print_string(" ");
 	debug_print_hex(device_list[current].product_id);
@@ -1130,10 +1147,10 @@ while (descriptor < end)
 	descriptor += configuration_descriptor->bLength;
 	if (configuration_descriptor->bDescriptorType == ATOSE_usb::DESCRIPTOR_TYPE_CONFIGURATION)
 		{
-		debug_print_string("CONFIGURATION\r\n");
+		debug_print_string("CONFIGURATION\r\n-------------\r\n");
 		debug_print_this("bLength            :", configuration_descriptor->bLength);
 		debug_print_this("bDescriptorType    :", configuration_descriptor->bDescriptorType);
-		debug_print_this("wTotalLength       :", configuration_descriptor->wTotalLength);
+		debug_print_this("wTotalLength       :", nonaligned(configuration_descriptor->wTotalLength));
 		debug_print_this("bNumInterfaces     :", configuration_descriptor->bNumInterfaces);
 		debug_print_this("bConfigurationValue:", configuration_descriptor->bConfigurationValue);
 		debug_print_this("iConfiguration     :", configuration_descriptor->iConfiguration);
@@ -1155,7 +1172,6 @@ while (descriptor < end)
 		debug_print_this("bInterfaceProtocol :", interface_descriptor->bInterfaceProtocol);
 		debug_print_this("iInterface         :", interface_descriptor->iInterface);
 		}
-
 	else if (configuration_descriptor->bDescriptorType == ATOSE_usb::DESCRIPTOR_TYPE_ENDPOINT)
 		{
 		endpoint_descriptor = (ATOSE_usb_standard_endpoint_descriptor *)configuration_descriptor;
@@ -1165,10 +1181,9 @@ while (descriptor < end)
 		debug_print_this("bDescriptorType    :", endpoint_descriptor->bDescriptorType);
 		debug_print_this("bEndpointAddress   :", endpoint_descriptor->bEndpointAddress);
 		debug_print_this("bmAttributes       :", endpoint_descriptor->bmAttributes);
-		debug_print_this("wMaxPacketSize     :", endpoint_descriptor->wMaxPacketSize);
+		debug_print_this("wMaxPacketSize     :", nonaligned(endpoint_descriptor->wMaxPacketSize));
 		debug_print_this("bInterval          :", endpoint_descriptor->bInterval);
 		}
-
 	else
 		{
 		debug_print_string("UNKNOWN\r\n");
@@ -1185,7 +1200,7 @@ while (descriptor < end)
 */
 void dump_hub_descriptor(ATOSE_usb_standard_hub_descriptor *descriptor)
 {
-debug_print_string("HUB DESCRIPTOR\r\n-----------------\r\n");
+debug_print_string("HUB DESCRIPTOR\r\n--------------\r\n");
 debug_print_this("bDescLength        :",  descriptor->bDescLength);
 debug_print_this("bDescriptorType    :",  descriptor->bDescriptorType);
 debug_print_this("bNbrPorts          :",  descriptor->bNbrPorts);
@@ -1204,7 +1219,7 @@ void dump_port_status(uint8_t *descriptor)
 uint16_t status;
 
 status = *(uint16_t *)descriptor;
-debug_print_string("CURRENT STATUS\r\n-----------------\r\n");
+debug_print_string("CURRENT STATUS\r\n--------------\r\n");
 debug_print_this("Current Connect Status     :", (status & (1 << 0)) ? 1 : 0);
 debug_print_this("Port Enabled/Disabled      :", (status & (1 << 1)) ? 1 : 0);
 debug_print_this("Suspend                    :", (status & (1 << 2)) ? 1 : 0);

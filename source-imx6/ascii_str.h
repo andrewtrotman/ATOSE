@@ -177,5 +177,18 @@ while (to < end)
 return destination;
 }
 
+/*
+	NONALIGNED()
+	------------
+*/
+inline uint16_t nonaligned(const uint16_t &from)
+{
+uint8_t *byte;
+
+byte = (uint8_t *)&from;
+
+return *byte  + (*(byte + 1) << 8);
+}
+
 
 #endif
