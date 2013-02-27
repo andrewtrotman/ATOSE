@@ -26,6 +26,7 @@
 #include "atose_api.h"
 #include "ascii_str.h"
 #include "usb_ehci_queue_head.h"
+#include "usb_hub_port_status.h"
 #include "usb_standard_hub_descriptor.h"
 #include "usb_standard_device_descriptor.h"
 #include "usb_standard_endpoint_descriptor.h"
@@ -369,6 +370,11 @@ return IMX_INT_USBOH3_UH1;
 void ATOSE_host_usb::enable(void)
 {
 /*
+	Stuff what we do need, like, to work and stuff.
+*/
+device_list_length = 1;		// device "0" is reserved by the USB spec for uninitialised devices
+
+/*
 	Initialise the semaphore
 */
 semaphore = ATOSE_atose::get_ATOSE()->process_allocator.malloc_semaphore();
@@ -440,9 +446,6 @@ while(HW_USBC_UH1_PORTSC1_RD() & BM_USBC_UH1_PORTSC1_PR)
 	ATOSE_HOST_USB::INITIALISE_QUEUEHEAD()
 	--------------------------------------
 */
-#define GO_SLOW 1
-#define GO_FAST 2
-static uint32_t velocity = GO_FAST;
 void ATOSE_host_usb::initialise_queuehead(ATOSE_usb_ehci_queue_head *queue_head, uint32_t device, uint32_t endpoint)
 {
 /*
@@ -460,10 +463,7 @@ queue_head->characteristics.bit.h = 1;				// we're the head of the list
 /*
 	Set the port speed and packet size (which is based on the port speed)
 */
-if (velocity == GO_SLOW)
-	queue_head->characteristics.bit.ep = 0x01;		// SLOW speed
-else
-	queue_head->characteristics.bit.ep = HW_USBC_UH1_PORTSC1.B.PSPD;	// port speed
+queue_head->characteristics.bit.ep = HW_USBC_UH1_PORTSC1.B.PSPD;	// port speed
 queue_head->characteristics.bit.maximum_packet_length = (queue_head->characteristics.bit.ep == 0x01 ? 0x08 : 0x40);		// 0x08 for LOW-speed else 0x40
 
 queue_head->characteristics.bit.dtc = 1;
@@ -472,6 +472,51 @@ queue_head->characteristics.bit.dtc = 1;
 	We're for a particular endpoint on a particular device (but we probably don't know what those are yet)
 */
 queue_head->characteristics.bit.device_address = device;
+queue_head->characteristics.bit.endpt = endpoint;
+
+/*
+	One transaction per micro-frame
+*/
+queue_head->capabilities.bit.mult = ATOSE_usb_ehci_queue_head_endpoint_capabilities::TRANSACTIONS_ONE;
+
+/*
+	we don't yet have a descriptor so we mark the descriptors as dead-ends
+*/
+queue_head->next_qtd_pointer = queue_head->alternate_next_qtd_pointer = (ATOSE_usb_ehci_queue_element_transfer_descriptor *)ATOSE_usb_ehci_queue_element_transfer_descriptor::TERMINATOR;
+}
+
+/*
+	ATOSE_HOST_USB::INITIALISE_QUEUEHEAD()
+	--------------------------------------
+*/
+void ATOSE_host_usb::initialise_queuehead(ATOSE_usb_ehci_queue_head *queue_head, ATOSE_host_usb_device *device, uint32_t endpoint)
+{
+/*
+	Set everything to zero
+*/
+memset(queue_head, 0, sizeof(queue_head));
+
+/*
+	Create a circular list of just this one queuehead
+*/
+queue_head->queue_head_horizontal_link_pointer.all = queue_head;		// point to self
+queue_head->queue_head_horizontal_link_pointer.bit.typ = ATOSE_usb_ehci_queue_head_horizontal_link_pointer::QUEUE_HEAD;	// we're a queuehead
+queue_head->characteristics.bit.h = 1;				// we're the head of the list
+
+/*
+	Set the port speed and packet size (which is based on the port speed)
+*/
+queue_head->characteristics.bit.ep = device->port_velocity;	// port speed
+queue_head->capabilities.bit.hub_addr = device->transaction_translator_address;
+queue_head->capabilities.bit.port_number = device->transaction_translator_port;
+queue_head->characteristics.bit.maximum_packet_length = (queue_head->characteristics.bit.ep == 0x01 ? 0x08 : 0x40);		// 0x08 for LOW-speed else 0x40
+
+queue_head->characteristics.bit.dtc = 1;
+
+/*
+	We're for a particular endpoint on a particular device (but we probably don't know what those are yet)
+*/
+queue_head->characteristics.bit.device_address = device->address;
 queue_head->characteristics.bit.endpt = endpoint;
 
 /*
@@ -595,10 +640,10 @@ if (usb_status.B.PCI)
 }
 
 /*
-	ATOSE_HOST_USB::SEND_SETUP_PACKET_TO_DEVICE()
-	---------------------------------------------
+	ATOSE_HOST_USB::SEND_SETUP_PACKET()
+	-----------------------------------
 */
-void ATOSE_host_usb::send_setup_packet_to_device(uint32_t device, uint32_t endpoint, ATOSE_usb_setup_data *packet, void *descriptor, uint8_t size)
+void *ATOSE_host_usb::send_setup_packet(ATOSE_host_usb_device *device, uint32_t endpoint, ATOSE_usb_setup_data *packet, void *descriptor, uint8_t size)
 {
 /*
 	Turn off the ASYNC list first
@@ -648,68 +693,8 @@ while(!(HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_AS))
 	;	/* do nothing */
 
 ATOSE_api::semaphore_wait(semaphore_handle);
-}
 
-/*
-	ATOSE_HOST_USB::SEND_SPLIT_SETUP_PACKET_TO_DEVICE()
-	---------------------------------------------------
-*/
-void ATOSE_host_usb::send_split_setup_packet_to_device(uint32_t device, uint32_t endpoint, ATOSE_usb_setup_data *packet, void *descriptor, uint8_t size)
-{
-/*
-	Turn off the ASYNC list first
-*/
-HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() & (~BM_USBC_UH1_USBCMD_ASE));
-while(HW_USBC_UH1_USBCMD_RD() & BM_USBC_UH1_USBCMD_ASE)
-	;	/* nothing */
-
-/*
-	Initialise the queuehead and bung it in the Async list
-*/
-initialise_queuehead(&queue_head, device, endpoint);
-queue_head.characteristics.bit.c = 1;
-
-/*
-	transaction translation happens at hub with address 3 and on it's port 1.
-*/
-queue_head.capabilities.bit.hub_addr = 3;
-queue_head.capabilities.bit.port_number = 1;
-
-/*
-	Initialise the descriptors
-*/
-initialise_transfer_descriptor(&global_qTD1, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_SETUP, (char *)packet, sizeof(*packet));
-initialise_transfer_descriptor(&global_qTD2, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_IN, (char *)descriptor, size);
-global_qTD1.next_qtd_pointer = &global_qTD2;
-
-if (descriptor == NULL)
-	global_qTD2.token.bit.ioc = 1;
-else
-	{
-	initialise_transfer_descriptor(&global_qTD3, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_OUT, 0, 0);
-
-	global_qTD2.next_qtd_pointer = &global_qTD3;
-	global_qTD3.token.bit.ioc = 1;
-	}
-
-/*
-	Shove the descriptors into the queuehead
-*/
-queue_head.next_qtd_pointer = &global_qTD1;
-
-/*
-	Pass the queuehead on the to the i.MX6Q
-*/
-HW_USBC_UH1_ASYNCLISTADDR_WR((uint32_t)&queue_head);
-
-/*
-	Enable the Async list and wait for it to start
-*/
-HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() | BM_USBC_UH1_USBCMD_ASE);
-while(!(HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_AS))
-	;	/* do nothing */
-
-ATOSE_api::semaphore_wait(semaphore_handle);
+return descriptor;
 }
 
 /*
@@ -892,9 +877,6 @@ debug_print_string("DONE\r\n");
 #endif
 }
 
-
-
-
 /*
 	ATOSE_HOST_USB_DEVICE_MANAGER()
 	-------------------------------
@@ -916,7 +898,6 @@ void ATOSE_host_usb::wait_for_connection(void)
 /*
 	Wait for a connect event
 */
-debug_print_string("WAITONCONNECTION\r\n");
 ATOSE_api::semaphore_wait(semaphore_handle);
 
 /*
@@ -927,253 +908,6 @@ ATOSE_api::semaphore_wait(semaphore_handle);
 }
 
 /*
-	ATOSE_HOST_USB::GET_DEVICE_DESCRIPTOR()
-	---------------------------------------
-*/
-ATOSE_usb_standard_device_descriptor *ATOSE_host_usb::get_device_descriptor(ATOSE_usb_standard_device_descriptor *descriptor)
-{
-ATOSE_usb_setup_data setup_packet;
-
-setup_packet.bmRequestType.all = 0x80;
-setup_packet.bRequest = ATOSE_usb::REQUEST_GET_DESCRIPTOR;
-setup_packet.wValue_high = ATOSE_usb::DESCRIPTOR_TYPE_DEVICE;
-setup_packet.wValue_low = 0;
-setup_packet.wIndex = 0;
-setup_packet.wLength = 0x12;
-
-/*
-	The first time we send a setup packet we don't know if the device will return just the first "packet" or whether it will
-	return the whole descriptor so we ask twice.
-*/
-send_setup_packet_to_device(0, 0, &setup_packet, descriptor, sizeof(*descriptor));
-setup_packet.wLength = sizeof(*descriptor) <= descriptor->bLength ? sizeof(*descriptor) : descriptor->bLength;
-send_setup_packet_to_device(0, 0, &setup_packet, descriptor, sizeof(*descriptor));
-
-return descriptor;
-}
-
-/*
-	ATOSE_HOST_USB::GET_SPLIT_DEVICE_DESCRIPTOR()
-	---------------------------------------------
-*/
-ATOSE_usb_standard_device_descriptor *ATOSE_host_usb::get_split_device_descriptor(ATOSE_usb_standard_device_descriptor *descriptor)
-{
-ATOSE_usb_setup_data setup_packet;
-
-setup_packet.bmRequestType.all = 0x80;
-setup_packet.bRequest = ATOSE_usb::REQUEST_GET_DESCRIPTOR;
-setup_packet.wValue_high = ATOSE_usb::DESCRIPTOR_TYPE_DEVICE;
-setup_packet.wValue_low = 0;
-setup_packet.wIndex = 0;
-setup_packet.wLength = 0x12;
-
-/*
-	The first time we send a setup packet we don't know if the device will return just the first "packet" or whether it will
-	return the whole descriptor so we ask twice.
-*/
-send_split_setup_packet_to_device(0, 0, &setup_packet, descriptor, sizeof(*descriptor));
-setup_packet.wLength = sizeof(*descriptor) <= descriptor->bLength ? sizeof(*descriptor) : descriptor->bLength;
-send_split_setup_packet_to_device(0, 0, &setup_packet, descriptor, sizeof(*descriptor));
-
-return descriptor;
-}
-
-/*
-	ATOSE_HOST_USB::GET_CONFIGURATION_DESCRIPTOR()
-	----------------------------------------------
-*/
-ATOSE_usb_standard_configuration_descriptor *ATOSE_host_usb::get_configuration_descriptor(uint32_t address, ATOSE_usb_standard_configuration_descriptor *descriptor, uint32_t size)
-{
-ATOSE_usb_setup_data setup_packet;
-
-setup_packet.bmRequestType.all = 0x80;
-setup_packet.bRequest = ATOSE_usb::REQUEST_GET_DESCRIPTOR;
-setup_packet.wValue_high = ATOSE_usb::DESCRIPTOR_TYPE_CONFIGURATION;
-setup_packet.wValue_low = 0;
-setup_packet.wIndex = 0;
-setup_packet.wLength = size == 0 ? sizeof(*descriptor) : size;
-
-send_setup_packet_to_device(address, 0, &setup_packet, descriptor, setup_packet.wLength);
-
-return descriptor;
-}
-
-/*
-	ATOSE_HOST_USB::SET_ADDRESS()
-	-----------------------------
-*/
-void ATOSE_host_usb::set_address(uint32_t address)
-{
-ATOSE_usb_setup_data setup_packet;
-
-setup_packet.bmRequestType.all = 0x00;
-setup_packet.bRequest = ATOSE_usb::REQUEST_SET_ADDRESS;
-setup_packet.wValue = address;
-setup_packet.wIndex = 0;
-setup_packet.wLength = 0;
-
-send_setup_packet_to_device(0, 0, &setup_packet, 0, 0);
-}
-
-/*
-	ATOSE_HOST_USB::SET_SPLIT_ADDRESS()
-	-----------------------------------
-*/
-void ATOSE_host_usb::set_split_address(uint32_t address)
-{
-ATOSE_usb_setup_data setup_packet;
-
-setup_packet.bmRequestType.all = 0x00;
-setup_packet.bRequest = ATOSE_usb::REQUEST_SET_ADDRESS;
-setup_packet.wValue = address;
-setup_packet.wIndex = 0;
-setup_packet.wLength = 0;
-
-send_split_setup_packet_to_device(0, 0, &setup_packet, 0, 0);
-}
-
-
-/*
-	ATOSE_HOST_USB::HUB_SET_INTERFACE()
-	-----------------------------------
-*/
-void ATOSE_host_usb::hub_set_interface(uint32_t address, uint32_t interface, uint32_t alternate)
-{
-ATOSE_usb_setup_data setup_packet;
-
-setup_packet.bmRequestType.all = 0x01;
-setup_packet.bRequest = ATOSE_usb::REQUEST_SET_INTERFACE;
-setup_packet.wValue = alternate;
-setup_packet.wIndex = interface;
-setup_packet.wLength = 0;
-
-send_setup_packet_to_device(address, 0, &setup_packet, 0, 0);
-}
-
-
-/*
-	ATOSE_HOST_USB::SET_CONFIGURATION()
-	-----------------------------------
-*/
-void ATOSE_host_usb::set_configuration(uint32_t address, uint32_t configuration)
-{
-ATOSE_usb_setup_data setup_packet;
-
-setup_packet.bmRequestType.all = 0x00;
-setup_packet.bRequest = ATOSE_usb::REQUEST_SET_CONFIGURATION;
-setup_packet.wValue = configuration;
-setup_packet.wIndex = 0;
-setup_packet.wLength = 0;
-
-send_setup_packet_to_device(address, 0, &setup_packet, 0, 0);
-}
-
-/*
-	ATOSE_HOST_USB::SET_SPLIT_CONFIGURATION()
-	-----------------------------------------
-*/
-void ATOSE_host_usb::set_split_configuration(uint32_t address, uint32_t configuration)
-{
-ATOSE_usb_setup_data setup_packet;
-
-setup_packet.bmRequestType.all = 0x00;
-setup_packet.bRequest = ATOSE_usb::REQUEST_SET_CONFIGURATION;
-setup_packet.wValue = configuration;
-setup_packet.wIndex = 0;
-setup_packet.wLength = 0;
-
-send_split_setup_packet_to_device(address, 0, &setup_packet, 0, 0);
-}
-
-
-/*
-	ATOSE_HOST_USB::GET_HUB_DESCRIPTOR()
-	------------------------------------
-*/
-void ATOSE_host_usb::get_hub_descriptor(uint32_t address, ATOSE_usb_standard_hub_descriptor *descriptor, uint32_t size)
-{
-ATOSE_usb_setup_data setup_packet;
-
-setup_packet.bmRequestType.all = 0xA0;
-setup_packet.bRequest = ATOSE_usb::REQUEST_GET_DESCRIPTOR;
-setup_packet.wValue_high = ATOSE_usb::DESCRIPTOR_TYPE_HUB;
-setup_packet.wValue_low = 0;
-setup_packet.wIndex = 0;
-setup_packet.wLength = size == 0 ? sizeof(*descriptor) : size;
-
-send_setup_packet_to_device(address, 0, &setup_packet, descriptor, setup_packet.wLength);
-}
-
-/*
-	ATOSE_HOST_USB::SET_PORT_FEATURE()
-	----------------------------------
-*/
-void ATOSE_host_usb::set_port_feature(uint32_t address, uint32_t port, uint32_t feature)
-{
-ATOSE_usb_setup_data setup_packet;
-
-setup_packet.bmRequestType.all = 0x23;
-setup_packet.bRequest = ATOSE_usb::REQUEST_SET_FEATURE;
-setup_packet.wValue = feature;
-setup_packet.wIndex = port;
-setup_packet.wLength = 0;
-
-send_setup_packet_to_device(address, 0, &setup_packet, 0, 0);
-}
-
-/*
-	ATOSE_HOST_USB::CLEAR_PORT_FEATURE()
-	------------------------------------
-*/
-void ATOSE_host_usb::clear_port_feature(uint32_t address, uint32_t port, uint32_t feature)
-{
-ATOSE_usb_setup_data setup_packet;
-
-setup_packet.bmRequestType.all = 0x23;
-setup_packet.bRequest = ATOSE_usb::REQUEST_CLEAR_FEATURE;
-setup_packet.wValue = feature;
-setup_packet.wIndex = port;
-setup_packet.wLength = 0;
-
-send_setup_packet_to_device(address, 0, &setup_packet, 0, 0);
-}
-
-/*
-	ATOSE_HOST_USB::GET_PORT_STATUS()
-	---------------------------------
-*/
-void ATOSE_host_usb::get_port_status(uint32_t address, uint32_t port, uint8_t *buffer)
-{
-ATOSE_usb_setup_data setup_packet;
-
-setup_packet.bmRequestType.all = 0xA3;
-setup_packet.bRequest = ATOSE_usb::REQUEST_GET_STATUS;
-setup_packet.wValue = 0;
-setup_packet.wIndex = port;
-setup_packet.wLength = 4;
-
-send_setup_packet_to_device(address, 0, &setup_packet, buffer, setup_packet.wLength);
-}
-
-/*
-	ATOSE_HOST_USB::RESET_TT()
-	--------------------------
-*/
-void ATOSE_host_usb::reset_tt(uint32_t address, uint32_t port)
-{
-ATOSE_usb_setup_data setup_packet;
-
-setup_packet.bmRequestType.all = 0x23;
-setup_packet.bRequest = ATOSE_usb_hub::REQUEST_RESET_TT;
-setup_packet.wValue = 0;
-setup_packet.wIndex = port;
-setup_packet.wLength = 0;
-
-send_setup_packet_to_device(address, 0, &setup_packet, 0, 0);
-}
-
-
-/*
 	ATOSE_HOST_USB::HUB_CONNECT_STATUS()
 	------------------------------------
 */
@@ -1181,8 +915,6 @@ void ATOSE_host_usb::hub_connect_status(uint32_t address, uint32_t endpoint, uin
 {
 read_from_interrupt_port(address, endpoint, buffer, bytes);
 }
-
-
 
 /*
 	ATOSE_HOST_USB::HUB_GET_BEST_CONFIGURATION()
@@ -1228,8 +960,120 @@ while (descriptor < end)
 	}
 }
 
+/*
+	ATOSE_HOST_USB::ENUMERATE()
+	---------------------------
+*/
+ATOSE_host_usb_device *ATOSE_host_usb::enumerate(uint8_t parent, uint8_t transaction_translator_address, uint8_t transaction_translator_port, uint8_t my_velocity)
+{
+uint8_t address, child_velocity;
+uint32_t port, port_status;
+ATOSE_usb_standard_device_descriptor device_descriptor;
+ATOSE_host_usb_device *current;
+ATOSE_usb_standard_hub_descriptor hub_descriptor;
+ATOSE_usb_hub_port_status *status;
 
-static uint8_t buffer[1024];
+/*
+	make room for us and mark us as something we don't know about
+*/
+address = device_list_length;
+device_list_length++;
+current = device_list + address;
+current->dead = true;
+current->ehci = this;
+current->address = 0;
+
+/*
+	Set up speed translation through the transaction translator (if necessary) so that we get the device's descriptor
+*/
+current->port_velocity = my_velocity;
+current->transaction_translator_address = transaction_translator_address;
+current->transaction_translator_port = transaction_translator_port;
+
+/*
+	Get the device descriptor
+*/
+current->get_device_descriptor(&device_descriptor);
+
+/*
+	Fill in our local copies of these
+*/
+current->vendor_id = device_descriptor.idVendor;
+current->product_id = device_descriptor.idProduct;
+current->device_id = device_descriptor.bcdDevice;
+current->device_class = device_descriptor.bDeviceClass;
+current->device_subclass = device_descriptor.bDeviceSubClass;
+current->device_protocol = device_descriptor.bDeviceProtocol;
+current->max_packet_size = device_descriptor.bMaxPacketSize0;
+current->parent_address = parent;
+
+/*
+	Set the address of the device.
+	Note that when we call the set_address() method the address is currently 0.  We only
+	change its internal address once the method returns.  This is essential as the device
+	is device 0 on the USB bus until set_address() returns. If we change the order of these
+	two lines then the message will be sent to the wrong device.
+*/
+current->set_address(address);
+current->address = address;
+
+/*
+	Find out about its configurations
+*/
+if (device_descriptor.bNumConfigurations == 1)
+	current->set_configuration(1);
+else
+	return NULL;
+
+current->dead = false;
+
+/*
+	If we're a USB hub we power it up
+*/
+if (current->device_class == ATOSE_usb::DEVICE_CLASS_HUB)
+	{
+	current->get_hub_descriptor(&hub_descriptor);
+	current->hub_ports = hub_descriptor.bNbrPorts;
+
+	for (port = 1; port <= current->hub_ports; port++)
+		{
+		/*
+			Power up the port and wait the mandatory period
+		*/
+		current->set_port_feature(port, ATOSE_usb_hub::PORT_POWER);
+		current->get_port_status(port, &port_status);
+
+		status = (ATOSE_usb_hub_port_status *)&port_status;
+		if (status->port_connection)
+			{
+			/*
+				Reset the port
+			*/
+			current->set_port_feature(port, ATOSE_usb_hub::PORT_RESET);
+			current->clear_port_feature(port, ATOSE_usb_hub::C_PORT_CONNECTION);
+			current->clear_port_feature(port, ATOSE_usb_hub::C_PORT_RESET);
+			/*
+				At this point (as bizzar as this is gonna sound), devices attached to the port can choose to change their speeds.
+				I have observed this happening, and we can't just ignore it because otherwise we end up using a transaction translator
+				when we shouldn't and it all goes to pot.
+			*/
+			current->get_port_status(port, &port_status);
+
+			/*
+				Do that recursive thing (enumerate my children)
+				If the child is USB 1.1 and I'm USB 2.0 then I'm the translator, else my translator is my child's translator
+			*/
+			child_velocity = status->port_low_speed ? ATOSE_host_usb_device::VELOCITY_LOW : status->port_high_speed ? ATOSE_host_usb_device::VELOCITY_HIGH : ATOSE_host_usb_device::VELOCITY_FULL;
+			if (my_velocity == ATOSE_host_usb_device::VELOCITY_HIGH && (child_velocity == ATOSE_host_usb_device::VELOCITY_LOW || child_velocity == ATOSE_host_usb_device::VELOCITY_FULL))
+				enumerate(current->address, current->address, port, child_velocity);
+			else
+				enumerate(current->address, transaction_translator_address, transaction_translator_port, child_velocity);
+			}
+		}
+	}
+
+return current;
+}
 
 /*
 	ATOSE_HOST_USB::DEVICE_MANAGER()
@@ -1237,131 +1081,34 @@ static uint8_t buffer[1024];
 */
 void ATOSE_host_usb::device_manager(void)
 {
-ATOSE_usb_standard_device_descriptor device_descriptor;
-ATOSE_usb_standard_configuration_descriptor configuration_descriptor;
-ATOSE_usb_standard_hub_descriptor hub_descriptor;
-uint32_t interface, alternate, endpoint, address, device_address;
-
+/*
+	Wait for the connection
+*/
 wait_for_connection();
 
-ATOSE_atose::get_ATOSE()->cpu.delay_us(20000);
-
-debug_print_string("GET DEVICE DESCRIPTOR\r\n");
-get_device_descriptor(&device_descriptor);
-void dump_device_descriptor(ATOSE_usb_standard_device_descriptor *descriptor);
-dump_device_descriptor(&device_descriptor);
-
 /*
-	We know about some classes of device including USB Hubs
+	What's our velocity?
 */
-if (device_descriptor.bDeviceClass == ATOSE_usb::DEVICE_CLASS_HUB)
+enumerate(0, 0, 0, HW_USBC_UH1_PORTSC1.B.PSPD);
+
+debug_print_string("VID      PID      CLASS\r\n");
+for (uint32_t current = 0; current < device_list_length; current++)
 	{
-	address = 3;
-	device_address = address + 1;
-	debug_print_string("Set Address\r\n");
-	set_address(address);
+	debug_print_hex(device_list[current].vendor_id);
+	debug_print_string(" ");
+	debug_print_hex(device_list[current].product_id);
+	debug_print_string(" ");
+	debug_print_hex(device_list[current].device_class);
+	debug_print_string("\r\n");
+	}
 
-	debug_print_string("SET CONFIGURATION\r\n");
-	set_configuration(address, 1);
-
-	debug_print_string("GET CONFIG DESCRIPTOR\r\n");
-	get_configuration_descriptor(address, &configuration_descriptor);
-	get_configuration_descriptor(address, (ATOSE_usb_standard_configuration_descriptor *)buffer, configuration_descriptor.wTotalLength);
-	void dump_configuration_descriptor(uint8_t *descriptor);
-	dump_configuration_descriptor(buffer);
-
-	/*
-		Find out how bug the configuration descriptor is
-	*/
-	hub_get_best_configuration((ATOSE_usb_standard_configuration_descriptor *)buffer, &interface, &alternate, &endpoint);
-	debug_print_this("INTERFACE:", interface, "");
-	debug_print_this("ALTERNATE:", alternate, "");
-	debug_print_this("ENDPOINT :", endpoint, "");
-
-
-	debug_print_string("GET_HUB_DESCRIPTOR\r\n");
-	get_hub_descriptor(address, &hub_descriptor, hub_descriptor.bDescLength);
-	void dump_hub_descriptor(ATOSE_usb_standard_hub_descriptor *descriptor);
-	dump_hub_descriptor(&hub_descriptor);
-
-	for (uint32_t port = 1; port <= hub_descriptor.bNbrPorts; port++)
-		{
-		debug_print_this("Power port:", port);
-		set_port_feature(address, port, ATOSE_usb_hub::PORT_POWER);
-		ATOSE_atose::get_ATOSE()->cpu.delay_us(200000);
-
-		get_port_status(address, port, buffer);
-		void dump_port_status(uint8_t *descriptor);
-		debug_print_this("\r\nPORT: ", port);
-		dump_port_status(buffer);
-
-		uint16_t des, *d;
-		d = (uint16_t *)buffer;
-		des = *d;
-		if ((des & 1) != 0)
-			{
-			/*
-				Reset the port
-				get the descriptor
-			*/
-			debug_print_string("           FOUND A NEW DEVICE, GETS ITS DESCRIPTOR\r\n");
-
-			set_port_feature(address, port, ATOSE_usb_hub::PORT_RESET);
-			ATOSE_atose::get_ATOSE()->cpu.delay_us(20000);
-
-			clear_port_feature(address, port, ATOSE_usb_hub::C_PORT_CONNECTION);
-			clear_port_feature(address, port, ATOSE_usb_hub::C_PORT_RESET);
-
-			memset(&device_descriptor, 0 , sizeof(device_descriptor));
-
-			if ((des & (1 << 9)) != 0)
-				{
-				velocity = GO_SLOW;
-
-				get_split_device_descriptor(&device_descriptor);
-				dump_device_descriptor(&device_descriptor);
-
-				set_split_address(device_address);
-				set_split_configuration(device_address, 1);
-
-				/*
-					Can we get interrupt data from it yet?
-				*/
-				split_read_from_interrupt_port(device_address, 1, buffer, 4);
-				debug_dump_buffer(buffer, 0, 4);
-
-
-				velocity = GO_FAST;
-				}
-			else
-				{
-				get_device_descriptor(&device_descriptor);
-				dump_device_descriptor(&device_descriptor);
-
-				set_address(device_address);
-				set_configuration(device_address, 1);
-				}
-			device_address++;
-			}
-		}
 #ifdef NEVER
 	debug_print_string("GET STATUS FROM I-PORT\r\n");
 	hub_connect_status(address, endpoint, buffer, 1);
 	debug_print_string("DONE\r\n");
 #endif
 
-
-#ifdef NEVER
-	for (uint32_t port = 1; port <= hub_descriptor.bNbrPorts; port++)
-		{
-		void dump_port_status(uint8_t *descriptor);
-		get_port_status(address, port, buffer);
-		debug_print_this("\r\nPORT: ", port);
-		dump_port_status(buffer);
-		}
-#endif
-	}
-debug_print_string("AT END OF ENUMERATION METHOD\r\n");
+debug_print_string("END OF ENUMERATION\r\n");
 }
 
 /*
@@ -1438,7 +1185,7 @@ while (descriptor < end)
 */
 void dump_hub_descriptor(ATOSE_usb_standard_hub_descriptor *descriptor)
 {
-debug_print_string("HUB DESCRIPTOR\r\n");
+debug_print_string("HUB DESCRIPTOR\r\n-----------------\r\n");
 debug_print_this("bDescLength        :",  descriptor->bDescLength);
 debug_print_this("bDescriptorType    :",  descriptor->bDescriptorType);
 debug_print_this("bNbrPorts          :",  descriptor->bNbrPorts);
@@ -1457,7 +1204,7 @@ void dump_port_status(uint8_t *descriptor)
 uint16_t status;
 
 status = *(uint16_t *)descriptor;
-debug_print_string("CURRENT STATUS\r\n");
+debug_print_string("CURRENT STATUS\r\n-----------------\r\n");
 debug_print_this("Current Connect Status     :", (status & (1 << 0)) ? 1 : 0);
 debug_print_this("Port Enabled/Disabled      :", (status & (1 << 1)) ? 1 : 0);
 debug_print_this("Suspend                    :", (status & (1 << 2)) ? 1 : 0);

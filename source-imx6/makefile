@@ -31,6 +31,7 @@ OBJECTS =						\
 	cpu_arm_imx6q.o				\
 	debug.o						\
 	host_usb.o					\
+	host_usb_device.o			\
 	idle.o					\
 	interrupt.o					\
 	interrupt_arm_gic.o			\
