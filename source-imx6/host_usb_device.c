@@ -4,6 +4,7 @@
 */
 #include "usb.h"
 #include "host_usb.h"
+#include "ascii_str.h"
 #include "usb_setup_data.h"
 #include "host_usb_device.h"
 #include "usb_standard_hub_descriptor.h"
@@ -108,6 +109,16 @@ return send_setup_packet(0, ATOSE_usb::REQUEST_SET_ADDRESS, new_address);
 }
 
 /*
+	ATOSE_HOST_USB_DEVICE::SET_INTERFACE()
+	--------------------------------------
+	return 0 on success
+*/
+uint32_t ATOSE_host_usb_device::set_interface(uint32_t interface)
+{
+return send_setup_packet(0, ATOSE_usb::REQUEST_SET_INTERFACE, interface);
+}
+
+/*
 	ATOSE_HOST_USB_DEVICE::SET_CONFIGURATION()
 	------------------------------------------
 	return 0 on success
@@ -158,6 +169,28 @@ return send_setup_packet(0xA3, ATOSE_usb::REQUEST_GET_STATUS, 0, port, 4, answer
 	============
 */
 
+uint32_t ATOSE_host_usb_device::clear_feature_halt_disk(uint32_t endpoint)
+{
+return send_setup_packet(0x02, ATOSE_usb::REQUEST_CLEAR_FEATURE, endpoint);
+}
+
+
+uint32_t ATOSE_host_usb_device::reset_disk(void)
+{
+return send_setup_packet(0x21, 0xFF);
+}
+
+uint32_t ATOSE_host_usb_device::get_max_lun(uint32_t *luns)
+{
+uint32_t answer;
+uint8_t byte;
+
+answer = send_setup_packet(0xA1, 0xFE, 0, 0, 1, &byte);
+*luns = byte;
+
+return answer;
+}
+
 #include "usb_disk_command_block_wrapper.h"
 
 struct info
@@ -170,32 +203,97 @@ uint8_t allocation_length_low;
 uint8_t control;
 } __attribute__ ((packed));
 
-void ATOSE_host_usb_device::get_disk_inquiry(void)
+void debug_dump_buffer(unsigned char *buffer, uint32_t address, uint64_t bytes);
+void debug_print_string(const char *string);
+void debug_print_this(const char *start, uint32_t hex, const char *end = "");
+
+uint32_t  ATOSE_host_usb_device::get_disk_inquiry(void)
 {
 uint8_t endpoint_out = 1;
 uint8_t endpoint_in = 2;
+uint32_t luns;
 
-uint8_t buffer[0xFF];
+uint8_t buffer[512];
 info *request;
 ATOSE_usb_disk_command_block_wrapper command;
 
+/*
+	Set the interface to 0
+*/
+//debug_print_string("DISK Set INTERFACE");
+//set_interface(1);
+
+//debug_print_string("\r\nSet Configuration\r\n");
+//set_configuration(1);
+
+//debug_print_string("\r\nSet interface\r\n");
+//set_interface(0);
+
+//debug_print_string("RESET DISK\r\n");
+//reset_disk();
+
+luns = 1024;
+debug_print_string("GET MAX LUNS\r\n");
+get_max_lun(&luns);
+debug_print_this("Luns:", luns);
+
+memset(&command, 0, sizeof(command));
+memset(buffer, 0, sizeof(buffer));
+
+/*
+55 53 42 43
+01 00 00 00
+00 00 00 00
+00
+00
+06
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+*/
+
 command.dCBWSignature = ATOSE_usb_disk_command_block_wrapper::SIGNATURE;
-command.dCBWTag = 0x12345678;
-command.dCBWDataTransferLength = 0xFF;			// bytes to recv
+command.dCBWTag = 1;
+command.dCBWDataTransferLength = 0x24;			// bytes in
+command.bmCBWFlags = 0x80;
 command.bCBWLUN = 0;
-command.bmCBWFlags = ATOSE_usb_disk_command_block_wrapper::FLAG_DIRECTION_IN;
-command.bCBWCBLength = sizeof(request);
+command.bCBWCBLength = 0x06;
 
 request = (info *)&command.CBWCB[0];
 request->code = 0x12;
 request->evpd = 0;
 request->page_code = 0;
 request->allocation_length_high = 0;
-request->allocation_length_low = 0xFF;
+request->allocation_length_low = 0x24;
 request->control = 0;
 
-ehci->send_and_recieve_packet(this, endpoint_out, &command, sizeof(request) + 16, endpoint_in, buffer, sizeof(buffer));
+/*
+55 53 42 43
+00 DE 2E 82
+24 00 00 00
+80
+00
+06
+12 00 00 00 24 00 00 00 00 00 00 00 00 00 00 00
+*/
 
-void debug_dump_buffer(unsigned char *buffer, uint32_t address, uint64_t bytes);
+#ifdef NEVER
+debug_print_string("SEND:\r\n");
+debug_dump_buffer((unsigned char *)&command, 0, 31);
+
+memset(buffer, 0, sizeof(buffer));
+ehci->send_packet(this, endpoint_out, &command, 31);
+
+debug_print_string("REC:\r\n");
+ehci->recieve_packet(this, endpoint_in, buffer, 0x24);
+#else
+debug_print_string("SEND RECV:\r\n");
+debug_dump_buffer((unsigned char *)&command, 0, 31);
+
+ehci->send_and_recieve_packet(this, endpoint_out, &command, 31, endpoint_in, buffer, 0x24);
+
+#endif
+
 debug_dump_buffer(buffer, 0, sizeof(buffer));
+debug_print_string("\r\n");
+
+return 0;
 }

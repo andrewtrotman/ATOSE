@@ -87,6 +87,7 @@ public:
 	uint32_t get_device_descriptor(ATOSE_usb_standard_device_descriptor *descriptor);
 	uint32_t get_configuration_descriptor(ATOSE_usb_standard_configuration_descriptor *descriptor, uint16_t length = 0);
 	uint32_t set_address(uint32_t address);
+	uint32_t set_interface(uint32_t interface);
 	uint32_t set_configuration(uint32_t configuration);
 
 	/*
@@ -100,7 +101,10 @@ public:
 	/*
 		Experimental disk stuff
 	*/
-	void get_disk_inquiry(void);
+	uint32_t reset_disk(void);
+	uint32_t get_disk_inquiry(void);
+	uint32_t get_max_lun(uint32_t *luns);
+	uint32_t clear_feature_halt_disk(uint32_t endpoint);
 };
 
 #endif

@@ -383,19 +383,21 @@ device_list_length = 1;		// device "0" is reserved by the USB spec for uninitial
 memset(device_list, 0, sizeof(device_list));
 device_list[0].dead = true;
 
-/*
-	Initialise a blank queuehead so that we can get the controller up and running
-	then start the controller
-*/
-initialise_queuehead(&empty_queue_head, &device_list[0], 0);
+#ifdef NEVER
+			/*
+				Initialise a blank queuehead so that we can get the controller up and running
+				then start the controller
+			*/
+			initialise_queuehead(&empty_queue_head, &device_list[0], 0);
 
-/*
-	Pass the queuehead on to the i.MX6Q and wait for it to start up
-*/
-HW_USBC_UH1_ASYNCLISTADDR_WR((uint32_t)&empty_queue_head);
-HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() | BM_USBC_UH1_USBCMD_ASE);
-while(!(HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_AS))
-	;	/* do nothing */
+			/*
+				Pass the queuehead on to the i.MX6Q and wait for it to start up
+			*/
+			HW_USBC_UH1_ASYNCLISTADDR_WR((uint32_t)&empty_queue_head);
+			HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() | BM_USBC_UH1_USBCMD_ASE);
+			while(!(HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_AS))
+				;	/* do nothing */
+#endif
 
 /*
 	Initialise the semaphore
@@ -596,6 +598,23 @@ for (block = 1; block < ATOSE_usb_ehci_queue_element_transfer_descriptor::BUFFER
 }
 
 /*
+	The i.MX6Q SDK (iMX6_Platform_SDK\sdk\drivers\usb\src\usbh_drv.c) alligns on 64-byte
+	boundaries (see usbh_qh_init()).  We stick with 64 because that seems to work well.
+*/
+ATOSE_usb_ehci_queue_head queue_head __attribute__ ((aligned(64)));
+ATOSE_usb_ehci_queue_head queue_head_2 __attribute__ ((aligned(64)));
+//	ATOSE_usb_ehci_queue_head empty_queue_head __attribute__ ((aligned(64)));
+
+/*
+	Although the reference manual allignes transfer descriptors on 32-byte boundaries, the
+	i.MX6Q SDK (iMX6_Platform_SDK\sdk\drivers\usb\src\usbh_drv.c) alligns them on 64-byte
+	boundaries (see usbh_qtd_init()).  We'll stick with 64 because it seems to work well.
+*/
+ATOSE_usb_ehci_queue_element_transfer_descriptor transfer_descriptor_1 __attribute__ ((aligned(64)));
+ATOSE_usb_ehci_queue_element_transfer_descriptor transfer_descriptor_2 __attribute__ ((aligned(64)));
+ATOSE_usb_ehci_queue_element_transfer_descriptor transfer_descriptor_3 __attribute__ ((aligned(64)));
+
+/*
 	ATOSE_HOST_USB::SEND_SETUP_PACKET()
 	-----------------------------------
 	return:
@@ -631,19 +650,41 @@ else
 */
 queue_head.next_qtd_pointer = &transfer_descriptor_1;
 
-/*
-	What we're going to do here is to replace the currently running
-	blank queuehead with our one that has work to do.  We then wait for
-	completion and then put the blank queuehead back
-*/
-queue_head.characteristics.bit.h = 0;				// we're not the head of the list
-queue_head.queue_head_horizontal_link_pointer.all = &empty_queue_head;
-queue_head.queue_head_horizontal_link_pointer.bit.typ = ATOSE_usb_ehci_queue_head_horizontal_link_pointer::QUEUE_HEAD;
-empty_queue_head.queue_head_horizontal_link_pointer.all = (ATOSE_usb_ehci_queue_head *)((uint32_t)&queue_head | ATOSE_usb_ehci_queue_head_horizontal_link_pointer::QUEUE_HEAD);
+#ifdef NEVER
+				/*
+					What we're going to do here is to replace the currently running
+					blank queuehead with our one that has work to do.  We then wait for
+					completion and then put the blank queuehead back
+				*/
+				queue_head.characteristics.bit.h = 0;				// we're not the head of the list
+				queue_head.queue_head_horizontal_link_pointer.all = &empty_queue_head;
+				queue_head.queue_head_horizontal_link_pointer.bit.typ = ATOSE_usb_ehci_queue_head_horizontal_link_pointer::QUEUE_HEAD;
+				empty_queue_head.queue_head_horizontal_link_pointer.all = (ATOSE_usb_ehci_queue_head *)((uint32_t)&queue_head | ATOSE_usb_ehci_queue_head_horizontal_link_pointer::QUEUE_HEAD);
+#endif
+#ifndef NEVER
+				/*
+					Pass the queuehead on to the i.MX6Q and wait for it to start up
+				*/
+				queue_head.characteristics.bit.h = 1;
+				queue_head.queue_head_horizontal_link_pointer.all = &queue_head;
+				queue_head.queue_head_horizontal_link_pointer.bit.typ = ATOSE_usb_ehci_queue_head_horizontal_link_pointer::QUEUE_HEAD;
 
+				HW_USBC_UH1_ASYNCLISTADDR_WR((uint32_t)&queue_head);
+				HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() | BM_USBC_UH1_USBCMD_ASE);
+				while(HW_USBC_UH1_USBSTS.B.AS == 0)
+					;	/* do nothing */
+
+#endif
+//ATOSE_atose::get_ATOSE()->cpu.delay_us(1000000);
+//debug_print_string("--\r\n");
+//debug_print_this("Desc1:", transfer_descriptor_1.token.bit.status);
+//debug_print_this("Desc2:", transfer_descriptor_2.token.bit.status);
+//debug_print_this("Desc3:", transfer_descriptor_3.token.bit.status);
+//debug_print_string("--\r\n");
 ATOSE_api::semaphore_wait(semaphore_handle);
 
-empty_queue_head.queue_head_horizontal_link_pointer.all = (ATOSE_usb_ehci_queue_head *)((uint32_t)&empty_queue_head | ATOSE_usb_ehci_queue_head_horizontal_link_pointer::QUEUE_HEAD);
+//empty_queue_head.queue_head_horizontal_link_pointer.all = (ATOSE_usb_ehci_queue_head *)((uint32_t)&empty_queue_head | ATOSE_usb_ehci_queue_head_horizontal_link_pointer::QUEUE_HEAD);
+
 /*
 	pages 5251 and 5253 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012"
 	explain how to remove something from the queuehead once the task is complete.  They read:
@@ -674,14 +715,155 @@ empty_queue_head.queue_head_horizontal_link_pointer.all = (ATOSE_usb_ehci_queue_
 	the doorbell. Software should acknowledge the Interrupt on Async Advance status as
 	indicated in the USB_USBSTS register, before using the doorbell handshake again."
 */
+#ifdef NEVER
 HW_USBC_UH1_USBCMD.B.IAA = 1;										// ring the doorbell
 while (HW_USBC_UH1_USBSTS.B.AAI != 1)							// wait for the acknowledge
 	;	/* nothing */
 HW_USBC_UH1_USBSTS.B.AAI = 1;										// clear the doorbell
+#endif
+#ifndef NEVER
+			/*
+					  Disable the async list
+			*/
+			HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() & (~BM_USBC_UH1_USBCMD_ASE));
+			while(HW_USBC_UH1_USBCMD_RD() & BM_USBC_UH1_USBCMD_ASE)
+					  ;       /* nothing */
+#endif
 
 /*
 	Yay, success!
 */
+return 0;
+}
+
+/*
+	ATOSE_HOST_USB::SEND_AND_RECIEVE_PACKET()
+	-----------------------------------------
+	return:
+		0 on success
+*/
+uint32_t ATOSE_host_usb::send_and_recieve_packet(ATOSE_host_usb_device *device, uint8_t out_endpoint, void *packet, uint32_t packet_size, uint8_t in_endpoint, void *buffer, uint32_t buffer_size)
+{
+initialise_transfer_descriptor(&transfer_descriptor_1, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_OUT, (char *)packet, packet_size);
+initialise_queuehead(&queue_head, device, out_endpoint);
+queue_head.next_qtd_pointer = &transfer_descriptor_1;
+
+transfer_descriptor_1.token.bit.dt = 0;
+
+initialise_transfer_descriptor(&transfer_descriptor_2, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_IN, (char *)buffer, buffer_size);
+transfer_descriptor_2.token.bit.ioc = 1;
+initialise_queuehead(&queue_head_2, device, in_endpoint);
+queue_head_2.next_qtd_pointer = &transfer_descriptor_2;
+queue_head_2.characteristics.bit.h = 0;				// we're not the head of the list
+
+queue_head.queue_head_horizontal_link_pointer.all = &queue_head_2;
+queue_head.queue_head_horizontal_link_pointer.bit.typ = ATOSE_usb_ehci_queue_head_horizontal_link_pointer::QUEUE_HEAD;
+
+queue_head_2.queue_head_horizontal_link_pointer.all = &queue_head;
+queue_head_2.queue_head_horizontal_link_pointer.bit.typ = ATOSE_usb_ehci_queue_head_horizontal_link_pointer::QUEUE_HEAD;
+
+/*
+	Pass the queuehead on to the i.MX6Q and wait for it to start up
+*/
+queue_head.characteristics.bit.h = 1;
+
+HW_USBC_UH1_ASYNCLISTADDR_WR((uint32_t)&queue_head);
+HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() | BM_USBC_UH1_USBCMD_ASE);
+while(!(HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_AS))
+	;	/* do nothing */
+
+/*
+*/
+ATOSE_atose::get_ATOSE()->cpu.delay_us(1000000);
+debug_print_this("Desc1:", transfer_descriptor_1.token.bit.status);
+debug_print_this("Desc2:", transfer_descriptor_2.token.bit.status);
+debug_print_this("Desc3:", transfer_descriptor_3.token.bit.status);
+///////////////////////ATOSE_api::semaphore_wait(semaphore_handle);
+/*
+*/
+/*
+		  Disable the async list
+*/
+HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() & (~BM_USBC_UH1_USBCMD_ASE));
+while(HW_USBC_UH1_USBCMD_RD() & BM_USBC_UH1_USBCMD_ASE)
+		  ;       /* nothing */
+
+return 0;
+}
+
+
+/*
+	ATOSE_HOST_USB::SEND_PACKET()
+	-----------------------------
+	return:
+		0 on success
+*/
+uint32_t ATOSE_host_usb::send_packet(ATOSE_host_usb_device *device, uint8_t out_endpoint, void *packet, uint32_t packet_size)
+{
+initialise_queuehead(&queue_head, device, out_endpoint);
+initialise_transfer_descriptor(&transfer_descriptor_1, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_OUT, (char *)packet, packet_size);
+queue_head.next_qtd_pointer = &transfer_descriptor_1;
+transfer_descriptor_1.token.bit.ioc = 1;
+
+/*
+	Pass the queuehead on to the i.MX6Q and wait for it to start up
+*/
+queue_head.characteristics.bit.h = 1;
+HW_USBC_UH1_ASYNCLISTADDR_WR((uint32_t)&queue_head);
+HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() | BM_USBC_UH1_USBCMD_ASE);
+while((HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_AS) == 0)
+	;	/* do nothing */
+
+ATOSE_api::semaphore_wait(semaphore_handle);
+debug_print_this("Desc1:", transfer_descriptor_1.token.bit.status);
+/*
+*/
+/*
+		  Disable the async list
+*/
+HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() & (~BM_USBC_UH1_USBCMD_ASE));
+while(HW_USBC_UH1_USBCMD_RD() & BM_USBC_UH1_USBCMD_ASE)
+		  ;       /* nothing */
+
+return 0;
+}
+
+/*
+	ATOSE_HOST_USB::RECIEVE_PACKET()
+	--------------------------------
+	return:
+		0 on success
+*/
+uint32_t ATOSE_host_usb::recieve_packet(ATOSE_host_usb_device *device, uint8_t in_endpoint, void *buffer, uint32_t buffer_size)
+{
+initialise_transfer_descriptor(&transfer_descriptor_1, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_IN, (char *)buffer, buffer_size);
+initialise_queuehead(&queue_head, device, in_endpoint);
+queue_head.next_qtd_pointer = &transfer_descriptor_1;
+transfer_descriptor_1.token.bit.ioc = 1;
+
+/*
+	Pass the queuehead on to the i.MX6Q and wait for it to start up
+*/
+HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() | BM_USBC_UH1_USBCMD_ASE);
+HW_USBC_UH1_ASYNCLISTADDR_WR((uint32_t)&queue_head);
+while((HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_AS) == 0)
+	;	/* do nothing */
+
+/*
+*/
+ATOSE_atose::get_ATOSE()->cpu.delay_us(1000000);
+debug_print_this("Desc1:", transfer_descriptor_1.token.bit.status);
+///////////////////////ATOSE_api::semaphore_wait(semaphore_handle);
+/*
+*/
+/*
+		  Disable the async list
+*/
+queue_head.characteristics.bit.h = 1;
+HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() & (~BM_USBC_UH1_USBCMD_ASE));
+while(HW_USBC_UH1_USBCMD_RD() & BM_USBC_UH1_USBCMD_ASE)
+		  ;       /* nothing */
+
 return 0;
 }
 
@@ -823,7 +1005,7 @@ return usb_bus_reset();
 */
 ATOSE_host_usb_device *ATOSE_host_usb::enumerate(uint8_t parent, uint8_t transaction_translator_address, uint8_t transaction_translator_port, uint8_t my_velocity)
 {
-uint8_t buffer[256];			// no real reason for 256, I just doubt it'll get longer than that.  Oh, an if you plug too many USB hubs into each other I don't want a crash
+uint8_t buffer[256];			// no real reason for 64, I just doubt it'll get longer than that.  Oh, an if you plug too many USB hubs into each other I don't want a crash
 uint32_t port;
 ATOSE_usb_standard_device_descriptor device_descriptor;
 ATOSE_usb_standard_configuration_descriptor *configuration_descriptor;
@@ -853,6 +1035,7 @@ current->transaction_translator_port = transaction_translator_port;
 /*
 	Get the device descriptor and fill out our local copies of them
 */
+//debug_print_string("get_device_descriptor\r\n");
 if (current->get_device_descriptor(&device_descriptor) != 0)
 	return NULL;		// if we can't read the descriptor then something is seriously broken
 
@@ -872,6 +1055,7 @@ current->parent_address = parent;
 */
 if (current->device_class == 0 && device_descriptor.bNumConfigurations == 1)
 	{
+	debug_print_string("get_configuration_descriptor\r\n");
 	configuration_descriptor = (ATOSE_usb_standard_configuration_descriptor *)buffer;
 	if (current->get_configuration_descriptor(configuration_descriptor, sizeof(buffer)) != 0)
 		return NULL;
@@ -883,10 +1067,8 @@ if (current->device_class == 0 && device_descriptor.bNumConfigurations == 1)
 		current->device_subclass = interface_descriptor->bInterfaceSubClass;
 		current->device_protocol = interface_descriptor->bInterfaceProtocol;
 		}
-
 	void dump_configuration_descriptor(uint8_t *descriptor);
-	if (current->device_class == 8)
-		dump_configuration_descriptor(buffer);
+	dump_configuration_descriptor(buffer);
 	}
 
 /*
@@ -896,6 +1078,7 @@ if (current->device_class == 0 && device_descriptor.bNumConfigurations == 1)
 	is device 0 on the USB bus until set_address() returns. If we change the order of these
 	two lines then the message will be sent to the wrong device.
 */
+//debug_print_string("set_address\r\n");
 if (current->set_address(address) != 0)
 	return NULL;
 current->address = address;
@@ -905,6 +1088,7 @@ current->address = address;
 */
 if (device_descriptor.bNumConfigurations == 1)
 	{
+//	debug_print_string("set_configuration\r\n");
 	if (current->set_configuration(1) != 0)
 		return NULL;
 	}
@@ -978,7 +1162,10 @@ void ATOSE_host_usb::device_manager(void)
 /*
 	Wait for a connection then enumerate the USB bus
 */
+//debug_print_string("Wait for connection\r\n");
 wait_for_connection();
+//ATOSE_atose::get_ATOSE()->cpu.delay_us(20000);
+//debug_print_string("enumerate\r\n");
 enumerate(0, 0, 0, HW_USBC_UH1_PORTSC1.B.PSPD);
 
 debug_print_string("  VID      PID      CLASS    SUBCLASS PROTOCOL\r\n");
@@ -1000,6 +1187,8 @@ for (uint32_t current = 1; current < device_list_length; current++)
 		if (device_list[current].device_class == 8 && device_list[current].device_subclass == 6 && device_list[current].device_protocol == 0x50)
 			{
 			debug_print_string("DISK");
+			device_list[current].get_disk_inquiry();
+
 			/*
 				We're a disk so we're going to do some extra stuff
 			*/

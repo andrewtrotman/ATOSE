@@ -28,21 +28,6 @@ private:
 	static const uint32_t MAX_USB_DEVICES = 128;
 
 private:
-	/*
-	   The i.MX6Q SDK (iMX6_Platform_SDK\sdk\drivers\usb\src\usbh_drv.c) alligns on 64-byte
-		boundaries (see usbh_qh_init()).  We stick with 64 because that seems to work well.
-	*/
-	ATOSE_usb_ehci_queue_head queue_head __attribute__ ((aligned(64)));
-	ATOSE_usb_ehci_queue_head empty_queue_head __attribute__ ((aligned(64)));
-
-	/*
-		Although the reference manual allignes transfer descriptors on 32-byte boundaries, the
-		i.MX6Q SDK (iMX6_Platform_SDK\sdk\drivers\usb\src\usbh_drv.c) alligns them on 64-byte
-		boundaries (see usbh_qtd_init()).  We'll stick with 64 because it seems to work well.
-	*/
-	ATOSE_usb_ehci_queue_element_transfer_descriptor transfer_descriptor_1 __attribute__ ((aligned(64)));
-	ATOSE_usb_ehci_queue_element_transfer_descriptor transfer_descriptor_2 __attribute__ ((aligned(64)));
-	ATOSE_usb_ehci_queue_element_transfer_descriptor transfer_descriptor_3 __attribute__ ((aligned(64)));
 
 	/*
 		We need the semaphore to communicate between the system process and the IRQ
@@ -84,9 +69,12 @@ public:
 		This object's behaviours
 	*/
 	void device_manager(void);
-	uint32_t send_setup_packet(ATOSE_host_usb_device *device, uint32_t endpoint, ATOSE_usb_setup_data *packet, void *descriptor, uint8_t size);
+	uint32_t send_setup_packet(ATOSE_host_usb_device *device, uint8_t endpoint, ATOSE_usb_setup_data *packet, void *descriptor, uint8_t size);
 	uint32_t read_interrupt_packet(ATOSE_host_usb_device *device, uint32_t endpoint, void *buffer, uint8_t size);
-	uint32_t send_and_recieve_packet(ATOSE_host_usb_device *device, uint32_t endpoint, void *packet, uint8_t packet_size, void *descriptor, uint8_t size);
+	uint32_t send_and_recieve_packet(ATOSE_host_usb_device *device, uint8_t out_endpoint, void *packet, uint32_t packet_size, uint8_t in_endpoint, void *descriptor, uint32_t size);
+
+	uint32_t send_packet(ATOSE_host_usb_device *device, uint8_t out_endpoint, void *packet, uint32_t packet_size);
+	uint32_t recieve_packet(ATOSE_host_usb_device *device, uint8_t in_endpoint, void *buffer, uint32_t buffer_size);
 } ;
 
 #endif /* HOST_USB_H_ */
