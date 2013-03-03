@@ -4,6 +4,8 @@
 	Copyright (c) 2012-2013 Andrew Trotman
 	Licensed BSD
 */
+#include <new>
+#include <stdint.h>
 
 /*
 	We need to tell the i.MX6 SDK that we're using an i.MX6Q
@@ -20,26 +22,25 @@
 #include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/irq_numbers.h"
 #include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsepit.h"
 
+
 #include "atose.h"
 #include "usb_hub.h"
 #include "host_usb.h"
 #include "atose_api.h"
-#include "ascii_str.h"
-#include "usb_ehci_queue_head.h"
-#include "usb_hub_port_status_and_change.h"
-#include "usb_standard_hub_descriptor.h"
-#include "usb_standard_device_descriptor.h"
-#include "usb_standard_endpoint_descriptor.h"
+//#include "ascii_str.h"
+//#include "usb_ehci_queue_head.h"
+#include "host_usb_device_hub.h"
+#include "host_usb_device_disk.h"
+#include "host_usb_device_generic.h"
 #include "usb_standard_interface_descriptor.h"
 #include "usb_standard_configuration_descriptor.h"
-#include "usb_ehci_queue_head_endpoint_capabilities.h"
-#include "usb_ehci_queue_element_transfer_descriptor.h"
-#include "usb_ehci_queue_head_horizontal_link_pointer.h"
-#include "usb_ehci_queue_head_endpoint_characteristics.h"
 
-#include "../systems/iMX6_Platform_SDK/sdk/drivers/gpio/gpio.h"
-#include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/iomux_register.h"
-#include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/iomux_define.h"
+//#include "usb_hub_port_status_and_change.h"
+//#include "usb_ehci_queue_head_endpoint_capabilities.h"
+//#include "usb_ehci_queue_element_transfer_descriptor.h"
+//#include "usb_ehci_queue_head_horizontal_link_pointer.h"
+//#include "usb_ehci_queue_head_endpoint_characteristics.h"
+
 
 
 /*
@@ -47,6 +48,9 @@
 	=====================================================
 	=====================================================
 */
+#include "../systems/iMX6_Platform_SDK/sdk/drivers/gpio/gpio.h"
+#include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/iomux_register.h"
+#include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/iomux_define.h"
 /*
 	The periodic schedule, used for interrupt transfers.  It must lie on a 4K boundary
 */
@@ -744,6 +748,8 @@ return 0;
 */
 uint32_t ATOSE_host_usb::send_and_recieve_packet(ATOSE_host_usb_device *device, uint8_t out_endpoint, void *packet, uint32_t packet_size, uint8_t in_endpoint, void *buffer, uint32_t buffer_size)
 {
+//static uint32_t flipping_dt = 0;
+
 initialise_transfer_descriptor(&transfer_descriptor_1, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_OUT, (char *)packet, packet_size);
 initialise_queuehead(&queue_head, device, out_endpoint);
 queue_head.next_qtd_pointer = &transfer_descriptor_1;
@@ -755,6 +761,8 @@ transfer_descriptor_2.token.bit.ioc = 1;
 initialise_queuehead(&queue_head_2, device, in_endpoint);
 queue_head_2.next_qtd_pointer = &transfer_descriptor_2;
 queue_head_2.characteristics.bit.h = 0;				// we're not the head of the list
+
+transfer_descriptor_2.token.bit.dt = 0;
 
 queue_head.queue_head_horizontal_link_pointer.all = &queue_head_2;
 queue_head.queue_head_horizontal_link_pointer.bit.typ = ATOSE_usb_ehci_queue_head_horizontal_link_pointer::QUEUE_HEAD;
@@ -772,15 +780,18 @@ HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() | BM_USBC_UH1_USBCMD_ASE);
 while(!(HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_AS))
 	;	/* do nothing */
 
-/*
-*/
+
 ATOSE_atose::get_ATOSE()->cpu.delay_us(1000000);
+debug_print_string("--\r\n");
 debug_print_this("Desc1:", transfer_descriptor_1.token.bit.status);
 debug_print_this("Desc2:", transfer_descriptor_2.token.bit.status);
-debug_print_this("Desc3:", transfer_descriptor_3.token.bit.status);
-///////////////////////ATOSE_api::semaphore_wait(semaphore_handle);
-/*
-*/
+debug_print_string("--\r\n");
+//flipping_dt = flipping_dt == 0 ? 1 : 0;
+//ATOSE_api::semaphore_wait(semaphore_handle);
+
+debug_print_this("DT1:", transfer_descriptor_1.token.bit.dt);
+debug_print_this("DT2:", transfer_descriptor_2.token.bit.dt);
+
 /*
 		  Disable the async list
 */
@@ -815,9 +826,7 @@ while((HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_AS) == 0)
 	;	/* do nothing */
 
 ATOSE_api::semaphore_wait(semaphore_handle);
-debug_print_this("Desc1:", transfer_descriptor_1.token.bit.status);
-/*
-*/
+
 /*
 		  Disable the async list
 */
@@ -849,13 +858,8 @@ HW_USBC_UH1_ASYNCLISTADDR_WR((uint32_t)&queue_head);
 while((HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_AS) == 0)
 	;	/* do nothing */
 
-/*
-*/
-ATOSE_atose::get_ATOSE()->cpu.delay_us(1000000);
-debug_print_this("Desc1:", transfer_descriptor_1.token.bit.status);
-///////////////////////ATOSE_api::semaphore_wait(semaphore_handle);
-/*
-*/
+ATOSE_api::semaphore_wait(semaphore_handle);
+
 /*
 		  Disable the async list
 */
@@ -1005,70 +1009,69 @@ return usb_bus_reset();
 */
 ATOSE_host_usb_device *ATOSE_host_usb::enumerate(uint8_t parent, uint8_t transaction_translator_address, uint8_t transaction_translator_port, uint8_t my_velocity)
 {
-uint8_t buffer[256];			// no real reason for 64, I just doubt it'll get longer than that.  Oh, an if you plug too many USB hubs into each other I don't want a crash
-uint32_t port;
+uint8_t buffer[256];			// no real reason for 256, I just doubt it'll get longer than that.  Oh, an if you plug too many USB hubs into each other I don't want a crash
 ATOSE_usb_standard_device_descriptor device_descriptor;
 ATOSE_usb_standard_configuration_descriptor *configuration_descriptor;
 ATOSE_usb_standard_interface_descriptor *interface_descriptor;
-ATOSE_host_usb_device *current;
-ATOSE_usb_standard_hub_descriptor hub_descriptor;
-ATOSE_usb_hub_port_status_and_change status;
-uint8_t address, child_velocity;
+ATOSE_host_usb_device_generic current;
+ATOSE_host_usb_device *device = NULL;
+uint8_t address;
+char *place;
 
 /*
 	make room for us and mark us as something we don't know about
 */
 address = device_list_length;
 device_list_length++;
-current = device_list + address;
-current->dead = true;
-current->ehci = this;
-current->address = 0;
+place = (char *)(device_list + address);
+current.dead = true;
+current.ehci = this;
+current.address = 0;
 
 /*
 	Set up speed translation through the transaction translator (if necessary) so that we get the device's descriptor
 */
-current->port_velocity = my_velocity;
-current->transaction_translator_address = transaction_translator_address;
-current->transaction_translator_port = transaction_translator_port;
+current.port_velocity = my_velocity;
+current.transaction_translator_address = transaction_translator_address;
+current.transaction_translator_port = transaction_translator_port;
 
 /*
 	Get the device descriptor and fill out our local copies of them
 */
 //debug_print_string("get_device_descriptor\r\n");
-if (current->get_device_descriptor(&device_descriptor) != 0)
+if (current.get_device_descriptor(&device_descriptor) != 0)
 	return NULL;		// if we can't read the descriptor then something is seriously broken
 
-current->vendor_id = device_descriptor.idVendor;
-current->product_id = device_descriptor.idProduct;
-current->device_id = device_descriptor.bcdDevice;
-current->device_class = device_descriptor.bDeviceClass;
-current->device_subclass = device_descriptor.bDeviceSubClass;
-current->device_protocol = device_descriptor.bDeviceProtocol;
-current->max_packet_size = device_descriptor.bMaxPacketSize0;
-current->parent_address = parent;
+current.vendor_id = device_descriptor.idVendor;
+current.product_id = device_descriptor.idProduct;
+current.device_id = device_descriptor.bcdDevice;
+current.device_class = device_descriptor.bDeviceClass;
+current.device_subclass = device_descriptor.bDeviceSubClass;
+current.device_protocol = device_descriptor.bDeviceProtocol;
+current.max_packet_size = device_descriptor.bMaxPacketSize0;
+current.parent_address = parent;
 
 /*
 	USB class 0x00 is reserved and means "Use class code info from Interface Descriptors".
 	For the complete list of classes see "USB Class Codes December 7, 2011" here:
 	http://www.usb.org/developers/defined_class
 */
-if (current->device_class == 0 && device_descriptor.bNumConfigurations == 1)
+if (current.device_class == 0 && device_descriptor.bNumConfigurations == 1)
 	{
-	debug_print_string("get_configuration_descriptor\r\n");
+//	debug_print_string("get_configuration_descriptor\r\n");
 	configuration_descriptor = (ATOSE_usb_standard_configuration_descriptor *)buffer;
-	if (current->get_configuration_descriptor(configuration_descriptor, sizeof(buffer)) != 0)
+	if (current.get_configuration_descriptor(configuration_descriptor, sizeof(buffer)) != 0)
 		return NULL;
 	interface_descriptor = (ATOSE_usb_standard_interface_descriptor *)(configuration_descriptor + 1);
 
 	if (interface_descriptor->bDescriptorType == ATOSE_usb::DESCRIPTOR_TYPE_INTERFACE)
 		{
-		current->device_class = interface_descriptor->bInterfaceClass;
-		current->device_subclass = interface_descriptor->bInterfaceSubClass;
-		current->device_protocol = interface_descriptor->bInterfaceProtocol;
+		current.device_class = interface_descriptor->bInterfaceClass;
+		current.device_subclass = interface_descriptor->bInterfaceSubClass;
+		current.device_protocol = interface_descriptor->bInterfaceProtocol;
 		}
-	void dump_configuration_descriptor(uint8_t *descriptor);
-	dump_configuration_descriptor(buffer);
+//	void dump_configuration_descriptor(uint8_t *descriptor);
+//	dump_configuration_descriptor(buffer);
 	}
 
 /*
@@ -1079,9 +1082,9 @@ if (current->device_class == 0 && device_descriptor.bNumConfigurations == 1)
 	two lines then the message will be sent to the wrong device.
 */
 //debug_print_string("set_address\r\n");
-if (current->set_address(address) != 0)
+if (current.set_address(address) != 0)
 	return NULL;
-current->address = address;
+current.address = address;
 
 /*
 	Find out about its configurations.  If there's only one then use it
@@ -1089,68 +1092,22 @@ current->address = address;
 if (device_descriptor.bNumConfigurations == 1)
 	{
 //	debug_print_string("set_configuration\r\n");
-	if (current->set_configuration(1) != 0)
+	if (current.set_configuration(1) != 0)
 		return NULL;
 	}
 else
 	return NULL;
 
-current->dead = false;
-
 /*
-	If we're a USB hub we power it up
+	Create a driver object for what ever it is we just found
 */
-if (current->device_class == ATOSE_usb::DEVICE_CLASS_HUB)
+switch (current.device_class)
 	{
-	if (current->get_hub_descriptor(&hub_descriptor) != 0)
-		return NULL;
-
-	current->hub_ports = hub_descriptor.bNbrPorts;
-
-	for (port = 1; port <= current->hub_ports; port++)
-		{
-		/*
-			Power up the port
-		*/
-		if (current->set_port_feature(port, ATOSE_usb_hub::PORT_POWER) == 0)
-			{
-			if (current->get_port_status(port, &status) == 0)
-				{
-				if (status.status.port_connection)
-					{
-					/*
-						Reset the port
-					*/
-					current->set_port_feature(port, ATOSE_usb_hub::PORT_RESET);
-					current->clear_port_feature(port, ATOSE_usb_hub::C_PORT_CONNECTION);
-					current->clear_port_feature(port, ATOSE_usb_hub::C_PORT_RESET);
-
-					/*
-						At this point (as bizzar as this is gonna sound), devices attached to the port can choose to change their speeds.
-						I have observed this happening, and we can't just ignore it because otherwise we end up using a transaction translator
-						when we shouldn't and it all goes to pot.
-					*/
-					if (current->get_port_status(port, &status) == 0)
-						{
-						/*
-							Do that recursive thing (enumerate my children)
-							If the child is USB 1.1 and I'm USB 2.0 then I'm the translator, else my translator is my child's translator
-						*/
-						child_velocity = status.status.port_low_speed ? ATOSE_host_usb_device::VELOCITY_LOW : status.status.port_high_speed ? ATOSE_host_usb_device::VELOCITY_HIGH : ATOSE_host_usb_device::VELOCITY_FULL;
-						if (my_velocity == ATOSE_host_usb_device::VELOCITY_HIGH && (child_velocity == ATOSE_host_usb_device::VELOCITY_LOW || child_velocity == ATOSE_host_usb_device::VELOCITY_FULL))
-							enumerate(current->address, current->address, port, child_velocity);
-						else
-							enumerate(current->address, transaction_translator_address, transaction_translator_port, child_velocity);
-						}
-					}
-				}
-			}
-		}
+	case ATOSE_usb::DEVICE_CLASS_HUB: device = new (place) ATOSE_host_usb_device_hub(&current); break;
+	case ATOSE_usb::DEVICE_CLASS_MSD: device = new (place) ATOSE_host_usb_device_disk(&current); break;
 	}
 
-current->dead = false;
-
-return current;
+return device->dead ? NULL : device;
 }
 
 /*
@@ -1186,8 +1143,7 @@ for (uint32_t current = 1; current < device_list_length; current++)
 		debug_print_string(" ");
 		if (device_list[current].device_class == 8 && device_list[current].device_subclass == 6 && device_list[current].device_protocol == 0x50)
 			{
-			debug_print_string("DISK");
-			device_list[current].get_disk_inquiry();
+			((ATOSE_host_usb_device_disk *)&device_list[current])->get_disk_inquiry();
 
 			/*
 				We're a disk so we're going to do some extra stuff
@@ -1217,49 +1173,17 @@ void ATOSE_host_usb::hub_connect_status(ATOSE_host_usb_device *device, uint32_t 
 read_interrupt_packet(device, endpoint, buffer, bytes);
 }
 
-/*
-	ATOSE_HOST_USB::HUB_GET_BEST_CONFIGURATION()
-	--------------------------------------------
-*/
-void ATOSE_host_usb::hub_get_best_configuration(ATOSE_usb_standard_configuration_descriptor *configuration_descriptor, uint32_t *best_interface, uint32_t *best_alternate, uint32_t *best_endpoint)
-{
-ATOSE_usb_standard_endpoint_descriptor *endpoint_descriptor;
-ATOSE_usb_standard_interface_descriptor *interface_descriptor;
-uint8_t *descriptor, *end;
-uint32_t best_protocol;
-uint32_t current_protocol, current_interface, current_alternate, current_endpoint;
 
-best_protocol = 0;
-*best_interface = *best_alternate = current_protocol = current_interface = current_alternate = 0;
-*best_endpoint = current_endpoint = 1;
 
-descriptor = (uint8_t *)configuration_descriptor;
-end = descriptor + configuration_descriptor->wTotalLength;
-while (descriptor < end)
-	{
-	interface_descriptor = (ATOSE_usb_standard_interface_descriptor *)descriptor;
-	descriptor += interface_descriptor->bLength;
-	if (interface_descriptor->bDescriptorType == ATOSE_usb::DESCRIPTOR_TYPE_INTERFACE)
-		{
-		current_interface = interface_descriptor->bInterfaceNumber;
-		current_alternate = interface_descriptor->bAlternateSetting;
-		current_protocol = interface_descriptor->bInterfaceProtocol;
-		}
-	if (interface_descriptor->bDescriptorType == ATOSE_usb::DESCRIPTOR_TYPE_ENDPOINT)
-		{
-		endpoint_descriptor = (ATOSE_usb_standard_endpoint_descriptor *)interface_descriptor;
-		current_endpoint = endpoint_descriptor->bEndpointAddress & 0x7F;
 
-		if (current_protocol >= best_protocol)
-			{
-			best_protocol = current_protocol;
-			*best_interface = current_interface;
-			*best_alternate = current_alternate;
-			*best_endpoint = current_endpoint;
-			}
-		}
-	}
-}
+
+
+
+
+#include "usb_standard_hub_descriptor.h"
+#include "usb_standard_device_descriptor.h"
+#include "usb_standard_endpoint_descriptor.h"
+
 
 /*
 	DUMP_CONFIGURATION_DESCRIPTOR()

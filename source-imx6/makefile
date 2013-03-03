@@ -12,7 +12,7 @@ TARGET = SABRE_LITE
 CPU = IMX6Q
 
 CC = @arm-none-eabi-g++
-CFLAGS = -mcpu=cortex-a9 -D$(CPU) -D$(TARGET) -g3 -Wall -Os -fno-exceptions -fno-rtti -ffreestanding -nostdlib -nodefaultlibs -nostartfiles
+CFLAGS = -std=c++0x -mcpu=cortex-a9 -D$(CPU) -D$(TARGET) -g3 -Wall -Os -fno-exceptions -fno-rtti -ffreestanding -nostdlib -nodefaultlibs -nostartfiles
 CLINKFLAGS = -l gcc
 
 AS = @arm-none-eabi-as
@@ -32,7 +32,9 @@ OBJECTS =						\
 	debug.o						\
 	host_usb.o					\
 	host_usb_device.o			\
-	idle.o					\
+	host_usb_device_disk.o		\
+	host_usb_device_hub.o		\
+	idle.o						\
 	interrupt.o					\
 	interrupt_arm_gic.o			\
 	kernel_malloc.o				\

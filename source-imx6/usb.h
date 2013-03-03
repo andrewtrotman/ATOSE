@@ -61,6 +61,7 @@ public:
 	*/
 	static const uint8_t DEVICE_CLASS_CDC = 0x02;
 	static const uint8_t DEVICE_CLASS_HUB = 0x09;
+	static const uint8_t DEVICE_CLASS_MSD = 0x08;
 
 	/*
 		Standard USB methods on endpoint 0

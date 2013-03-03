@@ -8,11 +8,15 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+/*
+	We need to declare this before the includes because of a mutual inclusion problem
+*/
 class ATOSE_host_usb;
-class ATOSE_usb_standard_hub_descriptor;
-class ATOSE_usb_hub_port_status_and_change;
-class ATOSE_usb_standard_device_descriptor;
-class ATOSE_usb_standard_configuration_descriptor;
+
+#include "usb.h"
+#include "usb_standard_hub_descriptor.h"
+#include "usb_standard_device_descriptor.h"
+#include "usb_standard_configuration_descriptor.h"
 
 /*
 	class ATOSE_HOST_USB_DEVICE
@@ -20,6 +24,12 @@ class ATOSE_usb_standard_configuration_descriptor;
 */
 class ATOSE_host_usb_device
 {
+public:
+	/*
+		Possible error codes
+	*/
+	enum { ERROR_NONE = 0, ERROR_OVERFLOW };
+
 public:
 	/*
 		These velocity values are chosen because they are the values
@@ -62,49 +72,22 @@ public:
 	uint8_t address;											// the object's address on the USB bus
 	uint8_t parent_address;									// the address of the object's parent on the USB bus (necessary for disconnect of a hub containing children).
 
-	union
-		{
-		struct
-			{
-			/*
-				USB HUB
-			*/
-			uint8_t hub_ports;
-			};
-		};
-
 protected:
-
 	uint32_t send_setup_packet(uint8_t type = 0, uint8_t request = 0, uint16_t value = 0, uint16_t index = 0, uint16_t length = 0, void *buffer = NULL);
 	uint32_t get_descriptor(uint8_t target, uint16_t type, void *descriptor, uint32_t descriptor_length);
 
 public:
 	ATOSE_host_usb_device() {}
+	ATOSE_host_usb_device(ATOSE_host_usb_device *details);
 
 	/*
-		Device methods
+		Device methods.  These all return 0 on success
 	*/
-	uint32_t get_device_descriptor(ATOSE_usb_standard_device_descriptor *descriptor);
 	uint32_t get_configuration_descriptor(ATOSE_usb_standard_configuration_descriptor *descriptor, uint16_t length = 0);
-	uint32_t set_address(uint32_t address);
-	uint32_t set_interface(uint32_t interface);
-	uint32_t set_configuration(uint32_t configuration);
-
-	/*
-		Hub methods
-	*/
-	uint32_t get_hub_descriptor(ATOSE_usb_standard_hub_descriptor *descriptor);
-	uint32_t set_port_feature(uint32_t port, uint32_t feature);
-	uint32_t clear_port_feature(uint32_t port, uint32_t feature);
-	uint32_t get_port_status(uint32_t port, ATOSE_usb_hub_port_status_and_change *answer);
-
-	/*
-		Experimental disk stuff
-	*/
-	uint32_t reset_disk(void);
-	uint32_t get_disk_inquiry(void);
-	uint32_t get_max_lun(uint32_t *luns);
-	uint32_t clear_feature_halt_disk(uint32_t endpoint);
+	uint32_t get_device_descriptor(ATOSE_usb_standard_device_descriptor *descriptor)  { return get_descriptor(0x80, ATOSE_usb::DESCRIPTOR_TYPE_DEVICE, descriptor, sizeof(*descriptor)); }
+	uint32_t set_address(uint32_t new_address)                                        { return send_setup_packet(0, ATOSE_usb::REQUEST_SET_ADDRESS, new_address); }
+	uint32_t set_interface(uint32_t interface)                                        { return send_setup_packet(0, ATOSE_usb::REQUEST_SET_INTERFACE, interface); }
+	uint32_t set_configuration(uint32_t configuration)                                { return send_setup_packet(0, ATOSE_usb::REQUEST_SET_CONFIGURATION, configuration); }
 };
 
 #endif

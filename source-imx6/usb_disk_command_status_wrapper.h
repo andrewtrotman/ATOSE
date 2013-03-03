@@ -13,9 +13,9 @@ class ATOSE_usb_disk_command_status_wrapper
 public:
 	static const uint32_t SIGNATURE = 0x53425355;
 
-	static const uint8_t STATUS_PASED 0x00;
-	static const uint8_t STATUS_FAILED 0x01;
-	static const uint8_t STATUS_PHASE_ERROR 0x02;
+	static const uint8_t STATUS_PASED = 0x00;
+	static const uint8_t STATUS_FAILED = 0x01;
+	static const uint8_t STATUS_PHASE_ERROR = 0x02;
 
 public:
 	uint32_t dCSWSignature;

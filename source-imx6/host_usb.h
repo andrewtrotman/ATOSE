@@ -8,9 +8,9 @@
 #define HOST_USB_H_
 
 #include "device_driver.h"
-#include "host_usb_device.h"
-#include "usb_ehci_queue_element_transfer_descriptor.h"
 #include "usb_ehci_queue_head.h"
+#include "host_usb_device_generic.h"
+#include "usb_ehci_queue_element_transfer_descriptor.h"
 
 class ATOSE_usb_setup_data;
 class ATOSE_usb_standard_device_descriptor;
@@ -28,7 +28,6 @@ private:
 	static const uint32_t MAX_USB_DEVICES = 128;
 
 private:
-
 	/*
 		We need the semaphore to communicate between the system process and the IRQ
 	*/
@@ -38,7 +37,7 @@ private:
 	/*
 		As this code represents a port (essentially a USB Bus), we have some set of attached devices
 	*/
-	ATOSE_host_usb_device device_list[MAX_USB_DEVICES];
+	ATOSE_host_usb_device_generic device_list[MAX_USB_DEVICES];
 	uint32_t device_list_length;
 
 protected:
@@ -46,7 +45,6 @@ protected:
 	void initialise_transfer_descriptor(ATOSE_usb_ehci_queue_element_transfer_descriptor *descriptor, uint32_t transaction_type, char *data, uint32_t data_length);
 	uint32_t wait_for_connection(void);
 	uint32_t usb_bus_reset(void);
-	ATOSE_host_usb_device *enumerate(uint8_t parent, uint8_t transaction_translator_address, uint8_t transaction_translator_port, uint8_t my_velocity);
 
 	/*
 		Experimental methods
@@ -75,6 +73,8 @@ public:
 
 	uint32_t send_packet(ATOSE_host_usb_device *device, uint8_t out_endpoint, void *packet, uint32_t packet_size);
 	uint32_t recieve_packet(ATOSE_host_usb_device *device, uint8_t in_endpoint, void *buffer, uint32_t buffer_size);
+
+	ATOSE_host_usb_device *enumerate(uint8_t parent, uint8_t transaction_translator_address, uint8_t transaction_translator_port, uint8_t my_velocity);
 } ;
 
 #endif /* HOST_USB_H_ */
