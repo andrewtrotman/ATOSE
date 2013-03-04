@@ -748,21 +748,20 @@ return 0;
 */
 uint32_t ATOSE_host_usb::send_and_recieve_packet(ATOSE_host_usb_device *device, uint8_t out_endpoint, void *packet, uint32_t packet_size, uint8_t in_endpoint, void *buffer, uint32_t buffer_size)
 {
-//static uint32_t flipping_dt = 0;
 
 initialise_transfer_descriptor(&transfer_descriptor_1, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_OUT, (char *)packet, packet_size);
 initialise_queuehead(&queue_head, device, out_endpoint);
 queue_head.next_qtd_pointer = &transfer_descriptor_1;
-
-transfer_descriptor_1.token.bit.dt = 0;
+//transfer_descriptor_1.token.bit.dt = 0;
+transfer_descriptor_1.token.bit.dt = (device->toggle & (1 << out_endpoint)) ? 1 : 0;
 
 initialise_transfer_descriptor(&transfer_descriptor_2, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_IN, (char *)buffer, buffer_size);
 transfer_descriptor_2.token.bit.ioc = 1;
 initialise_queuehead(&queue_head_2, device, in_endpoint);
 queue_head_2.next_qtd_pointer = &transfer_descriptor_2;
 queue_head_2.characteristics.bit.h = 0;				// we're not the head of the list
-
-transfer_descriptor_2.token.bit.dt = 0;
+//transfer_descriptor_2.token.bit.dt = 0;
+transfer_descriptor_2.token.bit.dt = (device->toggle & (1 << in_endpoint)) ? 1 : 0;
 
 queue_head.queue_head_horizontal_link_pointer.all = &queue_head_2;
 queue_head.queue_head_horizontal_link_pointer.bit.typ = ATOSE_usb_ehci_queue_head_horizontal_link_pointer::QUEUE_HEAD;
@@ -786,11 +785,11 @@ debug_print_string("--\r\n");
 debug_print_this("Desc1:", transfer_descriptor_1.token.bit.status);
 debug_print_this("Desc2:", transfer_descriptor_2.token.bit.status);
 debug_print_string("--\r\n");
-//flipping_dt = flipping_dt == 0 ? 1 : 0;
+
 //ATOSE_api::semaphore_wait(semaphore_handle);
 
-debug_print_this("DT1:", transfer_descriptor_1.token.bit.dt);
-debug_print_this("DT2:", transfer_descriptor_2.token.bit.dt);
+debug_print_cf_this("DT1:", transfer_descriptor_1.token.bit.dt, queue_head.characteristics.bit.dtc);
+debug_print_cf_this("DT2:", transfer_descriptor_2.token.bit.dt, queue_head_2.characteristics.bit.dtc);
 
 /*
 		  Disable the async list
@@ -799,40 +798,15 @@ HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() & (~BM_USBC_UH1_USBCMD_ASE));
 while(HW_USBC_UH1_USBCMD_RD() & BM_USBC_UH1_USBCMD_ASE)
 		  ;       /* nothing */
 
-return 0;
-}
+if (transfer_descriptor_1.token.bit.dt)
+	device->toggle |= (uint32_t)1 << out_endpoint;
+else
+	device->toggle &= ~((uint32_t)1 << out_endpoint);
 
-
-/*
-	ATOSE_HOST_USB::SEND_PACKET()
-	-----------------------------
-	return:
-		0 on success
-*/
-uint32_t ATOSE_host_usb::send_packet(ATOSE_host_usb_device *device, uint8_t out_endpoint, void *packet, uint32_t packet_size)
-{
-initialise_queuehead(&queue_head, device, out_endpoint);
-initialise_transfer_descriptor(&transfer_descriptor_1, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_OUT, (char *)packet, packet_size);
-queue_head.next_qtd_pointer = &transfer_descriptor_1;
-transfer_descriptor_1.token.bit.ioc = 1;
-
-/*
-	Pass the queuehead on to the i.MX6Q and wait for it to start up
-*/
-queue_head.characteristics.bit.h = 1;
-HW_USBC_UH1_ASYNCLISTADDR_WR((uint32_t)&queue_head);
-HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() | BM_USBC_UH1_USBCMD_ASE);
-while((HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_AS) == 0)
-	;	/* do nothing */
-
-ATOSE_api::semaphore_wait(semaphore_handle);
-
-/*
-		  Disable the async list
-*/
-HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() & (~BM_USBC_UH1_USBCMD_ASE));
-while(HW_USBC_UH1_USBCMD_RD() & BM_USBC_UH1_USBCMD_ASE)
-		  ;       /* nothing */
+if (transfer_descriptor_2.token.bit.dt)
+	device->toggle |= (uint32_t)1 << in_endpoint;
+else
+	device->toggle &= ~((uint32_t)1 << in_endpoint);
 
 return 0;
 }
@@ -850,6 +824,8 @@ initialise_queuehead(&queue_head, device, in_endpoint);
 queue_head.next_qtd_pointer = &transfer_descriptor_1;
 transfer_descriptor_1.token.bit.ioc = 1;
 
+transfer_descriptor_1.token.bit.dt = (device->toggle & (1 << in_endpoint)) ? 1 : 0;
+
 /*
 	Pass the queuehead on to the i.MX6Q and wait for it to start up
 */
@@ -860,6 +836,8 @@ while((HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_AS) == 0)
 
 ATOSE_api::semaphore_wait(semaphore_handle);
 
+debug_print_cf_this("DT1:", transfer_descriptor_1.token.bit.dt, queue_head.characteristics.bit.dtc);
+
 /*
 		  Disable the async list
 */
@@ -868,9 +846,13 @@ HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() & (~BM_USBC_UH1_USBCMD_ASE));
 while(HW_USBC_UH1_USBCMD_RD() & BM_USBC_UH1_USBCMD_ASE)
 		  ;       /* nothing */
 
+if (transfer_descriptor_1.token.bit.dt)
+	device->toggle |= (uint32_t)1 << in_endpoint;
+else
+	device->toggle &= ~((uint32_t)1 << in_endpoint);
+
 return 0;
 }
-
 
 /*
 	========================

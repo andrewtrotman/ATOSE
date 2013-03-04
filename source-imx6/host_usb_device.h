@@ -42,7 +42,19 @@ public:
 	static const uint8_t VELOCITY_HIGH = 2;	// 480 Mb/s
 
 public:
+	/*
+		ECHI, the Enhanced Host Controller Interface, is one of the (many) standard interfaces to a USB Host Controller
+		the spec is here:http://www.intel.com/technology/usb/ehcispec.htm and titled "Enhanced Host Controller Interface 
+		Specification for Universal Serial Bus", "Date: March 12, 2002", "Revision: 1.0"
+	*/
 	ATOSE_host_usb *ehci;
+	/*
+		USB allows for at most 16 endpoints.  For each of these we need to keep track of the DATA0/DATA1 state.  The state
+		toggles with each transfer from the host to the device (or vice veca) and is only reset (back to all 0) on a 
+		set_configuration().  The exception to the rule is when a seup packet transferred.  Since the toggles are device specifi
+		they go here.
+	*/
+	uint32_t toggle;
 
 	/*
 		Information about the device itself.
@@ -87,7 +99,7 @@ public:
 	uint32_t get_device_descriptor(ATOSE_usb_standard_device_descriptor *descriptor)  { return get_descriptor(0x80, ATOSE_usb::DESCRIPTOR_TYPE_DEVICE, descriptor, sizeof(*descriptor)); }
 	uint32_t set_address(uint32_t new_address)                                        { return send_setup_packet(0, ATOSE_usb::REQUEST_SET_ADDRESS, new_address); }
 	uint32_t set_interface(uint32_t interface)                                        { return send_setup_packet(0, ATOSE_usb::REQUEST_SET_INTERFACE, interface); }
-	uint32_t set_configuration(uint32_t configuration)                                { return send_setup_packet(0, ATOSE_usb::REQUEST_SET_CONFIGURATION, configuration); }
+	uint32_t set_configuration(uint32_t configuration)                                { return send_setup_packet(0, ATOSE_usb::REQUEST_SET_CONFIGURATION, configuration); toggle = 0; }
 };
 
 #endif
