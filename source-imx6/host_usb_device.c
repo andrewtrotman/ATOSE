@@ -26,7 +26,7 @@ device_id = details->device_id;
 device_class = details->device_class;
 device_subclass = details->device_subclass;
 device_protocol = details->device_protocol;
-max_packet_size = details->max_packet_size;
+memcpy(max_packet_size, details->max_packet_size, sizeof(max_packet_size));
 port_velocity = details->port_velocity;
 transaction_translator_address = details->transaction_translator_address;
 transaction_translator_port = details->transaction_translator_port;

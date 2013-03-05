@@ -25,7 +25,7 @@ class ATOSE_semaphore;
 class ATOSE_host_usb : public ATOSE_device_driver
 {
 private:
-	static const uint32_t MAX_USB_DEVICES = 128;
+	static const uint32_t MAX_USB_DEVICES = 16;
 
 private:
 	/*
@@ -41,6 +41,9 @@ private:
 	uint32_t device_list_length;
 
 protected:
+	void set_toggle(ATOSE_host_usb_device *device, uint32_t endpoint, uint32_t bit);
+	uint32_t get_toggle(ATOSE_host_usb_device *device, uint32_t endpoint);
+	uint32_t perform_transaction(ATOSE_usb_ehci_queue_head *queue);
 	void initialise_queuehead(ATOSE_usb_ehci_queue_head *queue_head, ATOSE_host_usb_device *device, uint32_t endpoint);
 	void initialise_transfer_descriptor(ATOSE_usb_ehci_queue_element_transfer_descriptor *descriptor, uint32_t transaction_type, char *data, uint32_t data_length);
 	uint32_t wait_for_connection(void);
@@ -70,7 +73,6 @@ public:
 	uint32_t send_setup_packet(ATOSE_host_usb_device *device, uint8_t endpoint, ATOSE_usb_setup_data *packet, void *descriptor, uint8_t size);
 	uint32_t read_interrupt_packet(ATOSE_host_usb_device *device, uint32_t endpoint, void *buffer, uint8_t size);
 	uint32_t send_and_recieve_packet(ATOSE_host_usb_device *device, uint8_t out_endpoint, void *packet, uint32_t packet_size, uint8_t in_endpoint, void *descriptor, uint32_t size);
-
 	uint32_t send_packet(ATOSE_host_usb_device *device, uint8_t out_endpoint, void *packet, uint32_t packet_size);
 	uint32_t recieve_packet(ATOSE_host_usb_device *device, uint8_t in_endpoint, void *buffer, uint32_t buffer_size);
 

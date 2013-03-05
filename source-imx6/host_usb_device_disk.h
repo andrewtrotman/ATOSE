@@ -17,16 +17,36 @@
 */
 class ATOSE_host_usb_device_disk : public ATOSE_host_usb_device
 {
+private:
+	static uint8_t ATOSE_usb_scsi_test_unit_ready[];
+	static uint8_t ATOSE_usb_scsi_read_capacity_10[];
+	static uint8_t ATOSE_usb_scsi_read_capacity_16[];
+	static uint8_t ATOSE_usb_scsi_read_10[];
+	static uint8_t ATOSE_usb_scsi_read_16[];
+
 public:
+	uint64_t block_count;		// the number of blocks on the disk (0..block_count-1) is the valid range
+	uint64_t block_size;			// the size of an individual disk block (in bytes)
+	uint8_t logical_units;		// the number of LUNs.  We'll only support those with 1 LUN
+
+	/*
+		Necessary for talking USB to the disk
+	*/
 	uint8_t endpoint_in;
 	uint8_t endpoint_out;
-	uint8_t logical_units;		// the number of LUNs.  We'll only support those with 1 LUN.
+
+protected:
+	uint32_t perform_transaction(uint8_t *command, void *buffer = NULL, uint32_t buffer_length = 0);
+	uint32_t scsi_test_unit_ready(void) { return perform_transaction(ATOSE_usb_scsi_test_unit_ready); }
+	uint32_t scsi_read_capacity_10(uint64_t *count, uint64_t *size);
+	uint32_t scsi_read_capacity_16(uint64_t *count, uint64_t *size);
+	uint32_t scsi_read(uint8_t *buffer, uint32_t buffer_length, uint64_t block, uint32_t blocks_to_read = 1);
 
 public:
 	ATOSE_host_usb_device_disk(ATOSE_host_usb_device *details);
 
 	/*
-		These methods all retun 0 on success
+		These methods all return 0 on success
 	*/
 	uint32_t clear_feature_halt_disk(uint32_t endpoint) { return send_setup_packet(0x02, ATOSE_usb::REQUEST_CLEAR_FEATURE, endpoint); }
 	uint32_t reset_disk(void)                           { return send_setup_packet(0x21, 0xFF); }

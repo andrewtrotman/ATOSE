@@ -22,6 +22,6 @@ public:
 	uint32_t dCSWTag;
 	uint32_t dCSWDataResidue;
 	uint8_t  bCSWStatus;
-};
+} __attribute__ ((packed));
 
 #endif

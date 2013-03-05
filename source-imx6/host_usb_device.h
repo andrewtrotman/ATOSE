@@ -44,17 +44,26 @@ public:
 public:
 	/*
 		ECHI, the Enhanced Host Controller Interface, is one of the (many) standard interfaces to a USB Host Controller
-		the spec is here:http://www.intel.com/technology/usb/ehcispec.htm and titled "Enhanced Host Controller Interface 
+		the spec is here:http://www.intel.com/technology/usb/ehcispec.htm and titled "Enhanced Host Controller Interface
 		Specification for Universal Serial Bus", "Date: March 12, 2002", "Revision: 1.0"
 	*/
 	ATOSE_host_usb *ehci;
+
 	/*
 		USB allows for at most 16 endpoints.  For each of these we need to keep track of the DATA0/DATA1 state.  The state
-		toggles with each transfer from the host to the device (or vice veca) and is only reset (back to all 0) on a 
+		toggles with each transfer from the host to the device (or vice veca) and is only reset (back to all 0) on a
 		set_configuration().  The exception to the rule is when a seup packet transferred.  Since the toggles are device specifi
 		they go here.
 	*/
-	uint32_t toggle;
+	uint32_t toggle;								// the maximum number of endpoints supported by the USB protocol is 32
+
+	/*
+		Each endpoint can have (and in the case of a USB Flash Drive, does have) and different max packet size.  This is because
+		some communications are inherently small while others are inherently longer.  For example, a set-up packet sent to a USB
+		disk drive will be small, but a sector sent back will be larger.  So we need to keep track of the max packet size for each
+		endpoint
+	*/
+	uint16_t max_packet_size[32];				// the maximum number of endpoints supported by the USB protocol is 32
 
 	/*
 		Information about the device itself.
@@ -72,7 +81,6 @@ public:
 	/*
 		Stuff about how to talk to it
 	*/
-	uint16_t max_packet_size;
 	uint8_t port_velocity;
 	uint8_t transaction_translator_address;			// this is defined as a 7-bit number in ATOSE_usb_ehci_queue_head_endpoint_capabilities
 	uint8_t transaction_translator_port;				// this is defined as a 7-bit number in ATOSE_usb_ehci_queue_head_endpoint_capabilities
