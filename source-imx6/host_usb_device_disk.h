@@ -52,6 +52,8 @@ public:
 	uint32_t reset_disk(void)                           { return send_setup_packet(0x21, 0xFF); }
 	uint32_t get_max_lun(uint8_t *luns)                 { return send_setup_packet(0xA1, 0xFE, 0, 0, 1, &luns); }
 
+	uint32_t read_sector(void *buffer, uint64_t sector) { return scsi_read((uint8_t *)buffer, 512, sector, 1); }
+
 	/*
 		Experimental disk stuff
 	*/

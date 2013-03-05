@@ -11,6 +11,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include "ctypes.h"
 
 /*
 	ASCII_STRLEN()
@@ -25,6 +26,87 @@ while (*ch != '\0')
 	ch++;
 
 return ch - string;
+}
+
+/*
+	ASCII_STRCHR()
+	--------------
+*/
+static inline char *ASCII_strchr(const char *string, int value)
+{
+while (*string != '\0')
+	{
+	if (*string == value)
+		return (char *)string;
+	string++;
+	}
+
+return 0;
+}
+
+/*
+	ASCII_STRRCHR()
+	---------------
+*/
+static inline char *ASCII_strrchr(const char *string, int value)
+{
+char *here = 0;
+
+while (*string != '\0')
+	{
+	if (*string == value)
+		here = (char *)string;
+	string++;
+	}
+
+return here;
+}
+
+/*
+	ASCII_STRNCPY()
+	---------------
+	This code comes from the free-BSD codebase
+*/
+static inline char *ASCII_strncpy(char *destination, const char *source, size_t count)
+{
+char *into = (char *)destination;
+char *from = (char *)source;
+
+if (count != 0)
+	do
+		if ((*into++ = *from++) == 0)
+			{
+			/* NUL pad the remaining n-1 bytes */
+			while (--count != 0)
+				*into++ = 0;
+			break;
+			}
+
+	while (--count != 0);
+
+return (destination);
+}
+
+/*
+	ASCII_STRNCASECMP()
+	-------------------
+	this came from here:http://stackoverflow.com/questions/7299119/source-code-for-strncasecmp-function
+	Where it is uncredited and so I assume it is unencumbered.
+*/
+static inline int ASCII_strncasecmp(const char *string_1, const char *string_2, size_t size)
+{
+if (size == 0)
+	return 0;
+
+while (size-- != 0 && ASCII_tolower(*string_1) == ASCII_tolower(*string_2))
+	{
+	if (size == 0 || *string_1 == '\0' || *string_2 == '\0')
+		break;
+	string_1++;
+	string_2++;
+	}
+
+return ASCII_tolower(*(unsigned char *)string_1) - ASCII_tolower(*(unsigned char *)string_2);
 }
 
 /*

@@ -29,7 +29,9 @@ OBJECTS =						\
 	clock_imx6q.o				\
 	cpu_arm.o					\
 	cpu_arm_imx6q.o				\
+	ctypes.o				\
 	debug.o						\
+	fat.o							\
 	host_usb.o					\
 	host_usb_device.o			\
 	host_usb_device_disk.o		\
@@ -50,6 +52,8 @@ OBJECTS =						\
 	uart_imx6q.o				\
 	usb.o						\
 	usb_imx6q.o
+
+
 
 all : atose.elf
 

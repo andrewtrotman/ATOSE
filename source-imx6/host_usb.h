@@ -37,6 +37,7 @@ private:
 	/*
 		As this code represents a port (essentially a USB Bus), we have some set of attached devices
 	*/
+public:
 	ATOSE_host_usb_device_generic device_list[MAX_USB_DEVICES];
 	uint32_t device_list_length;
 

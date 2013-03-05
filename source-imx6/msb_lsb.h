@@ -9,5 +9,7 @@
 #include "msb_uint32_t.h"
 #include "msb_uint16_t.h"
 // no there isn't (an msb_uint8_t.h)
+#include "lsb_uint32_t.h"
+#include "lsb_uint16_t.h"
 
 #endif
