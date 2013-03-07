@@ -12,6 +12,7 @@
 #include "fat_directory_entry.h"
 #include "fat_boot_sector.h"
 #include "ascii_str.h"
+#include "usc2_str.h"
 
 /*
 	------------------------
@@ -235,29 +236,88 @@ return next_cluster;
 }
 
 /*
+	ATOSE_FAT::EIGHT_POINT_THREE_TO_UTF8_STRCPY()
+	---------------------------------------------
+*/
+uint8_t *ATOSE_fat::eight_point_three_to_utf8_strcpy(uint8_t *destination, uint8_t eight_point_three, uint32_t length)
+{
+uint8_t *spacer;
+
+if (length < 13)
+	return NULL;
+
+memcpy(destination, file->DIR_Name, 8);
+for (spacer = destination + 7; spacer >= destination; spacer--)
+	if (!ASCII_isspace(*spacer))
+		break;
+
+spacer++
+*spacer++ = '.';
+
+memcpy(spacer, file->DIR_Extension, 3);
+spacer[4] = '\0';
+}
+
+/*
+	ATOSE_FAT::OPEN()
+	-----------------
+*/
+ATOSE_file_control_block *ATOSE_fat::open(ATOSE_file_control_block *fcb, char *filename)
+{
+uint32_t first_block;
+ATOSE_fat_directory_entry found_file;
+
+if (first_block = find_in_directory(found_file, root_directory_cluster, filename) == EOF)
+	return NULL;
+
+fcb->first_block = fcb->current_block = first_block;
+fcb->file_system = this;
+
+return fcb;
+}
+
+/*
+	ATOSE_FAT::CLOSE()
+	------------------
+	No work necessary for FAT32 - so we just succeed
+*/
+ATOSE_file_control_block *ATOSE_fat::close(ATOSE_file_control_block *fcb)
+{
+return fcb;
+}
+
+/*
+	ATOSE_FAT::READ()
+	-----------------
+*/
+ATOSE_file_control_block *ATOSE_fat::read(ATOSE_file_control_block *fcb, uint8_t buffer, uint32_t bytes)
+{
+uint8_t cluster[bytes_per_sector * sectors_per_cluster];
+
+
+}
+
+/*
 	ATOSE_FAT::FIND_IN_DIRECTORY()
 	------------------------------
 	returns the cluster number of the first cluster of "name" in the directory starting at "start_cluster"
 	or EOF if it cannot find the name
 */
-uint64_t ATOSE_fat::find_in_directory(uint64_t start_cluster, uint8_t *name)
+uint64_t ATOSE_fat::find_in_directory(ATOSE_fat_directory_entry *stats, uint64_t start_cluster, uint8_t *name)
 {
 uint8_t long_filename[(ATOSE_fat_directory_entry::MAX_LONG_FILENAME_LENGTH + 1) * sizeof(uint16_t)];
+uint8_t utf8_long_filename[sizeof(long_filename)];
 uint8_t *into;
 uint32_t filename_part;
-uint32_t state;
-uint8_t sector[bytes_per_sector * sectors_per_cluster];
-uint64_t cluster;
+uint8_t cluster[bytes_per_sector * sectors_per_cluster];
+uint64_t cluster_id;
 ATOSE_fat_directory_entry *file, *end;
 
-filename_part = 1;
-into = long_filename;
-state = ATOSE_fat_directory_entry::SHORT_FILENAME;
-end = (ATOSE_fat_directory_entry *)(sector + bytes_per_sector * sectors_per_cluster);
-for (cluster = start_cluster; cluster != EOF; cluster = next_cluster_after(cluster))
+end = (ATOSE_fat_directory_entry *)(cluster + bytes_per_sector * sectors_per_cluster);
+for (cluster_id = start_cluster; cluster_id != EOF; cluster_id = next_cluster_after(cluster_id))
 	{
-	read_cluster(sector, cluster);
-	for (file = (ATOSE_fat_directory_entry *)sector; file < end; file++)
+	read_cluster(cluster, cluster_id);
+	for (file = (ATOSE_fat_directory_entry *)cluster; file < end; file++)
 		{
 		/*
 			Check for the end of the list of files in this directory
@@ -268,86 +328,90 @@ for (cluster = start_cluster; cluster != EOF; cluster = next_cluster_after(clust
 		/*
 			Check we have a file (and not a deleted file)
 		*/
-		if (file->DIR_Name[0] != ATOSE_fat_directory_entry::ENTRY_FREE)
+		if (file->DIR_Name[0] == ATOSE_fat_directory_entry::ENTRY_FREE)
+			{
+			filename_part = ATOSE_fat_directory_entry::MAX_LONG_FILENAME_SEQUENCE_NUMNBER  + 1;
+			continue;
+			}
+
+		/*
+			Check if we have a long filename
+		*/
+		if ((file->DIR_Attr & ATOSE_fat_directory_entry::ATTR_LONG_NAME) == ATOSE_fat_directory_entry::ATTR_LONG_NAME)
 			{
 			/*
-				Check we have a long filename
+				The sequence numbers are in descending order starting with ATOSE_fat_directory_entry::LAST_LONG_ENTRY | n where n is the number of
+				pieces the name is broken into.  We have to watch out for this:
+					"Names are also NUL terminated and padded with 0xFFFF
+					characters in order to detect corruption of long name fields by errant disk utilities.
+					A name that fits exactly in a n long directory entries (i.e. is an integer multiple of
+					13) is not NUL terminated and not padded with 0xFFFFs."
 			*/
-			if ((file->DIR_Attr & ATOSE_fat_directory_entry::ATTR_LONG_NAME) == ATOSE_fat_directory_entry::ATTR_LONG_NAME)
+			if ((file->LDIR_Ord & ATOSE_fat_directory_entry::LAST_LONG_ENTRY) != 0)
 				{
 				/*
-					There are four cases here...
-					1. the sequence number is too large
-					2. we have the correct next sequence number
-					3. the sequence number is (correct | LAST_LONG_ENTRY) in which case we're at the end of a long filename
-					4. the sequence number is wrong in which case we have an "orphaned" long filename
+					We're at the start of a long filename (whose sequence numbers must descend).
 				*/
-				if (file->LDIR_Ord == filename_part || file->LDIR_Ord  == (ATOSE_fat_directory_entry::LAST_LONG_ENTRY | filename_part))
-					{
-					/*
-						Here we build the long filename
-					*/
-					memcpy(into, file->LDIR_Name1, sizeof(file->LDIR_Name1));			// case 2
-					into += sizeof(file->LDIR_Name1);
-					memcpy(into, file->LDIR_Name2, sizeof(file->LDIR_Name2));
-					into += sizeof(file->LDIR_Name2);
-					memcpy(into, file->LDIR_Name3, sizeof(file->LDIR_Name3));
-					into += sizeof(file->LDIR_Name3);
-
-					if (file->LDIR_Ord > ATOSE_fat_directory_entry::LAST_LONG_ENTRY)
-						{
-						if (file->LDIR_Ord == (ATOSE_fat_directory_entry::LAST_LONG_ENTRY | filename_part))
-							{
-							state = ATOSE_fat_directory_entry::LONG_FILENAME;			// case 3
-							filename_part = 0;
-							}
-						else
-							{
-							debug_print_string("Too large\r\n");
-							debug_print_this("Expected:", filename_part);
-							debug_print_this("Got:", file->LDIR_Ord);
-
-							state = ATOSE_fat_directory_entry::ORPHAN_FILENAME;		// case 1
-							}
-						}
-					filename_part++;
-					}
-				else
-					{
-					debug_print_string("Out of sequence\r\n");
-					debug_print_this("Expected:", filename_part);
-					debug_print_this("Got:", file->LDIR_Ord);
-					state = ATOSE_fat_directory_entry::ORPHAN_FILENAME;		// case 4
-					}
+				filename_part = file->LDIR_Ord & ~ATOSE_fat_directory_entry::LAST_LONG_ENTRY;
+				/*
+					Check the sequence number isn't too high
+				*/
+				if (filename_part > ATOSE_fat_directory_entry::MAX_LONG_FILENAME_SEQUENCE_NUMNBER)
+					continue;
+				/*
+					As above, we must '\0' terminate ourselves
+				*/
+				memset(long_filename, 0, sizeof(long_filename));
 				}
+			/*
+				Check the sequence number is the next in the sequence
+			*/
+			if (filename_part != (file->LDIR_Ord & ~ATOSE_fat_directory_entry::LAST_LONG_ENTRY))
+				{
+				filename_part = ATOSE_fat_directory_entry::MAX_LONG_FILENAME_SEQUENCE_NUMNBER  + 1;
+				continue;
+				}
+
+			/*
+				Build the long filename
+			*/
+			into = long_filename + ((filename_part - 1) * ATOSE_fat_directory_entry::LAST_LONG_BYTES_PER_SHORT_NAME);
+
+			memcpy(into, file->LDIR_Name1, sizeof(file->LDIR_Name1));
+			into += sizeof(file->LDIR_Name1);
+			memcpy(into, file->LDIR_Name2, sizeof(file->LDIR_Name2));
+			into += sizeof(file->LDIR_Name2);
+			memcpy(into, file->LDIR_Name3, sizeof(file->LDIR_Name3));
+			into += sizeof(file->LDIR_Name3);
+			/*
+				set the sequence number to the one we expect next
+			*/
+			filename_part--;
+			}
+		else
+			{
+			/*
+				We now find ourselves with a short filename which is either a true short filename or a surrogate for the long filename
+				Either way, there's some translation necessary
+			*/
+			if (filename_part == 0)
+				UCS2_to_utf8_strcpy(utf8_long_filename, (uint16_t *)long_filename, sizeof(utf8_long_filename));
 			else
+				eight_point_three_to_utf8_strcpy(utf8_long_filename, file->DIR_Name, sizeof(utf8_long_filename));
+
+			/*
+				We got the name, now do the comparison (in UTF-8)
+			*/
+			if (ASCII_strcmp(utf8_long_filename, name) == 0)
 				{
-				/*
-					We now find ourselves with a short filename which is either a true short filename or a surrogate for the long filename
-				*/
-				if (state == ATOSE_fat_directory_entry::LONG_FILENAME)
-					debug_dump_buffer(long_filename, 0, (into - long_filename) * 2);
-				else if (state == ATOSE_fat_directory_entry::ORPHAN_FILENAME)
-					debug_print_string("--ORPHAN FILE--");
-				else if (state == ATOSE_fat_directory_entry::SHORT_FILENAME)
-					{
-					uint8_t name[13];
-					memset(name, ' ', sizeof(name));
-					memcpy(name, file->DIR_Name, 8);
-					name[8] = '.';
-					memcpy(name + 9, file->DIR_Extension, 3);
-					name[12] = '\0';
-
-					debug_print_string((char *)name);
-					}
-//				else	// there is no else case
-
-				debug_print_string("\r\n");
-
-				filename_part = 1;
-				into = long_filename;
-				state = ATOSE_fat_directory_entry::SHORT_FILENAME;
+				memcpy(stats, file, sizeof(*stats));
+				return ((uint32_t)DIR_FstClusHI << 16) | DIR_FstClusLO;
 				}
+
+			/*
+				Move on to the next file
+			*/
+			filename_part = 1;
 			}
 		}
 	}
@@ -360,48 +424,5 @@ return EOF;		// not found
 */
 void ATOSE_fat::dir(void)
 {
-uint8_t sector[bytes_per_sector * sectors_per_cluster];
-uint8_t name[13];
-ATOSE_fat_directory_entry *file;
-uint32_t files_per_sector = sizeof(sector) / sizeof(*file);
-uint32_t current;
-uint64_t cluster;
-
-cluster = root_directory_cluster;
-for (cluster = root_directory_cluster; cluster != EOF; cluster = next_cluster_after(cluster))
-	{
-	debug_print_string("                                 READ\r\n");
-
-	read_cluster(sector, cluster);
-	debug_dump_buffer(sector, 0, sizeof(sector));
-
-	file = (ATOSE_fat_directory_entry *)sector;
-	for (current = 0; current < files_per_sector; current++)
-		{
-		if (*file[current].DIR_Name == ATOSE_fat_directory_entry::ENTRY_END_OF_LIST)
-			break;
-
-		if (*file[current].DIR_Name != ATOSE_fat_directory_entry::ENTRY_FREE)
-			{
-			if (*file[current].DIR_Name == ATOSE_fat_directory_entry::ENTRY_USE_0xE5)
-				*file[current].DIR_Name = ATOSE_fat_directory_entry::ENTRY_FREE;
-
-			if ((file[current].DIR_Attr & ATOSE_fat_directory_entry::ATTR_LONG_NAME) == ATOSE_fat_directory_entry::ATTR_LONG_NAME)
-				debug_print_string("L ");
-			else
-				debug_print_string("S ");
-
-			memset(name, ' ', sizeof(name));
-			memcpy(name, file[current].DIR_Name, 8);
-			name[8] = '.';
-			memcpy(name + 9, file[current].DIR_Extension, 3);
-			name[12] = '\0';
-			debug_print_string((char *)name);
-			debug_print_string("\r\n");
-			}
-		}
-
-
 find_in_directory(root_directory_cluster, (uint8_t *)"ATOSE");
-}
 }

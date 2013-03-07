@@ -276,12 +276,12 @@ else
 		return error;
 	}
 
-//#ifdef NEVER
+#ifdef NEVER
 	debug_print_this("SIG:", reply.dCSWSignature);
 	debug_print_this("TAG:", reply.dCSWTag);
 	debug_print_this("RES:", reply.dCSWDataResidue);
 	debug_print_this("STS:", reply.bCSWStatus);
-//#endif
+#endif
 
 /*
 	The USB transaction was successfully transmitted, but we don't know if the the SCSI command was successful or not
@@ -374,13 +374,6 @@ else
 */
 bytes_to_transfer = (ATOSE_lsb_uint32_t *)(command + 8);
 *bytes_to_transfer = block_size * blocks_to_read;
-
-debug_print_string("\r\n--\r\n");
-debug_print_string("READ\r\n");
-debug_print_this("Block     :", block);
-debug_print_this("Num Blocks:", blocks_to_read);
-debug_print_this("Num Bytes :", buffer_length);
-debug_print_string("--\r\n");
 
 return perform_transaction(command, buffer, buffer_length);
 }

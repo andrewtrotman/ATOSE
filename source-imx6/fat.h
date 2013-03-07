@@ -12,7 +12,7 @@
 	class ATOSE_FAT
 	---------------
 */
-class ATOSE_fat
+class ATOSE_fat : public ATOSE_file_system
 {
 public:
 	static const uint64_t EOF = ~0;
@@ -37,8 +37,12 @@ protected:
 	uint32_t read_cluster(void *buffer, uint64_t cluster) { return disk->read_sector(buffer, (first_data_sector + (cluster - 2) * sectors_per_cluster) + base, sectors_per_cluster); }
 	uint64_t next_cluster_after(uint64_t cluster);
 	uint64_t find_in_directory(uint64_t start_cluster, uint8_t *name);
+
 public:
 	ATOSE_fat(ATOSE_host_usb_device_disk *disk, uint64_t base = 0);
+
+	virtual ATOSE_file_control_block *open(uint8_t *filename);
+	virtual ATOSE_file_control_block *close(ATOSE_file_control_block *fcb);
 	void dir(void);
 } ;
 

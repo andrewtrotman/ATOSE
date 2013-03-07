@@ -34,6 +34,11 @@ public:
 	static const uint32_t LAST_LONG_ENTRY = 0x40;
 
 	/*
+		The number of bytes of filename that are stored in a long filename entry (13 characters = 26 bytes)
+	*/
+	static const uint32_t LAST_LONG_BYTES_PER_SHORT_NAME = 26;
+
+	/*
 		Each long filename entry contains 13 characters (26 bytes) and the maximum length of a
 		long filename is 255 bytes so we get...
 	*/
