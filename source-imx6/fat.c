@@ -371,7 +371,7 @@ cluster = root_directory_cluster;
 for (cluster = root_directory_cluster; cluster != EOF; cluster = next_cluster_after(cluster))
 	{
 	debug_print_string("                                 READ\r\n");
-	memset(sector, 'X', sizeof(cluster));
+
 	read_cluster(sector, cluster);
 	debug_dump_buffer(sector, 0, sizeof(sector));
 

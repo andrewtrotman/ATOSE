@@ -339,8 +339,12 @@ uint32_t ATOSE_host_usb_device_disk::scsi_read(uint8_t *buffer, uint32_t buffer_
 ATOSE_msb_uint64_t *address_64;
 ATOSE_msb_uint32_t *address_32, *number_32;
 ATOSE_msb_uint16_t *number_16;
+ATOSE_lsb_uint32_t *bytes_to_transfer;
 uint8_t command[31];
 
+/*
+	Set up the USB transfer
+*/
 if (block < 0xFFFFFFFF && blocks_to_read < 0xFFFF)
 	{
 	/*
@@ -365,6 +369,19 @@ else
 	*number_32 = (uint32_t)blocks_to_read;
 	}
 
+/*
+	Tell the USB how many bytes to send us
+*/
+bytes_to_transfer = (ATOSE_lsb_uint32_t *)(command + 8);
+*bytes_to_transfer = block_size * blocks_to_read;
+
+debug_print_string("\r\n--\r\n");
+debug_print_string("READ\r\n");
+debug_print_this("Block     :", block);
+debug_print_this("Num Blocks:", blocks_to_read);
+debug_print_this("Num Bytes :", buffer_length);
+debug_print_string("--\r\n");
+
 return perform_transaction(command, buffer, buffer_length);
 }
 
@@ -377,15 +394,15 @@ uint32_t ATOSE_host_usb_device_disk::get_disk_inquiry(void)
 {
 uint32_t block;
 uint32_t error;
-uint8_t buffer[512], *partition_table;
+uint8_t buffer[block_size], *partition_table;
 
 block = 0;
 
-if ((error = scsi_read(buffer, 512, block, 1)) != 0)
+if ((error = scsi_read(buffer, block_size, block, 1)) != 0)
 	return 0;
 #ifdef NEVER
 	debug_print_this("\r\n\r\nBLOCK:", block);
-	debug_dump_buffer(buffer, 0, 512);
+	debug_dump_buffer(buffer, 0, block_size);
 #endif
 
 partition_table = buffer + 0x1BE;

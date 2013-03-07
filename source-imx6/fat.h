@@ -34,7 +34,7 @@ protected:
 
 protected:
 	uint32_t read_sector(void *buffer, uint64_t sector = 0, uint64_t number_of_sectors = 1) { return disk->read_sector(buffer, sector + base, number_of_sectors); }
-	uint32_t read_cluster(void *buffer, uint64_t cluster) { return disk->read_sector(buffer, (first_data_sector + (cluster - 2) * sectors_per_cluster) + base, 1); }
+	uint32_t read_cluster(void *buffer, uint64_t cluster) { return disk->read_sector(buffer, (first_data_sector + (cluster - 2) * sectors_per_cluster) + base, sectors_per_cluster); }
 	uint64_t next_cluster_after(uint64_t cluster);
 	uint64_t find_in_directory(uint64_t start_cluster, uint8_t *name);
 public:
