@@ -32,6 +32,7 @@ OBJECTS =						\
 	ctypes.o				\
 	debug.o						\
 	fat.o							\
+	file_system.o				\
 	host_usb.o					\
 	host_usb_device.o			\
 	host_usb_device_disk.o		\

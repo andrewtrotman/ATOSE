@@ -13,6 +13,7 @@
 #include "fat_boot_sector.h"
 #include "ascii_str.h"
 #include "usc2_str.h"
+#include "file_control_block.h"
 
 /*
 	------------------------
@@ -192,6 +193,16 @@ if ((bytes_per_sector * sectors_per_cluster) > (32 * 1024))
 	return;
 
 /*
+	Not there yet... check for FAT+ (see:http://www.fdos.org/kernel/fatplus.txt)
+*/
+if (boot_sector.BPB_FSVer == 0x0000)
+	fat_plus = false;
+else if (boot_sector.BPB_FSVer == 0x0010)
+	fat_plus = true;
+else
+	return;
+
+/*
 	Mark the disk as good (so far)
 */
 dead_volume = false;
@@ -239,39 +250,65 @@ return next_cluster;
 	ATOSE_FAT::EIGHT_POINT_THREE_TO_UTF8_STRCPY()
 	---------------------------------------------
 */
-uint8_t *ATOSE_fat::eight_point_three_to_utf8_strcpy(uint8_t *destination, uint8_t eight_point_three, uint32_t length)
+uint8_t *ATOSE_fat::eight_point_three_to_utf8_strcpy(uint8_t *destination, uint8_t *eight_point_three, uint32_t length)
 {
 uint8_t *spacer;
 
 if (length < 13)
 	return NULL;
 
-memcpy(destination, file->DIR_Name, 8);
+memcpy(destination, eight_point_three, 8);
 for (spacer = destination + 7; spacer >= destination; spacer--)
 	if (!ASCII_isspace(*spacer))
 		break;
 
-spacer++
+spacer++;
 *spacer++ = '.';
 
-memcpy(spacer, file->DIR_Extension, 3);
+memcpy(spacer, eight_point_three + 8, 3);
 spacer[4] = '\0';
+if (spacer[3] == ' ')
+	{
+	spacer[3] = '\0';
+	if (spacer[2] == ' ')
+		{
+		spacer[2] = '\0';
+		if (spacer[1] == ' ')
+			spacer[1] = '\0';
+		}
+	}
+return destination;
 }
 
 /*
 	ATOSE_FAT::OPEN()
 	-----------------
 */
-ATOSE_file_control_block *ATOSE_fat::open(ATOSE_file_control_block *fcb, char *filename)
+ATOSE_file_control_block *ATOSE_fat::open(ATOSE_file_control_block *fcb, uint8_t *filename)
 {
 uint32_t first_block;
 ATOSE_fat_directory_entry found_file;
 
-if (first_block = find_in_directory(found_file, root_directory_cluster, filename) == EOF)
+if ((first_block = find_in_directory(&found_file, root_directory_cluster, filename)) == EOF)
 	return NULL;
 
-fcb->first_block = fcb->current_block = first_block;
 fcb->file_system = this;
+fcb->first_block = first_block;
+fcb->block_size_in_bytes = bytes_per_sector * sectors_per_cluster;
+
+fcb->current_block = first_block;
+fcb->buffer = NULL;
+fcb->file_offset = 0;
+
+/*
+	FAT+ (see: http://www.fdos.org/kernel/fatplus.txt)
+	This means bits 0-2 and 5-7 are reserved, so these 6 bits are used by a FAT+ file system to store
+	the upper 6 bits of a file's size when the size becomes or exceeds 4GiB, giving 38 bits instead
+	of just 32 to store the size. This allows for a file up to 274877906944 bytes (256GiB).
+*/
+fcb->file_size_in_bytes = found_file.DIR_FileSize;
+if (fat_plus)
+	fcb->file_size_in_bytes += ((uint64_t)(found_file.DIR_NTRes & 0x07)) + ((((uint64_t)found_file.DIR_NTRes >> 5) << 3) << 32);
 
 return fcb;
 }
@@ -287,14 +324,42 @@ return fcb;
 }
 
 /*
-	ATOSE_FAT::READ()
-	-----------------
+	ATOSE_FAT::GET_NEXT_BLOCK()
+	---------------------------
 */
-ATOSE_file_control_block *ATOSE_fat::read(ATOSE_file_control_block *fcb, uint8_t buffer, uint32_t bytes)
+uint8_t *ATOSE_fat::get_next_block(ATOSE_file_control_block *fcb)
 {
-uint8_t cluster[bytes_per_sector * sectors_per_cluster];
+if (fcb->current_block == EOF)
+	return NULL;
 
+if ((fcb->current_block = next_cluster_after(fcb->current_block)) == EOF)
+	return NULL;
 
+if (read_cluster(fcb->buffer, fcb->current_block) == 0)
+	return fcb->buffer;
+
+return NULL;
+}
+
+/*
+	ATOSE_FAT::GET_RANDOM_BLOCK()
+	-----------------------------
+*/
+uint8_t *ATOSE_fat::get_random_block(ATOSE_file_control_block *fcb, uint64_t bytes_into_file)
+{
+uint64_t block_number, current_block, block_count;
+
+block_number = bytes_into_file / fcb->block_size_in_bytes;
+current_block = fcb->first_block;
+
+for (block_count = 0; block_count < block_number; block_count++)
+	if ((current_block = next_cluster_after(current_block )) == EOF)
+		return NULL;
+
+if (read_cluster(fcb->buffer, fcb->current_block) == 0)
+	return fcb->buffer;
+
+return NULL;
 }
 
 /*
@@ -308,7 +373,7 @@ uint64_t ATOSE_fat::find_in_directory(ATOSE_fat_directory_entry *stats, uint64_t
 uint8_t long_filename[(ATOSE_fat_directory_entry::MAX_LONG_FILENAME_LENGTH + 1) * sizeof(uint16_t)];
 uint8_t utf8_long_filename[sizeof(long_filename)];
 uint8_t *into;
-uint32_t filename_part;
+uint32_t filename_part = 1;
 uint8_t cluster[bytes_per_sector * sectors_per_cluster];
 uint64_t cluster_id;
 ATOSE_fat_directory_entry *file, *end;
@@ -402,10 +467,10 @@ for (cluster_id = start_cluster; cluster_id != EOF; cluster_id = next_cluster_af
 			/*
 				We got the name, now do the comparison (in UTF-8)
 			*/
-			if (ASCII_strcmp(utf8_long_filename, name) == 0)
+			if (ASCII_strcmp((char *)utf8_long_filename, (char *)name) == 0)
 				{
 				memcpy(stats, file, sizeof(*stats));
-				return ((uint32_t)DIR_FstClusHI << 16) | DIR_FstClusLO;
+				return ((uint64_t)file->DIR_FstClusHI << 16) | (uint64_t)file->DIR_FstClusLO;
 				}
 
 			/*
@@ -418,11 +483,4 @@ for (cluster_id = start_cluster; cluster_id != EOF; cluster_id = next_cluster_af
 return EOF;		// not found
 }
 
-/*
-	ATOSE_FAT::DIR()
-	----------------
-*/
-void ATOSE_fat::dir(void)
-{
-find_in_directory(root_directory_cluster, (uint8_t *)"ATOSE");
-}
+

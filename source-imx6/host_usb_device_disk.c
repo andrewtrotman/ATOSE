@@ -30,6 +30,8 @@
 #include "scsi_read_capacity_10_parameter_data.h"
 #include "scsi_read_capacity_16_parameter_data.h"
 
+#include "file_control_block.h"
+
 uint8_t ATOSE_host_usb_device_disk::ATOSE_usb_scsi_test_unit_ready[31] =
 {
 0x55, 0x53, 0x42, 0x43, // dCBWSignature
@@ -385,78 +387,56 @@ return perform_transaction(command, buffer, buffer_length);
 */
 uint32_t ATOSE_host_usb_device_disk::get_disk_inquiry(void)
 {
-uint32_t block;
 uint32_t error;
-uint8_t buffer[block_size], *partition_table;
+uint8_t *partition_table;
+ATOSE_file_control_block *fcb, fcb_space;
 
-block = 0;
+uint8_t buffer[block_size];
 
-if ((error = scsi_read(buffer, block_size, block, 1)) != 0)
-	return 0;
-#ifdef NEVER
-	debug_print_this("\r\n\r\nBLOCK:", block);
-	debug_dump_buffer(buffer, 0, block_size);
-#endif
+if ((error = scsi_read(buffer, block_size, 0, 1)) != 0)
+	return error;
 
 partition_table = buffer + 0x1BE;
-
-#ifdef NEVER
-	debug_print_string("Partition 1\r\n");
-	debug_print_this("status         :", partition_table[0]);
-	debug_print_this("start address H:", partition_table[1]);
-	debug_print_this("start address S:", partition_table[2] & 0x3F);
-	debug_print_this("start address T:", ((partition_table[2] >> 5) << 10) | partition_table[3]);
-	debug_print_this("type           :", partition_table[4]);
-	debug_print_this("end address H  :", partition_table[5]);
-	debug_print_this("end address S  :", partition_table[6] & 0x3F);
-	debug_print_this("end address T  :", ((partition_table[6] >> 5) << 10) | partition_table[7]);
-	debug_print_this("First LBA      :", (uint32_t)(*(ATOSE_lsb_uint32_t *)(partition_table + 0x08)));
-	debug_print_this("len in sectors :", (uint32_t)(*(ATOSE_lsb_uint32_t  *)(partition_table + 0x0C)));
-#endif
-
-#ifdef NEVER
-	partition_table += 16;
-	debug_print_string("\r\nPartition 2\r\n");
-	debug_print_this("status         :", partition_table[0]);
-	debug_print_this("start address H:", partition_table[1]);
-	debug_print_this("start address S:", partition_table[2] & 0x3F);
-	debug_print_this("start address T:", ((partition_table[2] >> 5) << 10) | partition_table[3]);
-	debug_print_this("type           :", partition_table[4]);
-	debug_print_this("end address H  :", partition_table[5]);
-	debug_print_this("end address S  :", partition_table[6] & 0x3F);
-	debug_print_this("end address T  :", ((partition_table[6] >> 5) << 10) | partition_table[7]);
-	debug_print_this("First LBA      :", (uint32_t)(*(ATOSE_lsb_uint32_t *)(partition_table + 0x08)));
-	debug_print_this("len in sectors :", (uint32_t)(*(ATOSE_lsb_uint32_t  *)(partition_table + 0x0C)));
-
-	partition_table += 16;
-	debug_print_string("\r\nPartition 3\r\n");
-	debug_print_this("status         :", partition_table[0]);
-	debug_print_this("start address H:", partition_table[1]);
-	debug_print_this("start address S:", partition_table[2] & 0x3F);
-	debug_print_this("start address T:", ((partition_table[2] >> 5) << 10) | partition_table[3]);
-	debug_print_this("type           :", partition_table[4]);
-	debug_print_this("end address H  :", partition_table[5]);
-	debug_print_this("end address S  :", partition_table[6] & 0x3F);
-	debug_print_this("end address T  :", ((partition_table[6] >> 5) << 10) | partition_table[7]);
-	debug_print_this("First LBA      :", (uint32_t)(*(ATOSE_lsb_uint32_t *)(partition_table + 0x08)));
-	debug_print_this("len in sectors :", (uint32_t)(*(ATOSE_lsb_uint32_t  *)(partition_table + 0x0C)));
-
-	partition_table += 16;
-	debug_print_string("\r\nPartition 4\r\n");
-	debug_print_this("status         :", partition_table[0]);
-	debug_print_this("start address H:", partition_table[1]);
-	debug_print_this("start address S:", partition_table[2] & 0x3F);
-	debug_print_this("start address T:", ((partition_table[2] >> 5) << 10) | partition_table[3]);
-	debug_print_this("type           :", partition_table[4]);
-	debug_print_this("end address H  :", partition_table[5]);
-	debug_print_this("end address S  :", partition_table[6] & 0x3F);
-	debug_print_this("end address T  :", ((partition_table[6] >> 5) << 10) | partition_table[7]);
-	debug_print_this("First LBA      :", (uint32_t)(*(ATOSE_lsb_uint32_t *)(partition_table + 0x08)));
-	debug_print_this("len in sectors :", (uint32_t)(*(ATOSE_lsb_uint32_t  *)(partition_table + 0x0C)));
-#endif
-
 ATOSE_fat fat(this, (uint32_t)(*(ATOSE_lsb_uint32_t *)(partition_table + 0x08)));
-fat.dir();
+
+fcb = fat.open(&fcb_space, (uint8_t *)"A.IN");
+
+if (fcb == NULL)
+	debug_print_string("Cannot open file\r\n");
+else
+	{
+	uint8_t fcb_buffer[fcb->block_size_in_bytes];
+	uint8_t into[0x2500];
+	uint64_t got;
+
+	debug_print_this("first_block        :", fcb->first_block);
+	debug_print_this("block_size_in_bytes:", fcb->block_size_in_bytes);
+	debug_print_this("file_size_in_bytes :", fcb->file_size_in_bytes);
+	debug_print_this("current_block      :", fcb->current_block);
+	debug_print_this("file_offset        :", fcb->file_offset);
+
+	fcb->buffer = fcb_buffer;
+	memset(into, 0, sizeof(into));
+	got = fat.read(fcb, into, 0x1000);
+	got = fat.read(fcb, into, 0x1000);
+	debug_print_this("Bytes read:", got);
+	debug_dump_buffer(into, 0, sizeof(into));
+	}
 
 return error;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

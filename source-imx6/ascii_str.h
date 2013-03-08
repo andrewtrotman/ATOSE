@@ -110,6 +110,21 @@ return ASCII_tolower(*(unsigned char *)string_1) - ASCII_tolower(*(unsigned char
 }
 
 /*
+	ASCII_STRCMP()
+	--------------
+*/
+static inline int ASCII_strcmp(const char *string_1, const char *string_2)
+{
+while (*string_1 == *string_2 && *string_1 != '\0')
+	{
+	string_1++;
+	string_2++;
+	}
+
+return (unsigned char)*string_1 - (unsigned char)*string_2;
+}
+
+/*
 	ASCII_ITOA()
 	------------
 */

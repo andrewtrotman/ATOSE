@@ -56,7 +56,7 @@ return utf8len;
 static inline uint32_t UCS2_to_utf8_strlen(uint16_t *ucs2)
 {
 uint16_t *from;
-int32_t utf8_length;
+int32_t utf8_length = 0;
 
 for (from = ucs2; *from != 0; from++)
 	if (*ucs2 < 0x80)
