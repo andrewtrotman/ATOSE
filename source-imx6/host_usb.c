@@ -511,7 +511,6 @@ queue_head->queue_head_horizontal_link_pointer.bit.typ = ATOSE_usb_ehci_queue_he
 queue_head->characteristics.bit.ep = device->port_velocity;	// port speed
 queue_head->capabilities.bit.hub_addr = device->transaction_translator_address;
 queue_head->capabilities.bit.port_number = device->transaction_translator_port;
-//queue_head->characteristics.bit.maximum_packet_length = (queue_head->characteristics.bit.ep == 0x01 ? 0x08 : 0x40);		// 0x08 for LOW-speed else 0x40
 queue_head->characteristics.bit.maximum_packet_length = device->max_packet_size[endpoint];
 //debug_print_this("MAX PACKET LEN:", queue_head->characteristics.bit.maximum_packet_length);
 
@@ -728,8 +727,6 @@ uint32_t ATOSE_host_usb::send_setup_packet(ATOSE_host_usb_device *device, uint8_
 */
 initialise_queuehead(&queue_head, device, endpoint);
 queue_head.characteristics.bit.c = 1;				// we're a control packet
-//queue_head.queue_head_horizontal_link_pointer.all = &queue_head;
-//queue_head.queue_head_horizontal_link_pointer.bit.typ = ATOSE_usb_ehci_queue_head_horizontal_link_pointer::QUEUE_HEAD;
 
 /*
 	Initialise the descriptors
@@ -795,6 +792,42 @@ return result;
 }
 
 /*
+	ATOSE_HOST_USB::SEND_AND_SEND_PACKET()
+	--------------------------------------
+	return:
+		0 on success
+*/
+uint32_t ATOSE_host_usb::send_and_send_packet(ATOSE_host_usb_device *device, uint8_t out_endpoint, void *packet, uint32_t packet_size, void *buffer, uint32_t buffer_size)
+{
+uint32_t result;
+
+initialise_queuehead(&queue_head, device, out_endpoint);
+initialise_transfer_descriptor(&transfer_descriptor_1, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_OUT, (char *)packet, packet_size);
+initialise_transfer_descriptor(&transfer_descriptor_2, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_OUT, (char *)buffer, buffer_size);
+
+queue_head.next_qtd_pointer = &transfer_descriptor_1;
+transfer_descriptor_1.next_qtd_pointer = &transfer_descriptor_2;
+transfer_descriptor_2.token.bit.ioc = 1;
+
+/*
+	Normally we would rely on the transfer descriptor to do the toggle for us... but we can't do this
+	this time because it would change from descriptor to descriptor and we can't know what its value
+	should be between the two transfers.  So... we put is into the queuehead.
+*/
+queue_head.characteristics.bit.dtc = 0;
+queue_head.token.bit.dt = get_toggle(device, out_endpoint);
+
+result = perform_transaction(&queue_head);
+
+/*
+	As the copy in the queuehead gets put back afterwards, transfer descriptor 2 has the correct toggle bit in it/
+*/
+set_toggle(device, out_endpoint, transfer_descriptor_2.token.bit.dt);
+
+return result;
+}
+
+/*
 	ATOSE_HOST_USB::RECIEVE_PACKET()
 	--------------------------------
 	return:
@@ -806,8 +839,6 @@ uint32_t result;
 
 initialise_transfer_descriptor(&transfer_descriptor_1, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_IN, (char *)buffer, buffer_size);
 initialise_queuehead(&queue_head, device, in_endpoint);
-//queue_head.queue_head_horizontal_link_pointer.all = &queue_head;
-//queue_head.queue_head_horizontal_link_pointer.bit.typ = ATOSE_usb_ehci_queue_head_horizontal_link_pointer::QUEUE_HEAD;
 queue_head.next_qtd_pointer = &transfer_descriptor_1;
 transfer_descriptor_1.token.bit.ioc = 1;
 transfer_descriptor_1.token.bit.dt = get_toggle(device, in_endpoint);

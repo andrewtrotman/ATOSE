@@ -2,7 +2,6 @@
 	FILE_SYSTEM.H
 	-------------
 */
-
 #ifndef FILE_SYSTEM_H_
 #define FILE_SYSTEM_H_
 
@@ -22,12 +21,15 @@ public:
 	*/
 	virtual ATOSE_file_control_block *open(ATOSE_file_control_block *fcb, uint8_t *filename);
 	virtual ATOSE_file_control_block *close(ATOSE_file_control_block *fcb) = 0;
+	virtual uint64_t seek(ATOSE_file_control_block *fcb, uint64_t position_in_file);
+	virtual uint64_t tell(ATOSE_file_control_block *fcb);
+	virtual uint64_t read(ATOSE_file_control_block *fcb, uint8_t *buffer, uint64_t bytes);
+	virtual uint64_t write(ATOSE_file_control_block *fcb, uint8_t *buffer, uint64_t bytes_to_write);
+	virtual uint64_t extend(ATOSE_file_control_block *fcb, uint64_t new_length);
 
-	virtual uint8_t *get_current_block(ATOSE_file_control_block *fcb) = 0;
+	virtual uint8_t *get_random_block(ATOSE_file_control_block *fcb) = 0;
 	virtual uint8_t *get_next_block(ATOSE_file_control_block *fcb) = 0;
-	virtual uint8_t *get_random_block(ATOSE_file_control_block *fcb, uint64_t bytes_into_file) = 0;
-
-	uint64_t read(ATOSE_file_control_block *fcb, uint8_t *buffer, uint64_t bytes);
+	virtual uint8_t *write_current_block(ATOSE_file_control_block *fcb) = 0;
 };
 
 #endif

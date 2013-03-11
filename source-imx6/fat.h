@@ -39,7 +39,8 @@ protected:
 
 protected:
 	uint32_t read_sector(void *buffer, uint64_t sector = 0, uint64_t number_of_sectors = 1) { return disk->read_sector(buffer, sector + base, number_of_sectors); }
-	uint32_t read_cluster(void *buffer, uint64_t cluster) { return disk->read_sector(buffer, (first_data_sector + (cluster - 2) * sectors_per_cluster) + base, sectors_per_cluster); }
+	uint32_t read_cluster(void *buffer, uint64_t cluster)  { return disk->read_sector(buffer, (first_data_sector + (cluster - 2) * sectors_per_cluster) + base, sectors_per_cluster); }
+	uint32_t write_cluster(void *buffer, uint64_t cluster) { return disk->write_sector(buffer, (first_data_sector + (cluster - 2) * sectors_per_cluster) + base, sectors_per_cluster); }
 	uint64_t next_cluster_after(uint64_t cluster);
 	uint64_t find_in_directory(ATOSE_fat_directory_entry *stats, uint64_t start_cluster, uint8_t *name);
 	uint8_t *eight_point_three_to_utf8_strcpy(uint8_t *destination, uint8_t *eight_point_three, uint32_t length);
@@ -49,10 +50,11 @@ public:
 
 	virtual ATOSE_file_control_block *open(ATOSE_file_control_block *fcb, uint8_t *filename);
 	virtual ATOSE_file_control_block *close(ATOSE_file_control_block *fcb);
+	virtual uint64_t extend(ATOSE_file_control_block *fcb, uint64_t new_length);
 
-	virtual uint8_t *get_current_block(ATOSE_file_control_block *fcb) { return read_cluster(fcb->buffer, fcb->current_block) == 0 ? fcb->buffer : NULL; }
 	virtual uint8_t *get_next_block(ATOSE_file_control_block *fcb);
-	virtual uint8_t *get_random_block(ATOSE_file_control_block *fcb, uint64_t bytes_into_file);
+	virtual uint8_t *get_random_block(ATOSE_file_control_block *fcb);
+	virtual uint8_t *write_current_block(ATOSE_file_control_block *fcb);
 } ;
 
 #endif

@@ -73,8 +73,8 @@ public:
 	void device_manager(void);
 	uint32_t send_setup_packet(ATOSE_host_usb_device *device, uint8_t endpoint, ATOSE_usb_setup_data *packet, void *descriptor, uint8_t size);
 	uint32_t read_interrupt_packet(ATOSE_host_usb_device *device, uint32_t endpoint, void *buffer, uint8_t size);
-	uint32_t send_and_recieve_packet(ATOSE_host_usb_device *device, uint8_t out_endpoint, void *packet, uint32_t packet_size, uint8_t in_endpoint, void *descriptor, uint32_t size);
-	uint32_t send_packet(ATOSE_host_usb_device *device, uint8_t out_endpoint, void *packet, uint32_t packet_size);
+	uint32_t send_and_recieve_packet(ATOSE_host_usb_device *device, uint8_t out_endpoint, void *packet, uint32_t packet_size, uint8_t in_endpoint, void *buffer, uint32_t size);
+	uint32_t send_and_send_packet(ATOSE_host_usb_device *device, uint8_t out_endpoint, void *packet, uint32_t packet_size, void *buffer, uint32_t size);
 	uint32_t recieve_packet(ATOSE_host_usb_device *device, uint8_t in_endpoint, void *buffer, uint32_t buffer_size);
 
 	ATOSE_host_usb_device *enumerate(uint8_t parent, uint8_t transaction_translator_address, uint8_t transaction_translator_port, uint8_t my_velocity);

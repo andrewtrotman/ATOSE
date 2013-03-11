@@ -342,24 +342,74 @@ return NULL;
 }
 
 /*
+	ATOSE_FAT::WRITE_CURRENT_BLOCK()
+	--------------------------------
+	The FCB contains both the block to write (fcb->buffer) and the current block number (fcb->current_block)
+	Here we really only need to write the block back to where it came from
+*/
+uint8_t *ATOSE_fat::write_current_block(ATOSE_file_control_block *fcb)
+{
+/*
+	We don't write past EOF
+*/
+if (fcb->current_block == EOF)
+	return NULL;
+
+if (write_cluster(fcb->buffer, fcb->current_block) == 0)
+	return fcb->buffer;
+
+return NULL;
+}
+
+/*
 	ATOSE_FAT::GET_RANDOM_BLOCK()
 	-----------------------------
 */
-uint8_t *ATOSE_fat::get_random_block(ATOSE_file_control_block *fcb, uint64_t bytes_into_file)
+uint8_t *ATOSE_fat::get_random_block(ATOSE_file_control_block *fcb)
 {
 uint64_t block_number, current_block, block_count;
 
-block_number = bytes_into_file / fcb->block_size_in_bytes;
+block_number = fcb->file_offset / fcb->block_size_in_bytes;
 current_block = fcb->first_block;
 
+/*
+	Seek to the cluster
+*/
 for (block_count = 0; block_count < block_number; block_count++)
-	if ((current_block = next_cluster_after(current_block )) == EOF)
+	if ((current_block = next_cluster_after(current_block)) == EOF)
 		return NULL;
 
+/*
+	Read the cluster
+*/
+fcb->current_block = current_block;
 if (read_cluster(fcb->buffer, fcb->current_block) == 0)
 	return fcb->buffer;
 
 return NULL;
+}
+
+/*
+	ATOSE_FAT::EXTEND()
+	-------------------
+*/
+uint64_t ATOSE_fat::extend(ATOSE_file_control_block *fcb, uint64_t length_to_become)
+{
+/*
+	Check we are not exceeding file system limits
+*/
+if (length_to_become > 0xFFFFFFFF)
+	{
+	if (!fat_plus)
+		return 0;
+	if (length_to_become > 0x3FFFFFFFFF)			// 38 bits, see: http://www.fdos.org/kernel/fatplus.txt
+		return 0;
+	}
+
+/*
+	We're allowed to make the file this long, but it might not fit on the disk
+*/
+
 }
 
 /*

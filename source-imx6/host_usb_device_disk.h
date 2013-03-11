@@ -20,9 +20,13 @@ class ATOSE_host_usb_device_disk : public ATOSE_host_usb_device
 private:
 	static uint8_t ATOSE_usb_scsi_test_unit_ready[];
 	static uint8_t ATOSE_usb_scsi_read_capacity_10[];
-	static uint8_t ATOSE_usb_scsi_read_capacity_16[];
 	static uint8_t ATOSE_usb_scsi_read_10[];
+	static uint8_t ATOSE_usb_scsi_write_10[];
+	static uint8_t ATOSE_usb_scsi_synchoronise_cache_10[];
+	static uint8_t ATOSE_usb_scsi_read_capacity_16[];
 	static uint8_t ATOSE_usb_scsi_read_16[];
+	static uint8_t ATOSE_usb_scsi_write_16[];
+	static uint8_t ATOSE_usb_scsi_synchoronise_cache_16[];
 
 public:
 	uint64_t block_count;		// the number of blocks on the disk (0..block_count-1) is the valid range
@@ -41,6 +45,8 @@ protected:
 	uint32_t scsi_read_capacity_10(uint64_t *count, uint64_t *size);
 	uint32_t scsi_read_capacity_16(uint64_t *count, uint64_t *size);
 	uint32_t scsi_read(uint8_t *buffer, uint32_t buffer_length, uint64_t block, uint32_t blocks_to_read = 1);
+	uint32_t scsi_write(uint8_t *buffer, uint32_t buffer_length, uint64_t block, uint32_t blocks_to_write = 1);
+	uint32_t scsi_synchronize_cache(void);
 
 public:
 	ATOSE_host_usb_device_disk(ATOSE_host_usb_device *details);
@@ -53,6 +59,7 @@ public:
 	uint32_t get_max_lun(uint8_t *luns)                 { return send_setup_packet(0xA1, 0xFE, 0, 0, 1, &luns); }
 
 	uint32_t read_sector(void *buffer, uint64_t sector, uint64_t number_of_sectors = 1) { return scsi_read((uint8_t *)buffer, number_of_sectors * block_size, sector, number_of_sectors); }
+	uint32_t write_sector(void *buffer, uint64_t sector, uint64_t number_of_sectors = 1) { return scsi_write((uint8_t *)buffer, number_of_sectors * block_size, sector, number_of_sectors); }
 
 	/*
 		Experimental disk stuff

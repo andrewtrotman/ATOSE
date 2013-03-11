@@ -14,7 +14,6 @@
 	the number in brackets e.g. "(10)" is the length of the command.
 
 */
-
 #include "fat.h"
 
 #include "atose.h"
@@ -30,7 +29,24 @@
 #include "scsi_read_capacity_10_parameter_data.h"
 #include "scsi_read_capacity_16_parameter_data.h"
 
+#include "usb_disk_command_block_wrapper.h"
+
 #include "file_control_block.h"
+
+/*
+	========================
+	========================
+	========================
+*/
+void debug_dump_buffer(unsigned char *buffer, uint32_t address, uint64_t bytes);
+void debug_print_string(const char *string);
+void debug_print_this(const char *start, uint32_t hex, const char *end = "");
+void debug_print_hex(int data);
+/*
+	========================
+	========================
+	========================
+*/
 
 uint8_t ATOSE_host_usb_device_disk::ATOSE_usb_scsi_test_unit_ready[31] =
 {
@@ -45,6 +61,22 @@ uint8_t ATOSE_host_usb_device_disk::ATOSE_usb_scsi_test_unit_ready[31] =
 0x00,                   // SCSI Reserved
 0x00,                   // SCSI Reserved
 0x00,                   // SCSI Reserved
+0x00                    // SCSI Control
+};
+
+static uint8_t ATOSE_usb_scsi_request_sense[31] =
+{
+0x55, 0x53, 0x42, 0x43, // dCBWSignature
+0x00, 0x41, 0x54, 0x00, // dCBWTag
+0x12, 0x00, 0x00, 0x00, // dCBWDataTransferLength
+0x80,                   // bmCBWFlags
+0x00,                   // bCBWLUN
+0x06,                   // bCBWCBLength
+0x03,                   // SCSI Command
+0x00,                   // SCSI Reserved
+0x00,                   // SCSI Reserved
+0x00,                   // SCSI Reserved
+0x12,                   // SCSI Transfer Length
 0x00                    // SCSI Control
 };
 
@@ -128,34 +160,97 @@ uint8_t ATOSE_host_usb_device_disk::ATOSE_usb_scsi_read_16[31] =
 0x00                    // SCSI Control
 };
 
+uint8_t ATOSE_host_usb_device_disk::ATOSE_usb_scsi_write_10[31] =
+{
+0x55, 0x53, 0x42, 0x43, // dCBWSignature
+0x00, 0x41, 0x54, 0x00, // dCBWTag
+0x00, 0x02, 0x00, 0x00, // dCBWDataTransferLength
+0x00,                   // bmCBWFlags
+0x00,                   // bCBWLUN
+0x0A,                   // bCBWCBLength
+0x2A,                   // SCSI Command
+0x00,                   // SCSI flags
+0x00,                   // SCSI MSB Address
+0x00,                   // SCSI     Address
+0x00,                   // SCSI     Address
+0x00,                   // SCSI LSB Address
+0x00,                   // SCSI Group number
+0x00,                   // SCSI MSB Transfer Length
+0x01,                   // SCSI LSB Transfer Length
+0x00                    // SCSI Control
+};
 
+uint8_t ATOSE_host_usb_device_disk::ATOSE_usb_scsi_write_16[31] =
+{
+0x55, 0x53, 0x42, 0x43, // dCBWSignature
+0x00, 0x41, 0x54, 0x00, // dCBWTag
+0x00, 0x02, 0x00, 0x00, // dCBWDataTransferLength
+0x00,                   // bmCBWFlags
+0x00,                   // bCBWLUN
+0x10,                   // bCBWCBLength
+0x8A,                   // SCSI Command
+0x00,                   // SCSI flags
+0x00,                   // SCSI MSB Address
+0x00,                   // SCSI     Address
+0x00,                   // SCSI     Address
+0x00,                   // SCSI     Address
+0x00,                   // SCSI     Address
+0x00,                   // SCSI     Address
+0x00,                   // SCSI     Address
+0x00,                   // SCSI LSB Address
+0x00,                   // SCSI MSB Transfer Length
+0x00,                   // SCSI     Transfer Length
+0x00,                   // SCSI     Transfer Length
+0x01,                   // SCSI LSB Transfer Length
+0x00,                   // SCSI Group number
+0x00                    // SCSI Control
+};
 
+uint8_t ATOSE_host_usb_device_disk::ATOSE_usb_scsi_synchoronise_cache_10[31] =
+{
+0x55, 0x53, 0x42, 0x43, // dCBWSignature
+0x00, 0x41, 0x54, 0x00, // dCBWTag
+0x00, 0x00, 0x00, 0x00, // dCBWDataTransferLength
+0x80,                   // bmCBWFlags
+0x00,                   // bCBWLUN
+0x0A,                   // bCBWCBLength
+0x35,                   // SCSI Command
+0x00,                   // SCSI flags
+0x00,                   // SCSI MSB Address
+0x00,                   // SCSI     Address
+0x00,                   // SCSI     Address
+0x00,                   // SCSI LSB Address
+0x00,                   // SCSI Group number
+0x00,                   // SCSI MSB Transfer Length
+0x00,                   // SCSI LSB Transfer Length
+0x00                    // SCSI Control
+};
 
-
-
-
-
-static uint8_t ATOSE_usb_scsi_request_sense[31] =
-	{
-	0x55, 0x53, 0x42, 0x43, 	// dCBWSignature
-	0x00, 0x41, 0x54, 0x00, 	// dCBWTag
-	18, 0x00, 0x00, 0x00, 	// dCBWDataTransferLength
-	0x80, 						// bmCBWFlags
-	0x00, 						// bCBWLUN
-	0x06, 						// bCBWCBLength
-
-	0x03, 						// SCSI Command
-	0x00, 						// SCSI Reserved
-	0x00, 0x00, 				// SCSI Reserved
-	18, 						// SCSI Allocation Length
-	0x00						// SCSI Control
-	};
-
-
-void debug_dump_buffer(unsigned char *buffer, uint32_t address, uint64_t bytes);
-void debug_print_string(const char *string);
-void debug_print_this(const char *start, uint32_t hex, const char *end = "");
-void debug_print_hex(int data);
+uint8_t ATOSE_host_usb_device_disk::ATOSE_usb_scsi_synchoronise_cache_16[31] =
+{
+0x55, 0x53, 0x42, 0x43, // dCBWSignature
+0x00, 0x41, 0x54, 0x00, // dCBWTag
+0x00, 0x02, 0x00, 0x00, // dCBWDataTransferLength
+0x80,                   // bmCBWFlags
+0x00,                   // bCBWLUN
+0x10,                   // bCBWCBLength
+0x91,                   // SCSI Command
+0x00,                   // SCSI flags
+0x00,                   // SCSI MSB Address
+0x00,                   // SCSI     Address
+0x00,                   // SCSI     Address
+0x00,                   // SCSI     Address
+0x00,                   // SCSI     Address
+0x00,                   // SCSI     Address
+0x00,                   // SCSI     Address
+0x00,                   // SCSI LSB Address
+0x00,                   // SCSI MSB Transfer Length
+0x00,                   // SCSI     Transfer Length
+0x00,                   // SCSI     Transfer Length
+0x01,                   // SCSI LSB Transfer Length
+0x00,                   // SCSI Group number
+0x00                    // SCSI Control
+};
 
 
 /*
@@ -266,12 +361,29 @@ ATOSE_usb_disk_command_status_wrapper reply;
 memset(&reply, 0, sizeof(reply));
 if (buffer == NULL)
 	{
+	/*
+		This is when we don't do a transfer in either direction (e.g. TEST UNIT READY)
+	*/
 	if ((error = ehci->send_and_recieve_packet(this, endpoint_out, command, 31, endpoint_in, &reply, sizeof(reply))) != 0)
+		return error;
+	}
+else if ((command[12] & ATOSE_usb_disk_command_block_wrapper::FLAG_DIRECTION_IN) != 0)			// check the flags to see which direction we are going in (data to / from the device)
+	{
+	/*
+		This is when we perform a transfer and the device sends us data back (e.g. READ)
+	*/
+	if ((error = ehci->send_and_recieve_packet(this, endpoint_out, command, 31, endpoint_in, buffer, buffer_length)) != 0)
+		return error;
+
+	if ((error = ehci->recieve_packet(this, endpoint_in, &reply, sizeof(reply))) != 0)
 		return error;
 	}
 else
 	{
-	if ((error = ehci->send_and_recieve_packet(this, endpoint_out, command, 31, endpoint_in, buffer, buffer_length)) != 0)
+	/*
+		This is when we perform a transfer and must send data to the device (e.g. WRITE)
+	*/
+	if ((error = ehci->send_and_send_packet(this, endpoint_out, command, 31, buffer, buffer_length)) != 0)
 		return error;
 
 	if ((error = ehci->recieve_packet(this, endpoint_in, &reply, sizeof(reply))) != 0)
@@ -380,11 +492,72 @@ bytes_to_transfer = (ATOSE_lsb_uint32_t *)(command + 8);
 return perform_transaction(command, buffer, buffer_length);
 }
 
+/*
+	ATOSE_HOST_USB_DEVICE_DISK::SCSI_WRITE()
+	----------------------------------------
+*/
+uint32_t ATOSE_host_usb_device_disk::scsi_write(uint8_t *buffer, uint32_t buffer_length, uint64_t block, uint32_t blocks_to_write)
+{
+ATOSE_msb_uint64_t *address_64;
+ATOSE_msb_uint32_t *address_32, *number_32;
+ATOSE_msb_uint16_t *number_16;
+ATOSE_lsb_uint32_t *bytes_to_transfer;
+uint8_t command[31];
+
+/*
+	Set up the USB transfer
+*/
+if (block < 0xFFFFFFFF && blocks_to_write < 0xFFFF)
+	{
+	/*
+		We can do a 32-bit transfer
+	*/
+	memcpy(command, ATOSE_usb_scsi_write_10, sizeof(command));
+
+	address_32 = (ATOSE_msb_uint32_t *)(command + 17);
+	*address_32 = (uint32_t)block;
+	number_16 = (ATOSE_msb_uint16_t *)(command + 22);
+	*number_16 = (uint16_t)blocks_to_write;
+	}
+else
+	{
+	/*
+		We do a 64-bit transfer.  This code has not been tested because I don't have a large enough disk
+	*/
+	memcpy(command, ATOSE_usb_scsi_write_16, sizeof(command));
+	address_64 = (ATOSE_msb_uint64_t *)(command + 17);
+	*address_64 = block;
+	number_32 = (ATOSE_msb_uint32_t *)(command + 25);
+	*number_32 = (uint32_t)blocks_to_write;
+	}
+
+/*
+	Tell the USB how many bytes to send us
+*/
+bytes_to_transfer = (ATOSE_lsb_uint32_t *)(command + 8);
+*bytes_to_transfer = block_size * blocks_to_write;
+
+return perform_transaction(command, buffer, buffer_length);
+}
+
+/*
+	ATOSE_HOST_USB_DEVICE_DISK::SCSI_SYNCHRONIZE_CACHE()
+	----------------------------------------------------
+*/
+uint32_t ATOSE_host_usb_device_disk::scsi_synchronize_cache(void)
+{
+if (perform_transaction(ATOSE_usb_scsi_synchoronise_cache_10) != 0)
+	return perform_transaction(ATOSE_usb_scsi_synchoronise_cache_16);
+
+return 0;
+}
 
 /*
 	ATOSE_HOST_USB_DEVICE_DISK::GET_DISK_INQUIRY()
 	----------------------------------------------
 */
+template <class T> T min(T a, T b) { return a < b ? a : b; }
+
 uint32_t ATOSE_host_usb_device_disk::get_disk_inquiry(void)
 {
 uint32_t error;
@@ -407,8 +580,8 @@ else
 	{
 	uint8_t fcb_buffer[fcb->block_size_in_bytes];
 	uint8_t into[0x2500];
-	uint64_t got;
 
+	debug_print_string("\r\n");
 	debug_print_this("first_block        :", fcb->first_block);
 	debug_print_this("block_size_in_bytes:", fcb->block_size_in_bytes);
 	debug_print_this("file_size_in_bytes :", fcb->file_size_in_bytes);
@@ -416,27 +589,23 @@ else
 	debug_print_this("file_offset        :", fcb->file_offset);
 
 	fcb->buffer = fcb_buffer;
+	debug_print_string("Read\r\n");
+	fat.read(fcb, into, 0x2000);
+	debug_dump_buffer(into + 0x1000 - 0x20, 0x1000 - 0x20, 0x40);
+
+	debug_print_string("Write\r\n");
+	fat.seek(fcb, 0x1000 - 0x20);
+	fat.write(fcb, (uint8_t *)"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQR", 40);
+
 	memset(into, 0, sizeof(into));
-	got = fat.read(fcb, into, 0x1000);
-	got = fat.read(fcb, into, 0x1000);
-	debug_print_this("Bytes read:", got);
-	debug_dump_buffer(into, 0, sizeof(into));
+	debug_print_string("Check\r\n");
+	fat.seek(fcb, 0);
+	fat.read(fcb, into, 0x2000);
+
+	debug_dump_buffer(into + 0x1000 - 0x20, 0x1000 - 0x20, 0x40);
 	}
+
+scsi_synchronize_cache();
 
 return error;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
