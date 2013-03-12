@@ -572,7 +572,7 @@ if ((error = scsi_read(buffer, block_size, 0, 1)) != 0)
 partition_table = buffer + 0x1BE;
 ATOSE_fat fat(this, (uint32_t)(*(ATOSE_lsb_uint32_t *)(partition_table + 0x08)));
 
-fcb = fat.open(&fcb_space, (uint8_t *)"A.IN");
+fcb = fat.open(&fcb_space, (uint8_t *)"B.IN");
 
 if (fcb == NULL)
 	debug_print_string("Cannot open file\r\n");
@@ -603,6 +603,8 @@ else
 	fat.read(fcb, into, 0x2000);
 
 	debug_dump_buffer(into + 0x1000 - 0x20, 0x1000 - 0x20, 0x40);
+
+	fat.extend(fcb, 0x10000);
 	}
 
 scsi_synchronize_cache();

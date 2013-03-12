@@ -14,6 +14,14 @@ class ATOSE_file_control_block;
 class ATOSE_file_system
 {
 public:
+	enum
+		{
+		SUCCESS = 0,
+		ERROR_FILE_SIZE_EXCEEDED,
+		ERROR_DISK_FULL,
+		ERROR_BAD_FILE
+		};
+public:
 	ATOSE_file_system() {}
 
 	/*

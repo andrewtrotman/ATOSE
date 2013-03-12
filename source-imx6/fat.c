@@ -23,6 +23,7 @@
 void debug_dump_buffer(unsigned char *buffer, uint32_t address, uint64_t bytes);
 void debug_print_string(const char *string);
 void debug_print_this(const char *start, uint32_t hex, const char *end = "");
+void debug_print_cf_this(const char *start, uint32_t hex, uint32_t second, const char *end = "");
 void debug_print_hex(int data);
 /*
 	------------------------
@@ -147,7 +148,9 @@ root_directory_cluster = boot_sector.BPB_RootClus;
 sectors_per_cluster = boot_sector.BPB_SecPerClus;
 first_data_sector = boot_sector.BPB_RsvdSecCnt + (boot_sector.BPB_NumFATs * boot_sector.BPB_FATSz32);
 bytes_per_sector = boot_sector.BPB_BytsPerSec;
-reserved_clusters = boot_sector.BPB_RsvdSecCnt;
+reserved_sectors = boot_sector.BPB_RsvdSecCnt;
+fats_on_volume = boot_sector.BPB_NumFATs;
+sectors_per_fat = boot_sector.BPB_FATSz32;
 
 /*
 	Sanity check (There Ain't No Sanity Clause, Ignite, Nasty... look them up on Google).
@@ -230,7 +233,7 @@ uint64_t offset;
 	number in the second FAT, you add FATSz to ThisFATSecNum ; for the third FAT,
 	you add 2*FATSz, and so on."
 */
-sector_number = reserved_clusters + (fat_offset / bytes_per_sector);
+sector_number = reserved_sectors + (fat_offset / bytes_per_sector);
 offset = fat_offset % bytes_per_sector;
 
 read_sector(sector, sector_number);
@@ -302,9 +305,9 @@ fcb->file_offset = 0;
 
 /*
 	FAT+ (see: http://www.fdos.org/kernel/fatplus.txt)
-	This means bits 0-2 and 5-7 are reserved, so these 6 bits are used by a FAT+ file system to store
+	"This means bits 0-2 and 5-7 are reserved, so these 6 bits are used by a FAT+ file system to store
 	the upper 6 bits of a file's size when the size becomes or exceeds 4GiB, giving 38 bits instead
-	of just 32 to store the size. This allows for a file up to 274877906944 bytes (256GiB).
+	of just 32 to store the size. This allows for a file up to 274877906944 bytes (256GiB)."
 */
 fcb->file_size_in_bytes = found_file.DIR_FileSize;
 if (fat_plus)
@@ -392,24 +395,167 @@ return NULL;
 /*
 	ATOSE_FAT::EXTEND()
 	-------------------
+	return 0 on success, and other value is an error:
+	SUCCESS = 0
+	ERROR_FILE_SIZE_EXCEEDED
+	ERROR_DISK_FULL
+	ERROR_BAD_FILE
+	it also return lower-level media errors
 */
 uint64_t ATOSE_fat::extend(ATOSE_file_control_block *fcb, uint64_t length_to_become)
 {
+int64_t first_free_fat_sector;
+uint64_t bytes_per_cluster;
+uint64_t current, fat_sector, free_clusters;
+uint64_t next_cluster, last_cluster_in_file;
+uint64_t length_of_file_on_disk_in_clusters, fat_copy;
+uint64_t entries_per_sector = bytes_per_sector / sizeof(uint32_t);
+uint64_t clusters_needed, clusters_added, new_cluster;
+uint64_t error;
+uint32_t sector[bytes_per_sector];
+uint8_t blank_cluster[bytes_per_sector * sectors_per_cluster];
+
 /*
 	Check we are not exceeding file system limits
 */
-if (length_to_become > 0xFFFFFFFF)
+if (length_to_become > 0xFFFFFFFF)					// 32 bits
 	{
 	if (!fat_plus)
-		return 0;
+		return ERROR_FILE_SIZE_EXCEEDED;
 	if (length_to_become > 0x3FFFFFFFFF)			// 38 bits, see: http://www.fdos.org/kernel/fatplus.txt
-		return 0;
+		return ERROR_FILE_SIZE_EXCEEDED;
 	}
 
 /*
-	We're allowed to make the file this long, but it might not fit on the disk
+	Are we actually making the file longer?
 */
+bytes_per_cluster = bytes_per_sector * sectors_per_cluster;
+clusters_needed = (length_to_become / bytes_per_cluster) - (fcb->file_size_in_bytes / bytes_per_cluster);
+if (clusters_needed <= 0)
+	return SUCCESS;		// success (because we are already long enough
 
+/*
+	We're allowed to make the file this long (i.e. it does not exceed file system limits)
+	But there might not be enough disk space.  So we check the FAT has space in it... this,
+	unfortunately, is a linear search through the FAT.
+*/
+first_free_fat_sector = -1;
+free_clusters = 0;
+for (fat_sector = 0; fat_sector < sectors_per_fat && free_clusters < clusters_needed; fat_sector++)
+	{
+	/*
+		Get the FAT sector
+	*/
+	if ((error = read_sector(sector, reserved_sectors + fat_sector)) != 0)
+		return error;
+
+	/*
+		Walk each entry in the FAT looking for empties
+	*/
+	for (current = 0; current < entries_per_sector && free_clusters < clusters_needed; current++)
+		{
+		if (fat_sector * entries_per_sector > clusters_on_disk)
+			return ERROR_DISK_FULL;		// We've walked off the end of the disk and so we've failed.
+
+		/*
+			"A FAT32 FAT entry is actually only a 28- bit entry"
+		*/
+		if ((sector[current] & 0x0FFFFFFF) == 0)
+			{
+			if (first_free_fat_sector < 0)
+				first_free_fat_sector = fat_sector;
+			free_clusters++;
+			}
+		}
+	}
+
+/*
+	Find the last cluster in the file (because that is where we're going to update from
+*/
+next_cluster = last_cluster_in_file = fcb->current_block;
+length_of_file_on_disk_in_clusters = 0;
+do
+	{
+	last_cluster_in_file = next_cluster;
+	next_cluster = next_cluster_after(last_cluster_in_file);
+
+	/*
+		Although I've not see this, its possible for the FAT to form a circle in which case we
+		might end up looping forever so we check for that and quit if we find it happening.
+	*/
+	length_of_file_on_disk_in_clusters++;
+	if (length_of_file_on_disk_in_clusters * bytes_per_cluster > length_to_become)
+		return ERROR_BAD_FILE;
+	}
+while (next_cluster != EOF);
+
+/*
+	At this point we can guarantee that we can, indeed, extend the file to the required length
+	some stuff might still go wrong, but those things are probably catastrophic (e.g. eject the
+	disk mid write, or a write failure, etc.).  We also know the last cluster in the file, and that
+	the file chain is (at least at the end) correct
+*/
+memset(blank_cluster, 0, bytes_per_sector * sectors_per_cluster);
+clusters_added = 0;
+for (fat_sector = first_free_fat_sector; fat_sector < sectors_per_fat && clusters_added < clusters_needed; fat_sector++)
+	{
+	/*
+		Get the FAT sector then find a free cluster in it
+	*/
+	if ((error = read_sector(sector, reserved_sectors + fat_sector)) != 0)
+		return error;
+
+	for (current = 0; current < entries_per_sector && clusters_added < clusters_needed; current++)
+		{
+		if ((sector[current] & 0x0FFFFFFF) == 0)
+			{
+			/*
+				At this point we have the new cluster new_cluster = (fat_sector * (bytes_per_sector / sizeof(uint32_t)))+ current
+				we also have the cluster id of the end of the file (current_block)
+				so we write EOF to the new_cluster to identify it as being at EOF
+			*/
+			sector[current] = EOC;
+
+			/*
+				Update *all* copies of the FAT (there might be several, but we expect only 2)
+				"If you want the sector number in the second FAT, you add FATSz to ThisFATSecNum;
+				for the third FAT, you add 2*FATSz, and so on."
+			*/
+			for (fat_copy = 0; fat_copy < fats_on_volume; fat_copy++)
+				if ((error = write_sector(sector, reserved_sectors + fat_sector + (sectors_per_fat * fat_copy))) != 0)
+					return error;
+
+			/*
+				Now we update the end of file to point to the new end of file
+				compute the update, load the FAT entry, update it, write it back to all copies of the FAT
+			*/
+			if ((error = read_sector(sector, reserved_sectors + last_cluster_in_file / entries_per_sector)) != 0)
+				return error;
+
+			new_cluster = fat_sector * entries_per_sector + current;
+			sector[last_cluster_in_file % entries_per_sector] = new_cluster;
+
+			for (fat_copy = 0; fat_copy < fats_on_volume; fat_copy++)
+				if ((error = write_sector(sector, reserved_sectors + last_cluster_in_file / entries_per_sector)) != 0)
+					return error;
+
+			last_cluster_in_file = new_cluster;
+			clusters_added++;
+
+			/*
+				I guess we should make sure its blank
+			*/
+			if ((error = write_cluster(blank_cluster, new_cluster)) != 0)
+				return error;
+			}
+		}
+	}
+
+/*
+	At this point we've updated all the FATs with the new chains, next we need to update the directory
+*/
+fcb->file_size_in_bytes = length_to_become;
+return set_file_properties(root_directory_cluster, fcb->first_block, length_to_become);
 }
 
 /*
@@ -533,4 +679,53 @@ for (cluster_id = start_cluster; cluster_id != EOF; cluster_id = next_cluster_af
 return EOF;		// not found
 }
 
+/*
+	ATOSE_FAT::SET_FILE_PROPERTIES()
+	--------------------------------
+	Given a starting cluster for a file (i.e. it's id), set the attributes of that file to match those passed
+	at first we'll only worry about file size.
 
+	return 0 on success, EOF on can't find file, all other values are errors
+*/
+uint64_t ATOSE_fat::set_file_properties(uint64_t directory_start_cluster, uint64_t file_start_cluster, uint64_t filesize)
+{
+uint32_t entries_per_cluster = (bytes_per_sector * sectors_per_cluster) / sizeof(ATOSE_fat_directory_entry);
+ATOSE_fat_directory_entry cluster[entries_per_cluster];
+uint64_t cluster_id;
+ATOSE_fat_directory_entry *file;
+
+for (cluster_id = directory_start_cluster; cluster_id != EOF; cluster_id = next_cluster_after(cluster_id))
+	{
+	if (read_cluster(cluster, cluster_id) != 0)
+		return 0;
+	for (file = cluster; file < cluster + entries_per_cluster; file++)
+		{
+		if (file->DIR_Name[0] == ATOSE_fat_directory_entry::ENTRY_END_OF_LIST)
+			return EOF;			// We're at the end of the list of files so we're not found
+		if (file->DIR_Name[0] == ATOSE_fat_directory_entry::ENTRY_FREE)
+			continue;			// not a file, so ignore
+		if ((file->DIR_Attr & ATOSE_fat_directory_entry::ATTR_LONG_NAME) == ATOSE_fat_directory_entry::ATTR_LONG_NAME)
+			continue;		// long filename so ignore
+
+		if (file->DIR_FstClusHI == ((file_start_cluster >> 16) & 0xFFFF) && (file->DIR_FstClusLO == (file_start_cluster & 0xFFFF)))
+			{
+			/*
+				We found it... yay!  Now we set the file size.  In both FAT and FAT+ we store the low 32 bits in DIR_FileSize
+			*/
+			file->DIR_FileSize = filesize & 0xFFFFFFFF;
+			if (fat_plus)
+				{
+				/*
+					FAT+ stores the top 6 bits of the file size (to a total of 38 bits) in bits 0-2 and 5-6 of DIR_NTRes
+				*/
+				file->DIR_NTRes &= ((1 << 3) | (1 << 4));		// leave the middle two bits in tact
+				file->DIR_NTRes |= (filesize >> 32) & ((1 << 0) | (1 << 1) | (1 << 2));		// bottom 3 bits of DIR_NTRes are bits 32,33,34 of the file size
+				file->DIR_NTRes |= ((filesize >> 35) & ((1 << 0) | (1 << 1))) << 5;
+				}
+
+			return write_cluster(cluster, cluster_id);
+			}
+		}
+	}
+return EOF;		// not found
+}

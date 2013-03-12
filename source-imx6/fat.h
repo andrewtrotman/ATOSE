@@ -20,6 +20,7 @@ class ATOSE_fat : public ATOSE_file_system
 {
 public:
 	static const uint64_t EOF = ~0;
+	static const uint32_t EOC = 0x0FFFFFFF;
 
 protected:
 	uint64_t base;										// the offset of the FAT-32 volume from the from the start of the physical device
@@ -27,9 +28,11 @@ protected:
 
 	uint32_t fat_plus;									// true if the mounted volume is a FAT+ volume (see:http://www.fdos.org/kernel/fatplus.txt)
 	uint32_t dead_volume;								// true if we can't read this volume and should consider it dead
+	uint32_t fats_on_volume;							// when we extend a file we need to make sure we update the primary and all duplicate FATs
+	uint32_t sectors_per_fat;
 
 	uint64_t clusters_on_disk;
-	uint64_t reserved_clusters;
+	uint64_t reserved_sectors;
 
 	uint64_t root_directory_cluster;
 	uint64_t first_data_sector;
@@ -39,11 +42,13 @@ protected:
 
 protected:
 	uint32_t read_sector(void *buffer, uint64_t sector = 0, uint64_t number_of_sectors = 1) { return disk->read_sector(buffer, sector + base, number_of_sectors); }
+	uint32_t write_sector(void *buffer, uint64_t sector = 0, uint64_t number_of_sectors = 1) { return disk->write_sector(buffer, sector + base, number_of_sectors); }
 	uint32_t read_cluster(void *buffer, uint64_t cluster)  { return disk->read_sector(buffer, (first_data_sector + (cluster - 2) * sectors_per_cluster) + base, sectors_per_cluster); }
 	uint32_t write_cluster(void *buffer, uint64_t cluster) { return disk->write_sector(buffer, (first_data_sector + (cluster - 2) * sectors_per_cluster) + base, sectors_per_cluster); }
 	uint64_t next_cluster_after(uint64_t cluster);
 	uint64_t find_in_directory(ATOSE_fat_directory_entry *stats, uint64_t start_cluster, uint8_t *name);
 	uint8_t *eight_point_three_to_utf8_strcpy(uint8_t *destination, uint8_t *eight_point_three, uint32_t length);
+	uint64_t set_file_properties(uint64_t directory_start_cluster, uint64_t file_start_cluster, uint64_t filesize);
 
 public:
 	ATOSE_fat(ATOSE_host_usb_device_disk *disk, uint64_t base = 0);

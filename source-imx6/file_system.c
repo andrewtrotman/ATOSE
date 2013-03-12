@@ -209,7 +209,6 @@ if (fcb->file_offset / fcb->block_size_in_bytes == (fcb->file_offset + bytes_to_
 /*
 	We write some number of bytes into the first block
 */
-
 first_block = fcb->block_size_in_bytes - (fcb->file_offset % fcb->block_size_in_bytes);
 memcpy(fcb->buffer + (fcb->file_offset % fcb->block_size_in_bytes), buffer, first_block);
 if (write_current_block(fcb) == 0)
