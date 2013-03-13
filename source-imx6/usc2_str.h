@@ -70,6 +70,22 @@ return utf8_length;
 }
 
 /*
+	UCS2_STRLEN()
+	-------------
+	return the length of the UCS-2 string
+*/
+static inline uint32_t UCS2_strlen(uint16_t *ucs2)
+{
+uint16_t *from;
+
+from = ucs2;
+while (*from != 0)
+	from++;
+
+return from - ucs2;
+}
+
+/*
 	UCS2_TO_UTF8_STRCPY()
 	---------------------
 	Copy the UCS-2 string and translate to UTF-8 on the way.  If the UTF-8 string would be

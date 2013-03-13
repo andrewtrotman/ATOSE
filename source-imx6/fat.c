@@ -222,6 +222,13 @@ uint64_t fat_offset = cluster * 4;
 uint64_t next_cluster;
 uint64_t sector_number;
 uint64_t offset;
+
+/*
+	check for zero-length files
+*/
+if (cluster == 0)
+	return EOF;
+
 /*
 	"FATSz = BPB_FATSz32;"
 
@@ -260,14 +267,23 @@ uint8_t *spacer;
 if (length < 13)
 	return NULL;
 
+/*
+	Copy the 8-character name and remove spaces from the end
+*/
 memcpy(destination, eight_point_three, 8);
 for (spacer = destination + 7; spacer >= destination; spacer--)
 	if (!ASCII_isspace(*spacer))
 		break;
 
+/*
+	Put a do into it
+*/
 spacer++;
 *spacer++ = '.';
 
+/*
+	Copy the 3 character extension and remove spaces from the end
+*/
 memcpy(spacer, eight_point_three + 8, 3);
 spacer[4] = '\0';
 if (spacer[3] == ' ')
@@ -292,9 +308,22 @@ ATOSE_file_control_block *ATOSE_fat::open(ATOSE_file_control_block *fcb, uint8_t
 uint32_t first_block;
 ATOSE_fat_directory_entry found_file;
 
+/*
+	Make sure the filename isn't too long
+*/
+if (ASCII_strlen(filename) > sizeof(fcb->filename))
+	return NULL;
+
+/*
+	Find the directory entry (if there is one)
+*/
 if ((first_block = find_in_directory(&found_file, root_directory_cluster, filename)) == EOF)
 	return NULL;
 
+/*
+	Create the FCB
+*/
+ASCII_strcpy(fcb->filename, filename);
 fcb->file_system = this;
 fcb->first_block = first_block;
 fcb->block_size_in_bytes = bytes_per_sector * sectors_per_cluster;
@@ -317,6 +346,260 @@ return fcb;
 }
 
 /*
+	ATOSE_FAT::SHORT_NAME_FROM_LONG_NAME()
+	--------------------------------------
+	FAT uses USC2 encoding... since we must generate that for the long name anyway, we can do that before we generate the short name.  This
+	makes it a whole lot easier to generate the short name because we have an array of 16-bit characters rather than a UTF-8 string.
+
+	It really doesn't matter much how we do this because no-one is likely to see the short names, but we'll stick with something reasonable...
+
+	We're going to:
+
+	1. strip out all non-ASCII (we'll only keep 'a'..'z', '0..9')
+	2. convert all ASCII characters to upper case
+	3. take the first 3 characters after the final "dot"
+	then do numeric tail generation.
+
+	Note that this is quite different from the Microsoft algorithms that is:
+
+	"1. The UNICODE name passed to the file system is converted to upper case.
+	2. The upper cased UNICODE name is converted to OEM.
+	if (the uppercased UNICODE glyph does not exist as an OEM glyph in the OEM code page) or (the OEM glyph is invalid in an 8.3 name)
+		{
+		Replace the glyph to an OEM '_' (underscore) character.
+		Set a "lossy conversion" flag.
+		}
+	3. Strip all leading and embedded spaces from the long name.
+	4. Strip all leading periods from the long name.
+	5. While (not at end of the long name) and (char is not a period) and (total chars copied < 8)
+		{
+		Copy characters into primary portion of the basis name
+		}
+	6. Insert a dot at the end of the primary component s of the basis- name iff the basis name has an extension after the last period in the name.
+	7. Scan for the last embedded period in the long name.
+		If (the last embedded period was found)
+			{
+			While (not at end of the long name) and (total chars copied < 3)
+				{
+				Copy characters into extension portion of the basis name
+				}
+			}
+	Proceed to numeric - tail generation.
+	The Numeric - Tail Generation Algorithm
+	If (a "lossy conversion" was not flagged) and (the long name fits within the 8.3 naming conventions) and (the basis - name does not collide with any existing short name)
+		{
+		The short name is only the basis - name without the numeric tail.
+		}
+	else
+		{
+		Insert a numeric- tail "~n" to the end of the primary name such that the value of
+		the "~n" is chosen so that the name thus formed does not collide with any existing short name and that the
+		primary name does not exceed eight characters in length.
+		}"
+*/
+uint8_t *ATOSE_fat::short_name_from_long_name(uint8_t *short_name, uint16_t long_name)
+{
+uint32_t byte;
+uint16_t *from;
+uint8_t to, *last_dot = NULL;
+
+/*
+	start with all spaces
+*/
+memset(short_name, ' ', 11);
+
+/*
+	copy the name
+*/
+for (byte = 0; byte < 8; byte++)
+	if (*from == '\0')
+		break;
+	else if (ASCII_isalnum(*from))
+		*to++ = ASCII_toupper(*from);
+	else if (*from == '.')
+		last_dot = from;
+	from++;
+
+/*
+	copy the extension
+*/
+if (last_dot != NULL)
+	for (byte = 0; byte < 3; byte++)
+		if (*from == '\0')
+			break;
+		else if (ASCII_isalnum(*from))
+			*to++ = ASCII_toupper(*from);
+		from++;
+
+return short_name;
+}
+
+/*
+	ATOSE_FAT::INCREMENT_SHORT_FILENAME()
+	-------------------------------------
+	In the unfortunate case that a short filename generated with short_name_from_long_name() results in
+	a short filename already in use, we need to generate an alternative short filename.  Microsoft do this
+	thus:
+
+	"The "~n" string can range from "~1" to "~999999". The number "n" is chosen so
+	that it is the next number in a sequence of files with similar basis - names. For
+	example, assume the following short names existed: LETTER~1.DOC and
+	LETTER~2.DOC. As expected, the next auto- generated name of name of this type
+	would be LETTER~3.DOC."
+
+	return 0 on success
+*/
+uint32_t ATOSE_fat::increment_short_filename(uint8_t *filename, uint32_t last)
+{
+uint8_t tilde = 7;
+
+filename[tilde--] = '0' + (last % 10);
+if (last > 9)
+	{
+	filename[tilde--] = '0' + (last / 10) % 10;
+	if (last > 99)
+		{
+		filename[tilde--] = '0' + (last / 100) % 10;
+		if (last > 999)
+			{
+			filename[tilde--] = '0' + (last / 1000) % 10;
+			if (last > 9999)
+				{
+				filename[tilde--] = '0' + (last / 10000) % 10;
+				if (last > 99999)
+					{
+					filename[tilde--] = '0' + (last / 100000) % 10;
+					if (last > 999999)
+						filename[tilde--] = '0' + (last / 1000000) % 10;
+					}
+				}
+			}
+		}
+	}
+
+filename[tilde] = '~';
+
+return last;
+}
+
+/*
+	ATOSE_FAT::LONG_FILENAME_TO_PIECES()
+	Given the long filename in UTF-32, turn it into some number of consecutive FAT long filename pieces and
+	return the number we used.
+
+	Note that filename must be 0x00 terminated and after that 0xFF padded to the next 13-character boundary
+*/
+uint32_t ATOSE_fat::long_filename_to_pieces(ATOSE_fat_directory_entry *into, uint16_t *filename, uint8_t checksum)
+{
+ATOSE_fat_directory_entry *current;
+uint32_t filename_length, needed, sequence_number;
+uint16_t *from;
+
+/*
+	Find out how long the filename is and therefore how many pieces we'll need, and therefore the first sequence number
+*/
+filename_length = UCS2_strlen(filename);
+needed = (filename_length + ATOSE_fat_directory_entry::LONG_FILENAME_CHARACTERS_PER_ENTRY - 1) / ATOSE_fat_directory_entry::LONG_FILENAME_CHARACTERS_PER_ENTRY;
+
+/*
+	Now we count backwards starting with end of the string first (weird hu?).
+*/
+from = filename + ((filename_length + ATOSE_fat_directory_entry::LONG_FILENAME_CHARACTERS_PER_ENTRY - 1) / ATOSE_fat_directory_entry::LONG_FILENAME_CHARACTERS_PER_ENTRY) * ATOSE_fat_directory_entry::LONG_FILENAME_CHARACTERS_PER_ENTRY;
+current = into;
+for (sequence_number = 0; sequence_number < needed; sequence_number++)
+	{
+	current->LDIR_Ord = needed - sequence_number;
+	current->LDIR_Attr = ATOSE_fat_directory_entry::ATTR_LONG_NAME;
+	current->LDIR_Type = 0;				// must be 0 if this is part of a long filename
+	current->LDIR_FstClusLO = 0		// must be 0
+	current->LDIR_Chksum = checksum;
+
+	memcpy(current->LDIR_Name3, 4, from);
+	from -= 2;		// 2 characters is 4 bytes
+	memcpy(current->LDIR_Name2, 12, from);
+	from -= 6;		// 6 characters is 12 bytes
+	memcpy(current->LDIR_Name1, 10, from);
+	from -= 5;		// 5 characters is 10 bytes
+
+	current++;
+	}
+
+/*
+	now we mark the first one as the beginning of the sequence
+*/
+into->LDIR_Ord |= ATOSE_fat_directory_entry::LAST_LONG_ENTRY;
+
+/*
+	Return the length of the sequence
+*/
+return needed;
+}
+
+/*
+	CREATE()
+	--------
+*/
+ATOSE_file_control_block *ATOSE_fat::create(ATOSE_file_control_block *fcb, uint8_t *filename)
+{
+uint32_t last;
+uint16_t filename_long[ATOSE_fat_directory_entry::MAX_LONG_FILENAME_LENGTH + 1];
+uint8_t filename_8_dot_3[11];
+uint32_t first_block;
+ATOSE_fat_directory_entry found_file;
+ATOSE_fat_directory_entry long_filename_pieces[MAX_LONG_FILENAME_SEQUENCE_NUMNBER];
+uint32_t sequence_length;
+uint8_t checksum;
+
+/*
+	Make sure the filename isn't too long
+*/
+filename_len = ASCII_strlen(filename);
+if (filename_len > sizeof(fcb->filename) || filename_len > MAX_LONG_FILENAME_LENGTH)
+	return NULL;
+
+/*
+	Find the directory entry (if there is one), and delete that file
+*/
+if ((first_block = find_in_directory(&found_file, root_directory_cluster, filename)) != EOF)
+	if (unlink(filename) != 0)
+		return NULL;
+
+/*
+	Create the on-disk filenames, including the UCS-2 long filename and the ASCII short filename
+*/
+memset(filename_long, 0xFF, sizeof(filename_long));
+UTF8_to_ucs2_strcpy(filename_long, filename);
+short_name_from_long_name(filename_8_dot_3, filename_long);
+
+/*
+	Now we must verify that the short filename does not already exit, and if it does then we change it.
+*/
+for (last = 1; last < MAX_SHORTNAME_RETRIES; last++)
+	if (find_in_directory(&found_file, root_directory_cluster, filename_8_dot_3) != EOF)
+		increment_short_filename(filename_8_dot_3, last);
+
+if (last >= MAX_SHORTNAME_RETRIES)
+	return 0;			// but it probably took and eternity
+
+/*
+	Get the checksum of the short filename
+*/
+checksum = shortname_checksum(filename_8_dot_3);
+
+/*
+	Next we need to generate all the long filename "parts"... who came up with this stuff, its arcane!
+*/
+sequence_length = long_filename_to_pieces(long_filename_pieces, filename_long, checksum);
+
+/*
+	Now we can blurt it out and see if it worked.
+	Note that even if sequence_length == 0 we need a long filename because short filenames are case insensitive... well, perhaps not!
+*/
+debug_print_string("SHORT FILENAME\r\n");
+debug_print_string("LONG FILENAME\r\n");
+}
+
+/*
 	ATOSE_FAT::CLOSE()
 	------------------
 	No work necessary for FAT32 - so we just succeed
@@ -332,16 +615,90 @@ return fcb;
 */
 uint8_t *ATOSE_fat::get_next_block(ATOSE_file_control_block *fcb)
 {
+/*
+	At end of file?
+*/
 if (fcb->current_block == EOF)
 	return NULL;
 
+/*
+	A zero-length file?
+*/
+if (fcb->current_block == 0)
+	return NULL;
+
+/*
+	Find the next block
+*/
 if ((fcb->current_block = next_cluster_after(fcb->current_block)) == EOF)
 	return NULL;
 
+/*
+	Read and return it
+*/
 if (read_cluster(fcb->buffer, fcb->current_block) == 0)
 	return fcb->buffer;
 
 return NULL;
+}
+
+/*
+	ATOSE_FAT::UNLINK()
+	-------------------
+*/
+uint32_t ATOSE_fat::unlink(uint8_t *filename)
+{
+uint32_t sector[bytes_per_sector];
+ATOSE_fat_directory_entry stats;
+uint64_t cluster, sector_number, fat_offset;
+uint32_t fat_copy;
+
+/*
+	Get the ID of the file, including the start cluster
+*/
+cluster = find_in_directory(&stats, root_directory_cluster, filename, DELETE_FILE);
+
+/*
+	"Note that a zero-length file - a file that has no data allocated to it - has a first
+	cluster number of 0 placed in its directory entry."
+
+	So, if the start cluster is 0 we're done.
+*/
+if (cluster == 0)
+	return 0;
+
+/*
+	Else clean up the FAT chain (i.e. put the clusters back on the free list).
+*/
+do
+	{
+	/*
+		Compute the FAT sector
+	*/
+	fat_offset = cluster * 4;
+	sector_number = reserved_sectors + (fat_offset / bytes_per_sector);
+
+	/*
+		read the FAT
+	*/
+	read_sector(sector, sector_number);
+
+	/*
+		find the next cluster in the chain
+	*/
+	cluster = sector[at_offset % bytes_per_sector] & 0x0FFFFFFF;
+	sector[at_offset % bytes_per_sector] &= 0xF0000000;		// "The only time that the high 4 bits of FAT32 FAT entries should ever be changed is when the volume is formatted"
+
+	/*
+		write the many copies of the FAT
+	*/
+	for (fat_copy = 0; fat_copy < fats_on_volume; fat_copy++)
+		if ((error = write_sector(sector, sector_number + (sectors_per_fat * fat_copy))) != 0)
+			return error;
+	}
+while (cluster < 0x0FFFFFF8);
+
+return 0;
 }
 
 /*
@@ -536,7 +893,7 @@ for (fat_sector = first_free_fat_sector; fat_sector < sectors_per_fat && cluster
 			sector[last_cluster_in_file % entries_per_sector] = new_cluster;
 
 			for (fat_copy = 0; fat_copy < fats_on_volume; fat_copy++)
-				if ((error = write_sector(sector, reserved_sectors + last_cluster_in_file / entries_per_sector)) != 0)
+				if ((error = write_sector(sector, reserved_sectors + (last_cluster_in_file / entries_per_sector) + (sectors_per_fat * fat_copy))) != 0)
 					return error;
 
 			last_cluster_in_file = new_cluster;
@@ -555,7 +912,26 @@ for (fat_sector = first_free_fat_sector; fat_sector < sectors_per_fat && cluster
 	At this point we've updated all the FATs with the new chains, next we need to update the directory
 */
 fcb->file_size_in_bytes = length_to_become;
-return set_file_properties(root_directory_cluster, fcb->first_block, length_to_become);
+return find_in_directory(NULL, root_directory_cluster, fcb->filename, SET_FILE_SIZE, length_to_become);
+}
+
+/*
+	ATOSE_FAT::SHORTNAME_CHECKSUM()
+	-------------------------------
+	"Returns an unsigned byte checksum computed on an unsigned byte
+	array. The array must be 11 bytes long and is assumed to contain
+	a name stored in the format of a MS-DOS directory entry."
+*/
+uint8_t ATOSE_FAT::shortname_checksum(uint8_t *name)
+{
+int16_t current;
+uint8_t sum;
+
+sum = 0;
+for (current = 11; current != 0; current--)
+	sum = ((sum & 1) ? 0x80 : 0) + (sum >> 1) + *name++;		//The operation is an unsigned char rotate right
+
+return sum;
 }
 
 /*
@@ -563,9 +939,14 @@ return set_file_properties(root_directory_cluster, fcb->first_block, length_to_b
 	------------------------------
 	returns the cluster number of the first cluster of "name" in the directory starting at "start_cluster"
 	or EOF if it cannot find the name
+
+	To avoid having to write this code over and over again, its been extended to take an action parameter that describes what to
+	do when we find the file.  Those actions include : RETURN_FIRST_BLOCK, DELETE_FILE, SET_FILE_FIZE
+	in the case of SET_FILE_SIZE, parameter points to a 64-bit integer
 */
-uint64_t ATOSE_fat::find_in_directory(ATOSE_fat_directory_entry *stats, uint64_t start_cluster, uint8_t *name)
+uint64_t ATOSE_fat::find_in_directory(ATOSE_fat_directory_entry *stats, uint64_t start_cluster, uint8_t *name, uint32_t action, void *parameter)
 {
+uint8_t checksum;
 uint8_t long_filename[(ATOSE_fat_directory_entry::MAX_LONG_FILENAME_LENGTH + 1) * sizeof(uint16_t)];
 uint8_t utf8_long_filename[sizeof(long_filename)];
 uint8_t *into;
@@ -587,7 +968,7 @@ for (cluster_id = start_cluster; cluster_id != EOF; cluster_id = next_cluster_af
 			return EOF;			// not found
 
 		/*
-			Check we have a file (and not a deleted file)
+			Check if we have a deleted file
 		*/
 		if (file->DIR_Name[0] == ATOSE_fat_directory_entry::ENTRY_FREE)
 			{
@@ -598,7 +979,7 @@ for (cluster_id = start_cluster; cluster_id != EOF; cluster_id = next_cluster_af
 		/*
 			Check if we have a long filename
 		*/
-		if ((file->DIR_Attr & ATOSE_fat_directory_entry::ATTR_LONG_NAME) == ATOSE_fat_directory_entry::ATTR_LONG_NAME)
+		if ((file->DIR_Attr & ATOSE_fat_directory_entry::ATTR_LONG_NAME_MASK) == ATOSE_fat_directory_entry::ATTR_LONG_NAME)
 			{
 			/*
 				The sequence numbers are in descending order starting with ATOSE_fat_directory_entry::LAST_LONG_ENTRY | n where n is the number of
@@ -614,11 +995,14 @@ for (cluster_id = start_cluster; cluster_id != EOF; cluster_id = next_cluster_af
 					We're at the start of a long filename (whose sequence numbers must descend).
 				*/
 				filename_part = file->LDIR_Ord & ~ATOSE_fat_directory_entry::LAST_LONG_ENTRY;
+				checksum = file->LDIR_Chksum;
+
 				/*
 					Check the sequence number isn't too high
 				*/
 				if (filename_part > ATOSE_fat_directory_entry::MAX_LONG_FILENAME_SEQUENCE_NUMNBER)
 					continue;
+
 				/*
 					As above, we must '\0' terminate ourselves
 				*/
@@ -628,6 +1012,15 @@ for (cluster_id = start_cluster; cluster_id != EOF; cluster_id = next_cluster_af
 				Check the sequence number is the next in the sequence
 			*/
 			if (filename_part != (file->LDIR_Ord & ~ATOSE_fat_directory_entry::LAST_LONG_ENTRY))
+				{
+				filename_part = ATOSE_fat_directory_entry::MAX_LONG_FILENAME_SEQUENCE_NUMNBER  + 1;
+				continue;
+				}
+
+			/*
+				Check the checksum is consistent across all longname parts
+			*/
+			if (file->LDIR_Chksum != checksum)
 				{
 				filename_part = ATOSE_fat_directory_entry::MAX_LONG_FILENAME_SEQUENCE_NUMNBER  + 1;
 				continue;
@@ -653,8 +1046,19 @@ for (cluster_id = start_cluster; cluster_id != EOF; cluster_id = next_cluster_af
 			{
 			/*
 				We now find ourselves with a short filename which is either a true short filename or a surrogate for the long filename
+				But we don't know which... it might look like a long name, but if the checksum doesn't match its actually a short name
 				Either way, there's some translation necessary
+
+				"an 8-bit checksum is computed on the name contained in the short
+				directory entry at the time the short and long directory entries are created. All 11
+				characters of the name in the short entry are used in the checksum calculation. The
+				check sum is placed in every long entry. If any of the check sums in the set of long
+				entries do not agree with the computed checksum of the name contained in the
+				short entry, then the long entries are treated as orphans"
 			*/
+			if (shortname_checksum(file->DIR_Name) != checksum)
+				filename_part = ATOSE_fat_directory_entry::MAX_LONG_FILENAME_SEQUENCE_NUMNBER  + 1;			// coz we're really a short name
+
 			if (filename_part == 0)
 				UCS2_to_utf8_strcpy(utf8_long_filename, (uint16_t *)long_filename, sizeof(utf8_long_filename));
 			else
@@ -665,65 +1069,35 @@ for (cluster_id = start_cluster; cluster_id != EOF; cluster_id = next_cluster_af
 			*/
 			if (ASCII_strcmp((char *)utf8_long_filename, (char *)name) == 0)
 				{
-				memcpy(stats, file, sizeof(*stats));
-				return ((uint64_t)file->DIR_FstClusHI << 16) | (uint64_t)file->DIR_FstClusLO;
+				switch (action)
+					{
+					case RETURN_FIRST_BLOCK:
+						memcpy(stats, file, sizeof(*stats));
+						return ((uint64_t)file->DIR_FstClusHI << 16) | (uint64_t)file->DIR_FstClusLO;
+					case DELETE_FILE:
+						file->DIR_Name[0] = ATOSE_fat_directory_entry::ENTRY_FREE;
+						return write_cluster(cluster, cluster_id);
+					case SET_FILE_FIZE:
+						/*
+							In both FAT and FAT+ we store the low 32 bits in DIR_FileSize
+						*/
+						file->DIR_FileSize = filesize & 0xFFFFFFFF;
+						if (fat_plus)
+							{
+							/*
+								FAT+ stores the top 6 bits of the file size (to a total of 38 bits) in bits 0-2 and 5-6 of DIR_NTRes
+							*/
+							file->DIR_NTRes &= ((1 << 3) | (1 << 4));		// leave the middle two bits in tact
+							file->DIR_NTRes |= (filesize >> 32) & ((1 << 0) | (1 << 1) | (1 << 2));		// bottom 3 bits of DIR_NTRes are bits 32,33,34 of the file size
+							file->DIR_NTRes |= ((filesize >> 35) & ((1 << 0) | (1 << 1))) << 5;
+							}
+						return write_cluster(cluster, cluster_id);
+					}
 				}
-
 			/*
 				Move on to the next file
 			*/
 			filename_part = 1;
-			}
-		}
-	}
-return EOF;		// not found
-}
-
-/*
-	ATOSE_FAT::SET_FILE_PROPERTIES()
-	--------------------------------
-	Given a starting cluster for a file (i.e. it's id), set the attributes of that file to match those passed
-	at first we'll only worry about file size.
-
-	return 0 on success, EOF on can't find file, all other values are errors
-*/
-uint64_t ATOSE_fat::set_file_properties(uint64_t directory_start_cluster, uint64_t file_start_cluster, uint64_t filesize)
-{
-uint32_t entries_per_cluster = (bytes_per_sector * sectors_per_cluster) / sizeof(ATOSE_fat_directory_entry);
-ATOSE_fat_directory_entry cluster[entries_per_cluster];
-uint64_t cluster_id;
-ATOSE_fat_directory_entry *file;
-
-for (cluster_id = directory_start_cluster; cluster_id != EOF; cluster_id = next_cluster_after(cluster_id))
-	{
-	if (read_cluster(cluster, cluster_id) != 0)
-		return 0;
-	for (file = cluster; file < cluster + entries_per_cluster; file++)
-		{
-		if (file->DIR_Name[0] == ATOSE_fat_directory_entry::ENTRY_END_OF_LIST)
-			return EOF;			// We're at the end of the list of files so we're not found
-		if (file->DIR_Name[0] == ATOSE_fat_directory_entry::ENTRY_FREE)
-			continue;			// not a file, so ignore
-		if ((file->DIR_Attr & ATOSE_fat_directory_entry::ATTR_LONG_NAME) == ATOSE_fat_directory_entry::ATTR_LONG_NAME)
-			continue;		// long filename so ignore
-
-		if (file->DIR_FstClusHI == ((file_start_cluster >> 16) & 0xFFFF) && (file->DIR_FstClusLO == (file_start_cluster & 0xFFFF)))
-			{
-			/*
-				We found it... yay!  Now we set the file size.  In both FAT and FAT+ we store the low 32 bits in DIR_FileSize
-			*/
-			file->DIR_FileSize = filesize & 0xFFFFFFFF;
-			if (fat_plus)
-				{
-				/*
-					FAT+ stores the top 6 bits of the file size (to a total of 38 bits) in bits 0-2 and 5-6 of DIR_NTRes
-				*/
-				file->DIR_NTRes &= ((1 << 3) | (1 << 4));		// leave the middle two bits in tact
-				file->DIR_NTRes |= (filesize >> 32) & ((1 << 0) | (1 << 1) | (1 << 2));		// bottom 3 bits of DIR_NTRes are bits 32,33,34 of the file size
-				file->DIR_NTRes |= ((filesize >> 35) & ((1 << 0) | (1 << 1))) << 5;
-				}
-
-			return write_cluster(cluster, cluster_id);
 			}
 		}
 	}

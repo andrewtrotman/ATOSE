@@ -42,7 +42,9 @@ public:
 		Each long filename entry contains 13 characters (26 bytes) and the maximum length of a
 		long filename is 255 bytes so we get...
 	*/
-	static const uint32_t MAX_LONG_FILENAME_SEQUENCE_NUMNBER = (MAX_LONG_FILENAME_LENGTH / 13) + 1;
+	static const uint32_t LONG_FILENAME_CHARACTERS_PER_ENTRY = 13;
+	static const uint32_t MAX_LONG_FILENAME_SEQUENCE_NUMNBER = (MAX_LONG_FILENAME_LENGTH / LONG_FILENAME_CHARACTERS_PER_ENTRY) + 1;
+
 
 	/*
 		"If DIR_Name [0] == 0xE5, then the directory entry is free (there is no file or directory name in this entry"
@@ -72,6 +74,10 @@ public:
 	static const uint8_t ATTR_DIRECTORY = 0x10;
 	static const uint8_t ATTR_ARCHIVE = 0x20;
 	static const uint8_t ATTR_LONG_NAME = (ATTR_READ_ONLY | ATTR_HIDDEN | ATTR_SYSTEM | ATTR_VOLUME_ID);
+	/*
+		"DO use the A_LONG attribute first when determining whether a directory entry is a long directory entry or a short directory entry"
+	*/
+	static const uint8_t ATTR_LONG_NAME_MASK = (ATTR_LONG_NAME_MASK ATTR_READ_ONLY | ATTR_HIDDEN | ATTR_SYSTEM | ATTR_VOLUME_ID | ATTR_DIRECTORY | ATTR_ARCHIVE);
 
 	/*
 		"Date Format. A FAT directory entry date stamp is a 16- bit field that is basically a
