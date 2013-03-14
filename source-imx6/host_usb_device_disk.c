@@ -566,46 +566,53 @@ ATOSE_file_control_block *fcb, fcb_space;
 
 uint8_t buffer[block_size];
 
+//debug_print_string("READ DISK BLOCK\r\n");
 if ((error = scsi_read(buffer, block_size, 0, 1)) != 0)
 	return error;
 
 partition_table = buffer + 0x1BE;
 ATOSE_fat fat(this, (uint32_t)(*(ATOSE_lsb_uint32_t *)(partition_table + 0x08)));
 
-fcb = fat.open(&fcb_space, (uint8_t *)"B.IN");
+fcb = fat.create(&fcb_space, (uint8_t *)"long file names with spaces are for the.whole.world.txt");
+#ifdef NEVER
+debug_print_string("OPEN FILE\r\n");
+	fcb = fat.open(&fcb_space, (uint8_t *)"B.IN");
 
-if (fcb == NULL)
-	debug_print_string("Cannot open file\r\n");
-else
-	{
-	uint8_t fcb_buffer[fcb->block_size_in_bytes];
-	uint8_t into[0x2500];
+	if (fcb == NULL)
+		debug_print_string("Cannot open file\r\n");
+	else
+		{
+debug_print_string("OPEN FILE\r\n");
 
-	debug_print_string("\r\n");
-	debug_print_this("first_block        :", fcb->first_block);
-	debug_print_this("block_size_in_bytes:", fcb->block_size_in_bytes);
-	debug_print_this("file_size_in_bytes :", fcb->file_size_in_bytes);
-	debug_print_this("current_block      :", fcb->current_block);
-	debug_print_this("file_offset        :", fcb->file_offset);
+		uint8_t fcb_buffer[fcb->block_size_in_bytes];
+		uint8_t into[0x2500];
 
-	fcb->buffer = fcb_buffer;
-	debug_print_string("Read\r\n");
-	fat.read(fcb, into, 0x2000);
-	debug_dump_buffer(into + 0x1000 - 0x20, 0x1000 - 0x20, 0x40);
+		debug_print_string("\r\n");
+		debug_print_this("first_block        :", fcb->first_block);
+		debug_print_this("block_size_in_bytes:", fcb->block_size_in_bytes);
+		debug_print_this("file_size_in_bytes :", fcb->file_size_in_bytes);
+		debug_print_this("current_block      :", fcb->current_block);
+		debug_print_this("file_offset        :", fcb->file_offset);
 
-	debug_print_string("Write\r\n");
-	fat.seek(fcb, 0x1000 - 0x20);
-	fat.write(fcb, (uint8_t *)"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQR", 40);
+		fcb->buffer = fcb_buffer;
+		debug_print_string("Read\r\n");
+		fat.read(fcb, into, 0x2000);
+		debug_dump_buffer(into + 0x1000 - 0x20, 0x1000 - 0x20, 0x40);
 
-	memset(into, 0, sizeof(into));
-	debug_print_string("Check\r\n");
-	fat.seek(fcb, 0);
-	fat.read(fcb, into, 0x2000);
+		debug_print_string("Write\r\n");
+		fat.seek(fcb, 0x1000 - 0x20);
+		fat.write(fcb, (uint8_t *)"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQR", 40);
 
-	debug_dump_buffer(into + 0x1000 - 0x20, 0x1000 - 0x20, 0x40);
+		memset(into, 0, sizeof(into));
+		debug_print_string("Check\r\n");
+		fat.seek(fcb, 0);
+		fat.read(fcb, into, 0x2000);
 
-	fat.extend(fcb, 0x10000);
-	}
+		debug_dump_buffer(into + 0x1000 - 0x20, 0x1000 - 0x20, 0x40);
+
+		fat.extend(fcb, 0x10000);
+		}
+#endif
 
 scsi_synchronize_cache();
 

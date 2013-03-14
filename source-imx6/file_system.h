@@ -27,6 +27,7 @@ public:
 	/*
 		A file system is expected to implement the following methods...
 	*/
+	virtual ATOSE_file_control_block *create(ATOSE_file_control_block *fcb, uint8_t *filename) = 0;
 	virtual ATOSE_file_control_block *open(ATOSE_file_control_block *fcb, uint8_t *filename) = 0;
 	virtual ATOSE_file_control_block *close(ATOSE_file_control_block *fcb) = 0;
 	virtual uint64_t seek(ATOSE_file_control_block *fcb, uint64_t position_in_file);

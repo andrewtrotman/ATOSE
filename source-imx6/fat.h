@@ -46,7 +46,7 @@ protected:
 	uint64_t sectors_per_cluster;
 
 protected:
-	uint64_t find_in_directory(ATOSE_fat_directory_entry *stats, uint64_t start_cluster, uint8_t *name, uint32_t action = RETURN_FIRST_BLOCK, uint64_t value = 0);
+	uint64_t find_in_directory(ATOSE_fat_directory_entry *stats, uint64_t start_cluster, uint8_t *name, uint32_t action = RETURN_FIRST_BLOCK, void *value = 0);
 
 	uint32_t read_sector(void *buffer, uint64_t sector = 0, uint64_t number_of_sectors = 1) { return disk->read_sector(buffer, sector + base, number_of_sectors); }
 	uint32_t write_sector(void *buffer, uint64_t sector = 0, uint64_t number_of_sectors = 1) { return disk->write_sector(buffer, sector + base, number_of_sectors); }
@@ -55,10 +55,15 @@ protected:
 	uint64_t next_cluster_after(uint64_t cluster);
 	uint8_t shortname_checksum(uint8_t *name);
 	uint8_t *eight_point_three_to_utf8_strcpy(uint8_t *destination, uint8_t *eight_point_three, uint32_t length);
+	uint8_t *short_name_from_long_name(uint8_t *short_name, uint16_t *long_name);
+	uint32_t increment_short_filename(uint8_t *filename, uint32_t last);
+	uint32_t long_filename_to_pieces(ATOSE_fat_directory_entry *into, uint16_t *filename, uint8_t checksum);
+	uint64_t add_to_directory(uint64_t directory_start_cluster, ATOSE_fat_directory_entry *new_filename, uint32_t parts);
 
 public:
 	ATOSE_fat(ATOSE_host_usb_device_disk *disk, uint64_t base = 0);
 
+	virtual ATOSE_file_control_block *create(ATOSE_file_control_block *fcb, uint8_t *filename);
 	virtual ATOSE_file_control_block *open(ATOSE_file_control_block *fcb, uint8_t *filename);
 	virtual ATOSE_file_control_block *close(ATOSE_file_control_block *fcb);
 	virtual uint64_t extend(ATOSE_file_control_block *fcb, uint64_t new_length);

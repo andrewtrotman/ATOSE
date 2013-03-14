@@ -17,7 +17,7 @@
 	ASCII_STRLEN()
 	--------------
 */
-static inline int ASCII_strlen(const char *string)
+static inline uint32_t ASCII_strlen(const char *string)
 {
 const char *ch;
 
@@ -27,6 +27,12 @@ while (*ch != '\0')
 
 return ch - string;
 }
+
+/*
+	ASCII_STRLEN()
+	--------------
+*/
+static inline uint32_t ASCII_strlen(const void *string) { return ASCII_strlen((const char *)string); }
 
 /*
 	ASCII_STRCHR()
@@ -63,6 +69,27 @@ return here;
 }
 
 /*
+	ASCII_STRCPY()
+	--------------
+*/
+static inline char *ASCII_strcpy(char *destination, const char *source)
+{
+char *into = (char *)destination;
+char *from = (char *)source;
+
+while ((*into++ = *from++) != '\0')
+	;	// do nothing
+
+return destination;
+}
+
+/*
+	ASCII_STRCPY()
+	--------------
+*/
+static inline char *ASCII_strcpy(void *destination, const void *source) { return ASCII_strcpy((char *)destination, (const char *)source); }
+
+/*
 	ASCII_STRNCPY()
 	---------------
 	This code comes from the free-BSD codebase
@@ -84,7 +111,7 @@ if (count != 0)
 
 	while (--count != 0);
 
-return (destination);
+return destination;
 }
 
 /*

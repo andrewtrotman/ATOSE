@@ -5,7 +5,8 @@
 #ifndef CTYPES_H_
 #define CTYPES_H_
 
-enum {
+enum
+	{
 	ATOSE_CTYPE_UPPER = 1,
 	ATOSE_CTYPE_LOWER = 2,
 	ATOSE_CTYPE_DIGIT = 4,
@@ -19,9 +20,11 @@ enum {
 	ATOSE_CTYPE_ISALNUM = ATOSE_CTYPE_ISALPHA | ATOSE_CTYPE_DIGIT,
 	ATOSE_CTYPE_ISGRAPH  = ATOSE_CTYPE_PUNC | ATOSE_CTYPE_UPPER | ATOSE_CTYPE_LOWER | ATOSE_CTYPE_DIGIT,
 	ATOSE_CTYPE_ISPRINT = ATOSE_CTYPE_PUNC | ATOSE_CTYPE_ISALNUM | ATOSE_CTYPE_HARD_SPACE,
-} ;
+	} ;
 
-extern uint8_t ATOSE_ctype[], ATOSE_toupper_list[], ATOSE_tolower_list[];
+extern uint8_t ATOSE_ctype[];
+extern uint8_t ATOSE_toupper_list[];
+extern uint8_t ATOSE_tolower_list[];
 
 /*
 	ATOSE_TO_CTYPE()

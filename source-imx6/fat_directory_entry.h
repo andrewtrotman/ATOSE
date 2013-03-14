@@ -77,7 +77,7 @@ public:
 	/*
 		"DO use the A_LONG attribute first when determining whether a directory entry is a long directory entry or a short directory entry"
 	*/
-	static const uint8_t ATTR_LONG_NAME_MASK = (ATTR_LONG_NAME_MASK ATTR_READ_ONLY | ATTR_HIDDEN | ATTR_SYSTEM | ATTR_VOLUME_ID | ATTR_DIRECTORY | ATTR_ARCHIVE);
+	static const uint8_t ATTR_LONG_NAME_MASK = (ATTR_READ_ONLY | ATTR_HIDDEN | ATTR_SYSTEM | ATTR_VOLUME_ID | ATTR_DIRECTORY | ATTR_ARCHIVE);
 
 	/*
 		"Date Format. A FAT directory entry date stamp is a 16- bit field that is basically a
