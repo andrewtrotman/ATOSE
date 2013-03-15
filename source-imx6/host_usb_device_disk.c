@@ -573,6 +573,8 @@ if ((error = scsi_read(buffer, block_size, 0, 1)) != 0)
 partition_table = buffer + 0x1BE;
 ATOSE_fat fat(this, (uint32_t)(*(ATOSE_lsb_uint32_t *)(partition_table + 0x08)));
 
+debug_print_string("\r\nDirectory\r\nNAME\r\n----\r\n");
+fat.dir();
 fcb = fat.create(&fcb_space, (uint8_t *)"long file names with spaces are for the.whole.world.txt");
 #ifdef NEVER
 debug_print_string("OPEN FILE\r\n");
@@ -614,7 +616,9 @@ debug_print_string("OPEN FILE\r\n");
 		}
 #endif
 
-scsi_synchronize_cache();
+//scsi_synchronize_cache();
+debug_print_string("\r\nDirectory\r\nNAME\r\n----\r\n");
+fat.dir();
 
 return error;
 }

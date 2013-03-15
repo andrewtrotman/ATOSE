@@ -11,6 +11,7 @@
 #include "fat.h"
 #include "fat_directory_entry.h"
 #include "fat_boot_sector.h"
+#include "fat_fsinfo.h"
 #include "ascii_str.h"
 #include "usc2_str.h"
 #include "utf8_str.h"
@@ -40,12 +41,15 @@ void debug_print_hex(int data);
 ATOSE_fat::ATOSE_fat(ATOSE_host_usb_device_disk *disk, uint64_t base)
 {
 ATOSE_fat_boot_sector boot_sector;
+ATOSE_fat_fsinfo *fsinfo = (ATOSE_fat_fsinfo *)&boot_sector;
 uint64_t data_sectors;
 
 dead_volume = true;
 this->disk = disk;
 this->base = base;
-read_sector(&boot_sector);
+
+if (read_sector(&boot_sector) != 0)
+	return;
 
 /*
 	Check that we have a BPB
@@ -149,9 +153,11 @@ root_directory_cluster = boot_sector.BPB_RootClus;
 sectors_per_cluster = boot_sector.BPB_SecPerClus;
 first_data_sector = boot_sector.BPB_RsvdSecCnt + (boot_sector.BPB_NumFATs * boot_sector.BPB_FATSz32);
 bytes_per_sector = boot_sector.BPB_BytsPerSec;
+bytes_per_cluster = bytes_per_sector * sectors_per_cluster;
 reserved_sectors = boot_sector.BPB_RsvdSecCnt;
 fats_on_volume = boot_sector.BPB_NumFATs;
 sectors_per_fat = boot_sector.BPB_FATSz32;
+fsinfo_sector = boot_sector.BPB_FSInfo;
 
 /*
 	Sanity check (There Ain't No Sanity Clause, Ignite, Nasty... look them up on Google).
@@ -193,7 +199,7 @@ switch(sectors_per_cluster)
 	than 32K (32 * 1024)"
 */
 
-if ((bytes_per_sector * sectors_per_cluster) > (32 * 1024))
+if (bytes_per_cluster > (32 * 1024))
 	return;
 
 /*
@@ -207,9 +213,41 @@ else
 	return;
 
 /*
+	We can now check the FSInfo sector
+*/
+if (read_sector(fsinfo, fsinfo_sector) != 0)
+	return;
+
+/*
+	Check the signatures are correct
+*/
+if (fsinfo->FSI_LeadSig != ATOSE_fat_fsinfo::LEAD_SIGNATURE || fsinfo->FSI_StrucSig != ATOSE_fat_fsinfo::STRUCT_SIGNATURE || fsinfo->FSI_TrailSig != ATOSE_fat_fsinfo::TAIL_SIGNATURE)
+	return;
+
+free_cluster_count = fsinfo->FSI_Free_Count;
+
+/*
 	Mark the disk as good (so far)
 */
 dead_volume = false;
+}
+
+/*
+	ATOSE_FAT::WRITE_FSINFO()
+	-------------------------
+*/
+uint32_t ATOSE_fat::write_fsinfo(void)
+{
+ATOSE_fat_fsinfo fs_info;
+
+memset(&fs_info, 0, sizeof(fs_info));
+fs_info.FSI_LeadSig = ATOSE_fat_fsinfo::LEAD_SIGNATURE;
+fs_info.FSI_StrucSig = ATOSE_fat_fsinfo::STRUCT_SIGNATURE;
+fs_info.FSI_Free_Count = free_cluster_count;
+fs_info.FSI_Nxt_Free = 0xFFFFFFFF;						// 0xFFFFFFFF for don't know
+fs_info.FSI_TrailSig = ATOSE_fat_fsinfo::TAIL_SIGNATURE;
+
+return write_sector(&fs_info, fsinfo_sector);
 }
 
 /*
@@ -260,6 +298,7 @@ return next_cluster;
 /*
 	ATOSE_FAT::EIGHT_POINT_THREE_TO_UTF8_STRCPY()
 	---------------------------------------------
+	note that the destination buffer must be 12 characters in length in order to hold the '\0' on the end
 */
 uint8_t *ATOSE_fat::eight_point_three_to_utf8_strcpy(uint8_t *destination, uint8_t *eight_point_three, uint32_t length)
 {
@@ -280,21 +319,22 @@ for (spacer = destination + 7; spacer >= destination; spacer--)
 	Put a do into it
 */
 spacer++;
-*spacer++ = '.';
+if (spacer != destination)
+	*spacer++ = '.';
 
 /*
 	Copy the 3 character extension and remove spaces from the end
 */
 memcpy(spacer, eight_point_three + 8, 3);
-spacer[4] = '\0';
-if (spacer[3] == ' ')
+spacer[3] = '\0';
+if (spacer[2] == ' ')
 	{
-	spacer[3] = '\0';
-	if (spacer[2] == ' ')
+	spacer[2] = '\0';
+	if (spacer[1] == ' ')
 		{
-		spacer[2] = '\0';
-		if (spacer[1] == ' ')
-			spacer[1] = '\0';
+		spacer[1] = '\0';
+		if (spacer[0] == ' ')
+			spacer[0] = '\0';
 		}
 	}
 return destination;
@@ -328,21 +368,12 @@ ASCII_strcpy(fcb->filename, filename);
 
 fcb->file_system = this;
 fcb->first_block = first_block;
-fcb->block_size_in_bytes = bytes_per_sector * sectors_per_cluster;
+fcb->block_size_in_bytes = bytes_per_cluster;
 
 fcb->current_block = first_block;
 fcb->buffer = NULL;
 fcb->file_offset = 0;
-
-/*
-	FAT+ (see: http://www.fdos.org/kernel/fatplus.txt)
-	"This means bits 0-2 and 5-7 are reserved, so these 6 bits are used by a FAT+ file system to store
-	the upper 6 bits of a file's size when the size becomes or exceeds 4GiB, giving 38 bits instead
-	of just 32 to store the size. This allows for a file up to 274877906944 bytes (256GiB)."
-*/
-fcb->file_size_in_bytes = found_file.DIR_FileSize;
-if (fat_plus)
-	fcb->file_size_in_bytes += ((uint64_t)(found_file.DIR_NTRes & 0x07)) + ((((uint64_t)found_file.DIR_NTRes >> 5) << 3) << 32);
+fcb->file_size_in_bytes = get_filesize(found_file.DIR_FileSize, found_file.DIR_NTRes);
 
 return fcb;
 }
@@ -626,20 +657,19 @@ sequence_length = long_filename_to_pieces(long_filename_pieces, filename_long, c
 */
 shortname_entry = long_filename_pieces + sequence_length;
 memset(shortname_entry, 0, sizeof(*shortname_entry));
+memcpy(shortname_entry->DIR_Name, filename_8_dot_3, 11);
+
+/*
+	Set the file creation time to 9am on 3 January 2013 (when the i.MX6Q version of this project started)
+*/
+shortname_entry->DIR_WrtDate = shortname_entry->DIR_CrtDate = (33 << 9) + (1 << 5) + 3;
+shortname_entry->DIR_WrtTime = shortname_entry->DIR_CrtTime = (9 << 11) + (0 << 5) + 0;
 sequence_length++;
 
-debug_print_string("\r\nSHORT FILENAME:");
-debug_print_string((char *)filename_8_dot_3);
-debug_print_this("\r\nLONG FILENAME (sequence length:", sequence_length, ")");
-for (uint32_t current = 0; current < sequence_length; current++)
-	{
-	debug_dump_buffer((uint8_t *)(long_filename_pieces + current), 0, sizeof(*long_filename_pieces));
-	debug_print_string("\r\n");
-	}
-debug_print_string("LONG FILENAME:");
-debug_print_string((char *)filename);
+if (add_to_directory(root_directory_cluster, long_filename_pieces, sequence_length) != 0)
+	return NULL;
 
-return add_to_directory(root_directory_cluster, long_filename_pieces, sequence_length);
+return open(fcb, filename);
 }
 
 /*
@@ -740,10 +770,18 @@ do
 	for (fat_copy = 0; fat_copy < fats_on_volume; fat_copy++)
 		if ((error = write_sector(sector, sector_number + (sectors_per_fat * fat_copy))) != 0)
 			return error;
+
+	/*
+		That cluster is no ready for re-use
+	*/
+	free_cluster_count++;
 	}
 while (cluster < 0x0FFFFFF8);
 
-return 0;
+/*
+	write the FSInfo structure back to disk
+*/
+return write_fsinfo();
 }
 
 /*
@@ -795,6 +833,26 @@ return NULL;
 }
 
 /*
+	ATOSE_FAT::SET_FILESIZE()
+	-------------------------
+*/
+uint64_t ATOSE_fat::set_filesize(uint32_t *DIR_FileSize, uint8_t *DIR_NTRes, uint64_t filesize)
+{
+*DIR_FileSize = filesize & 0xFFFFFFFF;
+
+if (fat_plus)
+	{
+	/*
+		FAT+ stores the top 6 bits of the file size (to a total of 38 bits) in bits 0-2 and 5-6 of DIR_NTRes
+	*/
+	*DIR_NTRes &= ((1 << 3) | (1 << 4));		// leave the middle two bits in tact
+	*DIR_NTRes |= (filesize >> 32) & ((1 << 0) | (1 << 1) | (1 << 2));		// bottom 3 bits of DIR_NTRes are bits 32,33,34 of the file size
+	*DIR_NTRes |= ((filesize >> 35) & ((1 << 0) | (1 << 1))) << 5;
+	}
+
+return filesize;
+}
+/*
 	ATOSE_FAT::EXTEND()
 	-------------------
 	return 0 on success, and other value is an error:
@@ -803,11 +861,14 @@ return NULL;
 	ERROR_DISK_FULL
 	ERROR_BAD_FILE
 	it also return lower-level media errors
+
+	Note... there is a special case here:
+		"Note that a zero- length file—a file that has no data allocated to it—has a first
+		cluster number of 0 placed in its directory entry."
 */
 uint64_t ATOSE_fat::extend(ATOSE_file_control_block *fcb, uint64_t length_to_become)
 {
 int64_t first_free_fat_sector;
-uint64_t bytes_per_cluster;
 uint64_t current, fat_sector, free_clusters;
 uint64_t next_cluster, last_cluster_in_file;
 uint64_t length_of_file_on_disk_in_clusters, fat_copy;
@@ -815,12 +876,12 @@ uint64_t entries_per_sector = bytes_per_sector / sizeof(uint32_t);
 uint64_t clusters_needed, clusters_added, new_cluster;
 uint64_t error;
 uint32_t sector[bytes_per_sector];
-uint8_t blank_cluster[bytes_per_sector * sectors_per_cluster];
+uint8_t blank_cluster[bytes_per_cluster];
 
 /*
 	Check we are not exceeding file system limits
 */
-if (length_to_become > 0xFFFFFFFF)					// 32 bits
+if (length_to_become > 0xFFFFFFFF)					// 32 bits is the longest FAT file length allowed
 	{
 	if (!fat_plus)
 		return ERROR_FILE_SIZE_EXCEEDED;
@@ -831,8 +892,7 @@ if (length_to_become > 0xFFFFFFFF)					// 32 bits
 /*
 	Are we actually making the file longer?
 */
-bytes_per_cluster = bytes_per_sector * sectors_per_cluster;
-clusters_needed = (length_to_become / bytes_per_cluster) - (fcb->file_size_in_bytes / bytes_per_cluster);
+clusters_needed = ((length_to_become + bytes_per_cluster - 1) / bytes_per_cluster) - ((fcb->file_size_in_bytes + bytes_per_cluster - 1) / bytes_per_cluster);
 if (clusters_needed <= 0)
 	return SUCCESS;		// success (because we are already long enough
 
@@ -876,28 +936,35 @@ for (fat_sector = 0; fat_sector < sectors_per_fat && free_clusters < clusters_ne
 */
 next_cluster = last_cluster_in_file = fcb->current_block;
 length_of_file_on_disk_in_clusters = 0;
-do
-	{
-	last_cluster_in_file = next_cluster;
-	next_cluster = next_cluster_after(last_cluster_in_file);
 
+if (next_cluster != 0)
+	{
 	/*
-		Although I've not see this, its possible for the FAT to form a circle in which case we
-		might end up looping forever so we check for that and quit if we find it happening.
+		Recall that a 0-length file has a start cluster of 0 and therefore fcb->current_block == 0
+		in this case we are already at the end of the file
 	*/
-	length_of_file_on_disk_in_clusters++;
-	if (length_of_file_on_disk_in_clusters * bytes_per_cluster > length_to_become)
-		return ERROR_BAD_FILE;
+	while (next_cluster != EOF);
+		{
+		last_cluster_in_file = next_cluster;
+		next_cluster = next_cluster_after(last_cluster_in_file);
+
+		/*
+			Although I've not see this, its possible for the FAT to form a circle in which case we
+			might end up looping forever so we check for that and quit if we find it happening.
+		*/
+		length_of_file_on_disk_in_clusters++;
+		if (length_of_file_on_disk_in_clusters * bytes_per_cluster > length_to_become)
+			return ERROR_BAD_FILE;
+		}
 	}
-while (next_cluster != EOF);
 
 /*
 	At this point we can guarantee that we can, indeed, extend the file to the required length
 	some stuff might still go wrong, but those things are probably catastrophic (e.g. eject the
-	disk mid write, or a write failure, etc.).  We also know the last cluster in the file, and that
+	disk mid-write, or a write failure, etc.).  We also know the last cluster in the file, and that
 	the file chain is (at least at the end) correct
 */
-memset(blank_cluster, 0, bytes_per_sector * sectors_per_cluster);
+memset(blank_cluster, 0, bytes_per_cluster);
 clusters_added = 0;
 for (fat_sector = first_free_fat_sector; fat_sector < sectors_per_fat && clusters_added < clusters_needed; fat_sector++)
 	{
@@ -930,20 +997,25 @@ for (fat_sector = first_free_fat_sector; fat_sector < sectors_per_fat && cluster
 			/*
 				Now we update the end of file to point to the new end of file
 				compute the update, load the FAT entry, update it, write it back to all copies of the FAT
+				recall that a zero-length file has an initial cluster (and last cluster) number of 0
 			*/
-			if ((error = read_sector(sector, reserved_sectors + last_cluster_in_file / entries_per_sector)) != 0)
-				return error;
-
 			new_cluster = fat_sector * entries_per_sector + current;
-			sector[last_cluster_in_file % entries_per_sector] = new_cluster;
-
-			for (fat_copy = 0; fat_copy < fats_on_volume; fat_copy++)
-				if ((error = write_sector(sector, reserved_sectors + (last_cluster_in_file / entries_per_sector) + (sectors_per_fat * fat_copy))) != 0)
+			if (last_cluster_in_file != 0)
+				{
+				if ((error = read_sector(sector, reserved_sectors + last_cluster_in_file / entries_per_sector)) != 0)
 					return error;
+
+				sector[last_cluster_in_file % entries_per_sector] = new_cluster;
+
+				for (fat_copy = 0; fat_copy < fats_on_volume; fat_copy++)
+					if ((error = write_sector(sector, reserved_sectors + (last_cluster_in_file / entries_per_sector) + (sectors_per_fat * fat_copy))) != 0)
+						return error;
+				}
 
 			last_cluster_in_file = new_cluster;
 			clusters_added++;
-
+			if (free_cluster_count != 0xFFFFFFFF)
+				free_cluster_count--;
 			/*
 				I guess we should make sure its blank
 			*/
@@ -954,10 +1026,13 @@ for (fat_sector = first_free_fat_sector; fat_sector < sectors_per_fat && cluster
 	}
 
 /*
-	At this point we've updated all the FATs with the new chains, next we need to update the directory
+	At this point we've updated all the FATs with the new chains, next we need to update the directory and the FSInfo
 */
+if ((error = write_fsinfo()) != 0)
+	return error;
+
 fcb->file_size_in_bytes = length_to_become;
-return find_in_directory(NULL, root_directory_cluster, fcb->filename, SET_FILE_SIZE, &length_to_become);
+return find_in_directory(NULL, root_directory_cluster, fcb->filename, SET_FILE_ATTRIBUTES, fcb);
 }
 
 /*
@@ -986,8 +1061,8 @@ return sum;
 	or EOF if it cannot find the name
 
 	To avoid having to write this code over and over again, its been extended to take an action parameter that describes what to
-	do when we find the file.  Those actions include : RETURN_FIRST_BLOCK, DELETE_FILE, SET_FILE_FIZE
-	in the case of SET_FILE_SIZE, parameter points to a 64-bit integer
+	do when we find the file.  Those actions include : RETURN_FIRST_BLOCK, DELETE_FILE, SET_FILE_ATTRIBUTES
+	in the case of SET_FILE_ATTRIBUTES, parameter points to an FCB.  It will *not* rename the file
 */
 uint64_t ATOSE_fat::find_in_directory(ATOSE_fat_directory_entry *stats, uint64_t start_cluster, uint8_t *name, uint32_t action, void *parameter)
 {
@@ -996,11 +1071,13 @@ uint8_t long_filename[(ATOSE_fat_directory_entry::MAX_LONG_FILENAME_LENGTH + 1) 
 uint8_t utf8_long_filename[sizeof(long_filename)];
 uint8_t *into;
 uint32_t filename_part = 1;
-uint8_t cluster[bytes_per_sector * sectors_per_cluster];
-uint64_t cluster_id, filesize;
-ATOSE_fat_directory_entry *file, *end;
+uint8_t cluster[bytes_per_cluster];
+uint64_t cluster_id, long_filename_start_cluster = start_cluster;
+ATOSE_fat_directory_entry *file, *end, *long_filename_start_entry;
+ATOSE_file_control_block *fcb;
 
-end = (ATOSE_fat_directory_entry *)(cluster + bytes_per_sector * sectors_per_cluster);
+long_filename_start_entry = (ATOSE_fat_directory_entry *)cluster;
+end = (ATOSE_fat_directory_entry *)(cluster + bytes_per_cluster);
 for (cluster_id = start_cluster; cluster_id != EOF; cluster_id = next_cluster_after(cluster_id))
 	{
 	if (read_cluster(cluster, cluster_id) != 0)
@@ -1039,9 +1116,13 @@ for (cluster_id = start_cluster; cluster_id != EOF; cluster_id = next_cluster_af
 				{
 				/*
 					We're at the start of a long filename (whose sequence numbers must descend).
+					now, the filename might cross a cluster boundary so we need to keep track of where we are both
+					in clusters and within the cluster
 				*/
 				filename_part = file->LDIR_Ord & ~ATOSE_fat_directory_entry::LAST_LONG_ENTRY;
 				checksum = file->LDIR_Chksum;
+				long_filename_start_cluster = cluster_id;
+				long_filename_start_entry = file;
 
 				/*
 					Check the sequence number isn't too high
@@ -1113,34 +1194,70 @@ for (cluster_id = start_cluster; cluster_id != EOF; cluster_id = next_cluster_af
 			/*
 				We got the name, now do the comparison (in UTF-8)
 			*/
+			if (action == DEBUG)
+				{
+				debug_print_string((char *)utf8_long_filename);
+				debug_print_string("\r\n");
+				}
+
 			if (ASCII_strcmp((char *)utf8_long_filename, (char *)name) == 0)
 				{
 				switch (action)
 					{
 					case RETURN_FIRST_BLOCK:
-debug_print_string("RETURN_FIRST_BLOCK\r\n");
 						memcpy(stats, file, sizeof(*stats));
 						return ((uint64_t)file->DIR_FstClusHI << 16) | (uint64_t)file->DIR_FstClusLO;
 					case DELETE_FILE:
-debug_print_string("DELETE_FILE\r\n");
-						file->DIR_Name[0] = ATOSE_fat_directory_entry::ENTRY_FREE;
+						/*
+							if we're deleting a long filename then we need to set the first character of all the blocks to ENTRY_FREE
+							and these might cross a cluster boundary.
+							First we load the starting cluster for that filename
+						*/
+						if (long_filename_start_cluster != cluster_id)
+							if (read_cluster(cluster, long_filename_start_cluster) != 0)
+								return EOF;
+
+						/*
+							as the short filename *must* follow the long filename parts we can
+							keep going from long_filename_start_entry until we find the first short
+							filename and stop there (after deleting it)
+						*/
+						do
+							{
+							long_filename_start_entry->DIR_Name[0] = ATOSE_fat_directory_entry::ENTRY_FREE;
+							if (long_filename_start_entry > end)
+								{
+								if (write_cluster(cluster, long_filename_start_cluster) != 0)
+									return EOF;
+								if (read_cluster(cluster, cluster_id) != 0)
+									return EOF;
+								long_filename_start_entry = (ATOSE_fat_directory_entry *)cluster;
+								}
+							long_filename_start_entry++;
+							}
+						while ((long_filename_start_entry->DIR_Attr & ATOSE_fat_directory_entry::ATTR_LONG_NAME_MASK) == ATOSE_fat_directory_entry::ATTR_LONG_NAME);
+
+						/*
+							Now we delete the short filename entry too
+						*/
+						long_filename_start_entry->DIR_Name[0] = ATOSE_fat_directory_entry::ENTRY_FREE;
+
+						/*
+							And we're done once we write it out to disk
+						*/
 						return write_cluster(cluster, cluster_id);
-					case SET_FILE_SIZE:
-debug_print_string("SET_FILE_SIZE\r\n");
+					case SET_FILE_ATTRIBUTES:
+						fcb = (ATOSE_file_control_block *)parameter;
 						/*
 							In both FAT and FAT+ we store the low 32 bits in DIR_FileSize
 						*/
-						filesize = *(uint64_t *)parameter;
-						file->DIR_FileSize = filesize & 0xFFFFFFFF;
-						if (fat_plus)
-							{
-							/*
-								FAT+ stores the top 6 bits of the file size (to a total of 38 bits) in bits 0-2 and 5-6 of DIR_NTRes
-							*/
-							file->DIR_NTRes &= ((1 << 3) | (1 << 4));		// leave the middle two bits in tact
-							file->DIR_NTRes |= (filesize >> 32) & ((1 << 0) | (1 << 1) | (1 << 2));		// bottom 3 bits of DIR_NTRes are bits 32,33,34 of the file size
-							file->DIR_NTRes |= ((filesize >> 35) & ((1 << 0) | (1 << 1))) << 5;
-							}
+						set_filesize(&file->DIR_FileSize, &file->DIR_NTRes, fcb->file_size_in_bytes);
+						/*
+							Set the start cluster (necessary for turning a 0-length file into a file of one or more bytes).
+						*/
+						file->DIR_FstClusLO = (fcb->first_block >> 16) & 0xFFFF;
+						file->DIR_FstClusHI = fcb->first_block & 0xFFFF;
+
 						return write_cluster(cluster, cluster_id);
 					}
 				}
@@ -1161,14 +1278,15 @@ return EOF;		// not found
 */
 uint64_t ATOSE_fat::add_to_directory(uint64_t directory_start_cluster, ATOSE_fat_directory_entry *new_filename, uint32_t parts)
 {
-uint8_t cluster[bytes_per_sector * sectors_per_cluster];
-uint64_t cluster_id;
-ATOSE_fat_directory_entry *file, *end;
-uint32_t found;
+uint8_t cluster[bytes_per_cluster];
+uint64_t cluster_id, start_cluster;
+ATOSE_fat_directory_entry *file, *end, *start_entry;
+uint32_t found, entry;
 
 found = 0;
-end = (ATOSE_fat_directory_entry *)(cluster + bytes_per_sector * sectors_per_cluster);
-for (cluster_id = start_cluster; cluster_id != EOF; cluster_id = next_cluster_after(cluster_id))
+start_cluster = 0;
+end = (ATOSE_fat_directory_entry *)(cluster + bytes_per_cluster);
+for (cluster_id = directory_start_cluster; cluster_id != EOF; cluster_id = next_cluster_after(cluster_id))
 	{
 	if (read_cluster(cluster, cluster_id) != 0)
 		return EOF;
@@ -1176,21 +1294,66 @@ for (cluster_id = start_cluster; cluster_id != EOF; cluster_id = next_cluster_af
 	for (file = (ATOSE_fat_directory_entry *)cluster; file < end; file++)
 		{
 		if (file->DIR_Name[0] == ATOSE_fat_directory_entry::ENTRY_END_OF_LIST)
+			{
+			if (file + parts + 1 < end)
+				{
+				memcpy(file, new_filename, sizeof(*new_filename) * parts);
+				memset(file + parts, 0, sizeof(*new_filename));						// make sure the list is terminated correctly
+				return write_cluster(cluster, cluster_id);
+				}
 			break;		// We're at the end of the directory
+			}
 		else if (file->DIR_Name[0] == ATOSE_fat_directory_entry::ENTRY_FREE)
 			{
+			if (found == 0)
+				{
+				start_entry = file;
+				start_cluster = cluster_id;
+				}
 			found++;
 			if (found >= parts)
 				{
 				/*
-					We're found a consecutive list of blank entries so we can put the file name in here.
+					If we cross a cluster boundary then we need to load the previous cluster
 				*/
+				if (start_cluster != cluster_id)
+					if (read_cluster(cluster, start_cluster) != 0)
+						return EOF;
+				for (entry = 0; entry < parts; entry++)
+					{
+					memcpy(start_entry, new_filename + entry, sizeof(*new_filename));
+					start_entry++;
+					/*
+						If we have more to do and we're at the end of the current cluster then
+						load the next cluster and start at the beginning of it.
+					*/
+					if (start_entry > end && entry < parts)
+						{
+						if (write_cluster(cluster, start_cluster) != 0)
+							return EOF;
+						if (read_cluster(cluster, cluster_id) != 0)
+							return EOF;
+						start_entry = (ATOSE_fat_directory_entry *)cluster;
+						}
+					}
+
+				if (write_cluster(cluster, cluster_id) != 0)
+					return EOF;
+
+				return 0;
 				}
 			}
 		else
 			found = 0;
 		}
 	}
+/*
+	Here we've not found room in the directory so we must make the directory longer and shove the entry in as the
+	first in the new cluster.
+
+	"FAT file system driver must not allow a directory (a file that is
+	actually a container for other files) to be larger than 65,536 * 32 (2,097,152)
+	bytes."
+*/
 return EOF;		// not found
 }
-
