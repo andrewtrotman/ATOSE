@@ -73,6 +73,7 @@ protected:
 	uint32_t increment_short_filename(uint8_t *filename, uint32_t last);
 	uint32_t long_filename_to_pieces(ATOSE_fat_directory_entry *into, uint16_t *filename, uint8_t checksum);
 
+	uint32_t allocate_free_cluster(uint64_t last_cluster_in_file, uint64_t *head_of_chain = 0, uint64_t clusters_needed = 1, uint64_t *clusters_allocated = 0);
 	uint64_t add_to_directory(uint64_t directory_start_cluster, ATOSE_fat_directory_entry *new_filename, uint32_t parts);
 
 public:

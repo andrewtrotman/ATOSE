@@ -282,7 +282,8 @@ if (cluster == 0)
 sector_number = reserved_sectors + (fat_offset / bytes_per_sector);
 offset = fat_offset % bytes_per_sector;
 
-read_sector(sector, sector_number);
+if (read_sector(sector, sector_number) != 0)
+	return EOF;
 
 /*
 	"A FAT32 FAT entry is actually only a 28- bit
@@ -640,7 +641,7 @@ for (last = 1; last < MAX_SHORTNAME_RETRIES; last++)
 		increment_short_filename(filename_8_dot_3, last);
 
 if (last >= MAX_SHORTNAME_RETRIES)
-	return 0;			// but it probably took and eternity
+	return 0;			// but it probably took and eternity to get here.
 
 /*
 	Get the checksum of the short filename
@@ -669,6 +670,9 @@ sequence_length++;
 if (add_to_directory(root_directory_cluster, long_filename_pieces, sequence_length) != 0)
 	return NULL;
 
+/*
+	And finally we can open the file
+*/
 return open(fcb, filename);
 }
 
@@ -756,7 +760,8 @@ do
 	/*
 		read the FAT
 	*/
-	read_sector(sector, sector_number);
+	if ((error = read_sector(sector, sector_number)) != 0)
+		return error;
 
 	/*
 		find the next cluster in the chain
@@ -779,7 +784,7 @@ do
 while (cluster < 0x0FFFFFF8);
 
 /*
-	write the FSInfo structure back to disk
+	write the FSInfo structure back to disk... this includes the count of free blocks
 */
 return write_fsinfo();
 }
@@ -852,118 +857,32 @@ if (fat_plus)
 
 return filesize;
 }
-/*
-	ATOSE_FAT::EXTEND()
-	-------------------
-	return 0 on success, and other value is an error:
-	SUCCESS = 0
-	ERROR_FILE_SIZE_EXCEEDED
-	ERROR_DISK_FULL
-	ERROR_BAD_FILE
-	it also return lower-level media errors
 
-	Note... there is a special case here:
-		"Note that a zero- length file—a file that has no data allocated to it—has a first
-		cluster number of 0 placed in its directory entry."
+/*
+	ATOSE_FAT::ALLOCATE_FREE_CLUSTER()
+	----------------------------------
+	returns 0 on success
+	head_of_chain is used to return (back to the caller) the cluster number of the first cluster in the allocated chain.
+	clusters_allocated is used to return (back to the caller) the number of clusters actually allocated (which will only differ from clusters needed on disk full).
 */
-uint64_t ATOSE_fat::extend(ATOSE_file_control_block *fcb, uint64_t length_to_become)
+uint32_t ATOSE_fat::allocate_free_cluster(uint64_t last_cluster_in_file, uint64_t *head_of_chain, uint64_t clusters_needed, uint64_t *clusters_allocated)
 {
-int64_t first_free_fat_sector;
-uint64_t current, fat_sector, free_clusters;
-uint64_t next_cluster, last_cluster_in_file;
-uint64_t length_of_file_on_disk_in_clusters, fat_copy;
-uint64_t entries_per_sector = bytes_per_sector / sizeof(uint32_t);
-uint64_t clusters_needed, clusters_added, new_cluster;
-uint64_t error;
+uint64_t unused, fat_sector, clusters_added, first_free_fat_sector = 0;
 uint32_t sector[bytes_per_sector];
 uint8_t blank_cluster[bytes_per_cluster];
+uint32_t error, fat_copy;
+uint64_t entries_per_sector = bytes_per_sector / sizeof(uint32_t);
+uint64_t current, new_cluster;
+
 
 /*
-	Check we are not exceeding file system limits
+	Make sure our pointers always point somewhere
 */
-if (length_to_become > 0xFFFFFFFF)					// 32 bits is the longest FAT file length allowed
-	{
-	if (!fat_plus)
-		return ERROR_FILE_SIZE_EXCEEDED;
-	if (length_to_become > 0x3FFFFFFFFF)			// 38 bits, see: http://www.fdos.org/kernel/fatplus.txt
-		return ERROR_FILE_SIZE_EXCEEDED;
-	}
+if (head_of_chain == NULL)
+	head_of_chain = &unused;
+if (clusters_allocated == NULL)
+	clusters_allocated = &unused;
 
-/*
-	Are we actually making the file longer?
-*/
-clusters_needed = ((length_to_become + bytes_per_cluster - 1) / bytes_per_cluster) - ((fcb->file_size_in_bytes + bytes_per_cluster - 1) / bytes_per_cluster);
-if (clusters_needed <= 0)
-	return SUCCESS;		// success (because we are already long enough
-
-/*
-	We're allowed to make the file this long (i.e. it does not exceed file system limits)
-	But there might not be enough disk space.  So we check the FAT has space in it... this,
-	unfortunately, is a linear search through the FAT.
-*/
-first_free_fat_sector = -1;
-free_clusters = 0;
-for (fat_sector = 0; fat_sector < sectors_per_fat && free_clusters < clusters_needed; fat_sector++)
-	{
-	/*
-		Get the FAT sector
-	*/
-	if ((error = read_sector(sector, reserved_sectors + fat_sector)) != 0)
-		return error;
-
-	/*
-		Walk each entry in the FAT looking for empties
-	*/
-	for (current = 0; current < entries_per_sector && free_clusters < clusters_needed; current++)
-		{
-		if (fat_sector * entries_per_sector > clusters_on_disk)
-			return ERROR_DISK_FULL;		// We've walked off the end of the disk and so we've failed.
-
-		/*
-			"A FAT32 FAT entry is actually only a 28- bit entry"
-		*/
-		if ((sector[current] & 0x0FFFFFFF) == 0)
-			{
-			if (first_free_fat_sector < 0)
-				first_free_fat_sector = fat_sector;
-			free_clusters++;
-			}
-		}
-	}
-
-/*
-	Find the last cluster in the file (because that is where we're going to update from
-*/
-next_cluster = last_cluster_in_file = fcb->current_block;
-length_of_file_on_disk_in_clusters = 0;
-
-if (next_cluster != 0)
-	{
-	/*
-		Recall that a 0-length file has a start cluster of 0 and therefore fcb->current_block == 0
-		in this case we are already at the end of the file
-	*/
-	while (next_cluster != EOF);
-		{
-		last_cluster_in_file = next_cluster;
-		next_cluster = next_cluster_after(last_cluster_in_file);
-
-		/*
-			Although I've not see this, its possible for the FAT to form a circle in which case we
-			might end up looping forever so we check for that and quit if we find it happening.
-		*/
-		length_of_file_on_disk_in_clusters++;
-		if (length_of_file_on_disk_in_clusters * bytes_per_cluster > length_to_become)
-			return ERROR_BAD_FILE;
-		}
-	}
-
-/*
-	At this point we can guarantee that we can, indeed, extend the file to the required length
-	some stuff might still go wrong, but those things are probably catastrophic (e.g. eject the
-	disk mid-write, or a write failure, etc.).  We also know the last cluster in the file, and that
-	the file chain is (at least at the end) correct
-*/
 memset(blank_cluster, 0, bytes_per_cluster);
 clusters_added = 0;
 for (fat_sector = first_free_fat_sector; fat_sector < sectors_per_fat && clusters_added < clusters_needed; fat_sector++)
@@ -1013,6 +932,8 @@ for (fat_sector = first_free_fat_sector; fat_sector < sectors_per_fat && cluster
 				}
 
 			last_cluster_in_file = new_cluster;
+			if (clusters_added == 0)
+				*head_of_chain = new_cluster;
 			clusters_added++;
 			if (free_cluster_count != 0xFFFFFFFF)
 				free_cluster_count--;
@@ -1026,11 +947,101 @@ for (fat_sector = first_free_fat_sector; fat_sector < sectors_per_fat && cluster
 	}
 
 /*
+	Check that we were able to allocate the required number of clusters and if so then we succeeded
+*/
+if ((*clusters_allocated = clusters_added) >= clusters_needed)
+	return 0;
+
+/*
+	If we get to this point then we have run out of disk space.
+*/
+return 1;
+}
+
+/*
+	ATOSE_FAT::EXTEND()
+	-------------------
+	return 0 on success, and other value is an error:
+	SUCCESS = 0
+	ERROR_FILE_SIZE_EXCEEDED
+	ERROR_DISK_FULL
+	ERROR_BAD_FILE
+	it also return lower-level media errors
+
+	Note... there is a special case here:
+		"Note that a zero- length file—a file that has no data allocated to it—has a first
+		cluster number of 0 placed in its directory entry."
+*/
+uint64_t ATOSE_fat::extend(ATOSE_file_control_block *fcb, uint64_t length_to_become)
+{
+uint64_t next_cluster, last_cluster_in_file;
+uint64_t length_of_file_on_disk_in_clusters;
+uint64_t clusters_needed, error, head_of_chain;
+
+/*
+	Check we are not exceeding file system limits
+*/
+if (length_to_become > 0xFFFFFFFF)					// 32 bits is the longest FAT file length allowed
+	{
+	if (!fat_plus)
+		return ERROR_FILE_SIZE_EXCEEDED;
+	if (length_to_become > 0x3FFFFFFFFF)			// 38 bits, see: http://www.fdos.org/kernel/fatplus.txt
+		return ERROR_FILE_SIZE_EXCEEDED;
+	}
+
+/*
+	Are we actually making the file longer?
+*/
+clusters_needed = ((length_to_become + bytes_per_cluster - 1) / bytes_per_cluster) - ((fcb->file_size_in_bytes + bytes_per_cluster - 1) / bytes_per_cluster);
+if (clusters_needed <= 0)
+	return SUCCESS;		// success (because we are already long enough
+
+/*
+	Find the last cluster in the file (because that is where we're going to update from
+*/
+next_cluster = last_cluster_in_file = fcb->current_block;
+length_of_file_on_disk_in_clusters = 0;
+
+if (next_cluster != 0)
+	{
+	/*
+		Recall that a 0-length file has a start cluster of 0 and therefore fcb->current_block == 0
+		in this case we are already at the end of the file
+	*/
+	while (next_cluster != EOF);
+		{
+		last_cluster_in_file = next_cluster;
+		next_cluster = next_cluster_after(last_cluster_in_file);
+
+		/*
+			Although I've not see this, its possible for the FAT to form a circle in which case we
+			might end up looping forever so we check for that and quit if we find it happening.
+		*/
+		length_of_file_on_disk_in_clusters++;
+		if (length_of_file_on_disk_in_clusters * bytes_per_cluster > length_to_become)
+			return ERROR_BAD_FILE;
+		}
+	}
+
+/*
+	We're allowed to make the file this long (i.e. it does not exceed file system limits)
+	and we know the last cluster in the file.  All we need to do now is allocate a cluster
+	if there is disk space.
+*/
+if ((error = allocate_free_cluster(last_cluster_in_file, &head_of_chain, clusters_needed)) != 0)
+	return error;
+
+/*
 	At this point we've updated all the FATs with the new chains, next we need to update the directory and the FSInfo
 */
 if ((error = write_fsinfo()) != 0)
 	return error;
 
+/*
+	Update the directory structure
+*/
+if (fcb->first_block == 0)
+	fcb->first_block = head_of_chain;
 fcb->file_size_in_bytes = length_to_become;
 return find_in_directory(NULL, root_directory_cluster, fcb->filename, SET_FILE_ATTRIBUTES, fcb);
 }
@@ -1279,15 +1290,19 @@ return EOF;		// not found
 uint64_t ATOSE_fat::add_to_directory(uint64_t directory_start_cluster, ATOSE_fat_directory_entry *new_filename, uint32_t parts)
 {
 uint8_t cluster[bytes_per_cluster];
-uint64_t cluster_id, start_cluster;
+uint64_t cluster_id, start_cluster, previous_cluster_id;
 ATOSE_fat_directory_entry *file, *end, *start_entry;
-uint32_t found, entry;
+uint32_t found, entry, error, clusters_in_diretory;
 
 found = 0;
 start_cluster = 0;
+clusters_in_diretory = 0;
+previous_cluster_id = 0;
 end = (ATOSE_fat_directory_entry *)(cluster + bytes_per_cluster);
 for (cluster_id = directory_start_cluster; cluster_id != EOF; cluster_id = next_cluster_after(cluster_id))
 	{
+	previous_cluster_id = cluster_id;
+	clusters_in_diretory++;
 	if (read_cluster(cluster, cluster_id) != 0)
 		return EOF;
 
@@ -1301,7 +1316,18 @@ for (cluster_id = directory_start_cluster; cluster_id != EOF; cluster_id = next_
 				memset(file + parts, 0, sizeof(*new_filename));						// make sure the list is terminated correctly
 				return write_cluster(cluster, cluster_id);
 				}
-			break;		// We're at the end of the directory
+			else
+				{
+				/*
+					We want to set the remainder of the directory as ENTRY_FREE because we don't fit
+					and we have to start a new cluster so we may as well bung this filename completely in
+					the next cluster.
+				*/
+				memset(file, ATOSE_fat_directory_entry::ENTRY_FREE, end - file);
+				if ((error = write_cluster(cluster, cluster_id)) != 0)
+					return error;
+				break;					// add a new sector to the chain (see below)
+				}
 			}
 		else if (file->DIR_Name[0] == ATOSE_fat_directory_entry::ENTRY_FREE)
 			{
@@ -1347,13 +1373,36 @@ for (cluster_id = directory_start_cluster; cluster_id != EOF; cluster_id = next_
 			found = 0;
 		}
 	}
+
 /*
-	Here we've not found room in the directory so we must make the directory longer and shove the entry in as the
-	first in the new cluster.
+	Here we've not found room in the directory so we must make the directory longer and
+	shove the entry in as the first in the new cluster.
 
 	"FAT file system driver must not allow a directory (a file that is
 	actually a container for other files) to be larger than 65,536 * 32 (2,097,152)
-	bytes."
+	bytes."... why... "There are many FAT file system drivers and disk utilities, including
+	Microsoft’s, that expect to be able to count the entries in a directory using a
+	16- bit WORD variable."
+
+	Note that 2,097,152 is 2^21. A sector must be a whole multiple of 512 bytes long.  A cluster must
+	be a whole power of 2 number of sectors... so a cluster is a while power of 2 bytes.  Microsoft
+	state that: "a value should never be used that results in a “bytes per cluster” value
+	(BPB_BytsPerSec * BPB_SecPerClus) greater than 32K (32 * 1024)."  So, 2MB/32K = 2^21 / 2^15 = 2^6
+	so in the worse case there is never a partial sector used for a directory entry
 */
-return EOF;		// not found
+if (clusters_in_diretory * (sectors_per_cluster / sizeof(*new_filename)) > 65536)
+	return EOF;			// directory full
+
+if ((error = allocate_free_cluster(previous_cluster_id, &cluster_id)) != 0)
+	return error;
+
+/*
+	Make sure the end of the previous cluster does not mark the end of the directory
+	by putting ATOSE_fat_directory_entry::ENTRY_FREE into the free slots.
+*/
+file = (ATOSE_fat_directory_entry *)cluster;
+memcpy(file, new_filename, sizeof(*new_filename) * parts);
+memset(file + parts, 0, sizeof(*new_filename));						// make sure the list is terminated correctly
+
+return write_cluster(cluster, cluster_id);
 }
