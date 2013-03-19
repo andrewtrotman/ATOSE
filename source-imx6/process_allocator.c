@@ -151,7 +151,6 @@ free(process->address_space);
 
 /*
 	We're done with the process object
-
 */
 process->next = free_processes_head;
 free_processes_head = process;

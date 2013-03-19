@@ -23,6 +23,7 @@ private:
 	ATOSE_address_space *system_address_space;			// this is the unprotected system "linear flat address space" that can see everything
 	ATOSE_process *active_head;			// head of the active process list
 	ATOSE_process *active_tail;			// tail of the active process list
+	ATOSE_process *idle;						// the idle process
 	ATOSE_process *current_process;		// the process that is currently executing
 
 protected:
@@ -35,6 +36,11 @@ protected:
 		Set up a process ready to run
 	*/
 	uint32_t initialise_process(ATOSE_process *process, size_t entry_point, uint32_t mode, uint32_t top_of_stack);
+
+	/*
+		set the idle process
+	*/
+	void set_idle(ATOSE_process *process) { idle = process; }
 
 public:
 	ATOSE_process_manager(ATOSE_mmu *mmu, ATOSE_process_allocator *process_allocator);
@@ -49,7 +55,8 @@ public:
 		Process Management Methods
 	*/
 	uint32_t create_process(const uint8_t *elf_file, uint32_t length);
-	uint32_t create_system_thread(uint32_t (*start)(void));
+	uint32_t create_system_thread(uint32_t (*start)(void), uint32_t is_idle_process = false);
+	uint32_t terminate_current_process(void);
 
 	uint32_t context_switch(ATOSE_registers *registers);
 

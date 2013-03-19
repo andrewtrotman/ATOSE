@@ -18,7 +18,9 @@
 enum
 	{
 	ATOSE_WRITE_BYTE,
+	ATOSE_READ_BYTE,
 	ATOSE_SPAWN,
+	ATOSE_EXIT,
 	ATOSE_SEMAPHORE_CREATE,
 	ATOSE_SEMAPHORE_CLEAR,
 	ATOSE_SEMAPHORE_SIGNAL,
@@ -54,7 +56,9 @@ public:
 	}
 
 	static uint32_t write(uint8_t byte) { return SYSTEM_CALL(ATOSE_WRITE_BYTE, byte); }
+	static uint32_t read(void) { return SYSTEM_CALL(ATOSE_READ_BYTE); }
 	static uint32_t spawn(unsigned char *elf, uint32_t bytes) { return SYSTEM_CALL(ATOSE_SPAWN, (uint32_t)elf, bytes); }
+	static uint32_t exit(uint32_t return_code) { return SYSTEM_CALL(ATOSE_EXIT, return_code); }
 	static uint32_t semaphore_create(void) { return SYSTEM_CALL(ATOSE_SEMAPHORE_CREATE); }
 	static uint32_t semaphore_clear(uint32_t handle) { return SYSTEM_CALL(ATOSE_SEMAPHORE_CLEAR, handle); }
 	static uint32_t semaphore_signal(uint32_t handle) { return SYSTEM_CALL(ATOSE_SEMAPHORE_SIGNAL, handle); }

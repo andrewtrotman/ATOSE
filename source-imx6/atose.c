@@ -48,7 +48,7 @@ process_clock.enable();
 
 
 //debug  << "Start the IDLE process";
-scheduler.create_system_thread(idle);
+scheduler.create_system_thread(idle, true);
 //debug << "done" << ATOSE_debug::eoln;
 
 interrupt_controller.enable(&imx6q_host_usb, imx6q_host_usb.get_interrup_id());
@@ -132,7 +132,9 @@ while (1)
 
 
 uint32_t ATOSE_putc(ATOSE_registers *registers);
+uint32_t ATOSE_getc(ATOSE_registers *registers);
 uint32_t ATOSE_spawn(ATOSE_registers *registers);
+uint32_t ATOSE_exit(ATOSE_registers *registers);
 uint32_t ATOSE_semaphore_create(ATOSE_registers *registers);
 uint32_t ATOSE_semaphore_clear(ATOSE_registers *registers);
 uint32_t ATOSE_semaphore_signal(ATOSE_registers *registers);
@@ -142,7 +144,9 @@ typedef uint32_t(*ATOSE_system_method)(ATOSE_registers *);
 ATOSE_system_method ATOSE_call[] =
 {
 ATOSE_putc,
+ATOSE_getc,
 ATOSE_spawn,
+ATOSE_exit,
 ATOSE_semaphore_create,
 ATOSE_semaphore_clear,
 ATOSE_semaphore_signal,
@@ -166,7 +170,7 @@ if (( (*(uint32_t *)(registers->r14_current - 4)) & 0x00FFFFFF) != ATOSE_SWI)
 /*
 	Illegal function call
 */
-if (registers->r0 > ATOSE_END_OF_METHODS)
+if (registers->r0 >= ATOSE_END_OF_METHODS)
 	return 0;
 
 /*
@@ -182,7 +186,6 @@ ATOSE_call[registers->r0](registers);
 /*
 	Context switch
 */
-
 ATOSE_atose::get_ATOSE()->scheduler.context_switch(registers);
 
 return 0;
@@ -198,6 +201,20 @@ return ATOSE_atose::get_ATOSE()->debug.write_byte(registers->r1);
 }
 
 /*
+	ATOSE_GETC()
+	------------
+*/
+uint32_t ATOSE_getc(ATOSE_registers *registers)
+{
+uint8_t answer;
+
+ATOSE_atose::get_ATOSE()->debug.read_byte(&answer);
+registers->r0 = answer;
+
+return 0;
+}
+
+/*
 	ATOSE_SPAWN()
 	-------------
 */
@@ -206,10 +223,20 @@ uint32_t ATOSE_spawn(ATOSE_registers *registers)
 uint32_t answer;
 
 ATOSE_atose::get_ATOSE()->heap.assume_identity();
-answer = ATOSE_atose::get_ATOSE()->scheduler.create_process((const uint8_t *)registers->r1, registers->r2);
-ATOSE_atose::get_ATOSE()->heap.assume(ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->address_space);
+if ((answer = ATOSE_atose::get_ATOSE()->scheduler.create_process((const uint8_t *)registers->r1, registers->r2)) ==  ATOSE_process_manager::SUCCESS)
+	ATOSE_atose::get_ATOSE()->heap.assume(ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->address_space);
 
 return answer;
+}
+
+/*
+	ATOSE_EXIT()
+	------------
+*/
+uint32_t ATOSE_exit(ATOSE_registers *registers)
+{
+ATOSE_atose::get_ATOSE()->debug << "EXIT()";
+return ATOSE_atose::get_ATOSE()->scheduler.terminate_current_process();
 }
 
 /*

@@ -1298,6 +1298,7 @@ found = 0;
 start_cluster = 0;
 clusters_in_diretory = 0;
 previous_cluster_id = 0;
+start_entry = (ATOSE_fat_directory_entry *)cluster;
 end = (ATOSE_fat_directory_entry *)(cluster + bytes_per_cluster);
 for (cluster_id = directory_start_cluster; cluster_id != EOF; cluster_id = next_cluster_after(cluster_id))
 	{

@@ -313,7 +313,8 @@ ATOSE_process *ATOSE_process_manager::get_next_process(void)
 	put the current process at the bottom of the queue and replace it with
 	the process at the top of the queue
 */
-push(current_process);
+if (current_process != idle)
+	push(current_process);
 return current_process = pull();
 }
 
@@ -340,11 +341,6 @@ process->execution_path->registers.r14_current = (uint32_t)entry_point;
 */
 process->execution_path->registers.cpsr = (0x80000150 & ~ATOSE_cpu_arm::MODE_BITS) | mode;
 
-/*
-	Add to the process queues (for the scheduler to sort out)
-*/
-push(process);
-
 return SUCCESS;
 }
 
@@ -369,6 +365,11 @@ if ((answer = elf_load(new_process, buffer, length)) != SUCCESS)
 
 answer = initialise_process(new_process, (size_t)new_process->entry_point, ATOSE_cpu_arm::MODE_USER, mmu->highest_address);
 
+/*
+	Add to the process queues (for the scheduler to sort out)
+*/
+push(new_process);
+
 return answer;
 }
 
@@ -376,8 +377,9 @@ return answer;
 	ATOSE_PROCESS_MANAGER::CREATE_SYSTEM_THREAD()
 	---------------------------------------------
 */
-uint32_t ATOSE_process_manager::create_system_thread(uint32_t (*start)(void))
+uint32_t ATOSE_process_manager::create_system_thread(uint32_t (*start)(void), uint32_t is_idle_thread)
 {
+uint32_t answer;
 ATOSE_process *new_process;
 ATOSE_mmu_page *page;
 
@@ -394,7 +396,32 @@ system_address_space->get_reference();
 */
 page = system_address_space->add_to_identity();
 
-return initialise_process(new_process, (size_t)(start), ATOSE_cpu_arm::MODE_SYSTEM, (uint32_t)(page->physical_address + page->page_size));
+answer = initialise_process(new_process, (size_t)(start), ATOSE_cpu_arm::MODE_SYSTEM, (uint32_t)(page->physical_address + page->page_size));
+
+/*
+	Add to the process queues (for the scheduler to sort out)
+*/
+if (is_idle_thread)
+	set_idle(new_process);
+else
+	push(new_process);
+
+return answer;
+}
+
+/*
+	ATOSE_PROCESS_MANAGER::TERMINATE_CURRENT_PROCESS()
+	--------------------------------------------------
+*/
+uint32_t ATOSE_process_manager::terminate_current_process(void)
+{
+if (current_process != idle)
+	{
+	ATOSE_atose::get_ATOSE()->process_allocator.free(current_process);
+	current_process = NULL;
+	}
+
+return 0;
 }
 
 /*
@@ -411,13 +438,22 @@ ATOSE_process *current_process, *next_process;
 current_process = get_current_process();
 next_process = get_next_process();
 
-if (current_process == next_process && next_process == NULL)
-	ATOSE_atose::get_ATOSE()->debug << "[NULL NULL]";
-
-/*
-	if the current process is the next process then there is no work to do
-*/
-if (current_process != next_process)
+if (current_process == next_process && next_process != NULL)
+	{
+	/*
+		If the current process is the next process then there is no work to do
+	*/
+	}
+else if (next_process == NULL)
+	{
+	/*
+		We don't have any more work to do so we invoke the idle process
+	*/
+//	ATOSE_atose::get_ATOSE()->debug << "[IDLE]";
+	memcpy(registers, &idle->execution_path->registers, sizeof(*registers));
+	ATOSE_atose::get_ATOSE()->heap.assume(idle->address_space);
+	}
+else
 	{
 	/*
 		If we're running a process then copy the registers into its register space
@@ -439,7 +475,7 @@ if (current_process != next_process)
 		/*
 			Set the address space to fall back to the next context, but only if we aren't a thread of the same address space
 		*/
-		if (next_process->address_space != current_process->address_space)
+		if (current_process == NULL || next_process->address_space != current_process->address_space)
 			ATOSE_atose::get_ATOSE()->heap.assume(next_process->address_space);
 		}
 	}
