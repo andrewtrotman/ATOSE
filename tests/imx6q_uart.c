@@ -39,57 +39,13 @@ while (HW_UART_UTS(DEFAULT_UART).B.TXEMPTY == 0)
 }
 
 /*
-	DEBUG_PRINT_HEX()
-	-----------------
+	DEBUG_PUTS()
+	------------
 */
-void debug_print_hex(int data)
-{
-int i = 0;
-char c;
-
-for (i = sizeof(int) * 2 - 1; i >= 0; i--)
-	{
-	c = data >> (i * 4);
-	c &= 0xf;
-	if (c > 9)
-		debug_putc(c - 10 + 'A');
-	else
-		debug_putc(c + '0');
-	}
-}
-
-/*
-	DEBUG_PRINT_HEX_BYTE()
-	----------------------
-*/
-void debug_print_hex_byte(uint8_t data)
-{
-const char *string = "0123456789ABCDEF";
-
-debug_putc(string[(data >> 4) & 0x0F]);
-debug_putc(string[data & 0x0F]);
-}
-
-/*
-	DEBUG_PRINT_STRING()
-	--------------------
-*/
-void debug_print_string(const char *string)
+void debug_puts(char *string)
 {
 while (*string != 0)
 	debug_putc(*string++);
-}
-
-/*
-	DEBUG_PRINT_THIS()
-	------------------
-*/
-void debug_print_this(const char *start, uint32_t hex, const char *end)
-{
-debug_print_string(start);
-debug_print_hex(hex);
-debug_print_string(end);
-debug_print_string("\r\n");
 }
 
 /*
@@ -102,72 +58,13 @@ char debug_getc(void)
 	Wait for a character to arrive
 */
 while ((HW_UART_USR2(DEFAULT_UART).B.RDR) == 0)
-//while (1)
-	{
-	debug_print_this("USR1:", HW_UART_USR1_RD(DEFAULT_UART), "");
-	debug_print_this("USR2:", HW_UART_USR2_RD(DEFAULT_UART), "");
-	debug_print_this("CHAR:", HW_UART_URXD_RD(DEFAULT_UART), "\r\n");
 	; // do nothing
-	}
 
 /*
 	Get it and put it into the array
 */
-return HW_UART_URXD_RD(DEFAULT_UART) & 0x80;
+return HW_UART_URXD_RD(DEFAULT_UART) & 0xFF;
 }
-
-/*
-	DEBUG_PUTS()
-	------------
-*/
-void debug_puts(char *string)
-{
-while (*string != '\0')
-	debug_putc(*string++);
-}
-
-
-int my_isprint(char a)
-{
-return a > 32 && a < 128;
-}
-
-/*
-	DEBUG_DUMP_BUFFER()
-	-------------------
-*/
-void debug_dump_buffer(unsigned char *buffer, uint32_t address, uint64_t bytes)
-{
-uint64_t remaining, width, column;
-
-remaining = bytes;
-while (remaining > 0)
-	{
-	debug_print_hex(address);
-	debug_print_string(" ");
-
-	width = remaining > 0x10 ? 0x10 : remaining;
-
-	for (column = 0; column < width; column++)
-		{
-		debug_print_hex_byte(buffer[column]);
-		debug_print_string(" ");
-		}
-
-	for (; column < 0x10; column++)
-		debug_print_string("   ");
-
-	debug_print_string(" ");
-	for (column = 0; column < width; column++)
-		debug_putc(my_isprint(buffer[column]) ? buffer[column] : '.');
-
-	debug_print_string("\r\n");
-	buffer += width;
-	address += width;
-	remaining -= width;
-	}
-}
-
 
 /*
 	ENABLE_PINS()
@@ -184,10 +81,14 @@ void enable_pins(void)
 	HW_IOMUXC_SW_PAD_CTL_PAD_SD3_DATA6_WR(BF_IOMUXC_SW_PAD_CTL_PAD_SD3_DATA6_HYS_V(ENABLED) | BF_IOMUXC_SW_PAD_CTL_PAD_SD3_DATA6_PUS_V(100K_OHM_PU) | BF_IOMUXC_SW_PAD_CTL_PAD_SD3_DATA6_PUE_V(PULL) | BF_IOMUXC_SW_PAD_CTL_PAD_SD3_DATA6_PKE_V(ENABLED) | BF_IOMUXC_SW_PAD_CTL_PAD_SD3_DATA6_ODE_V(DISABLED) | BF_IOMUXC_SW_PAD_CTL_PAD_SD3_DATA6_SPEED_V(100MHZ) | BF_IOMUXC_SW_PAD_CTL_PAD_SD3_DATA6_DSE_V(40_OHM) | BF_IOMUXC_SW_PAD_CTL_PAD_SD3_DATA6_SRE_V(SLOW));
 	HW_IOMUXC_UART1_UART_RX_DATA_SELECT_INPUT_WR(BF_IOMUXC_UART1_UART_RX_DATA_SELECT_INPUT_DAISY_V(CSI0_DATA10_ALT3));
 
-
 	HW_IOMUXC_SW_MUX_CTL_PAD_SD3_DATA7_WR(BF_IOMUXC_SW_MUX_CTL_PAD_SD3_DATA7_SION_V(DISABLED) | BF_IOMUXC_SW_MUX_CTL_PAD_SD3_DATA7_MUX_MODE_V(ALT1));
 	HW_IOMUXC_SW_PAD_CTL_PAD_SD3_DATA7_WR(BF_IOMUXC_SW_PAD_CTL_PAD_SD3_DATA7_HYS_V(ENABLED) | BF_IOMUXC_SW_PAD_CTL_PAD_SD3_DATA7_PUS_V(100K_OHM_PU) | BF_IOMUXC_SW_PAD_CTL_PAD_SD3_DATA7_PUE_V(PULL) | BF_IOMUXC_SW_PAD_CTL_PAD_SD3_DATA7_PKE_V(ENABLED) | BF_IOMUXC_SW_PAD_CTL_PAD_SD3_DATA7_ODE_V(DISABLED) | BF_IOMUXC_SW_PAD_CTL_PAD_SD3_DATA7_SPEED_V(100MHZ) | BF_IOMUXC_SW_PAD_CTL_PAD_SD3_DATA7_DSE_V(40_OHM) | BF_IOMUXC_SW_PAD_CTL_PAD_SD3_DATA7_SRE_V(SLOW));
 	HW_IOMUXC_UART1_UART_RX_DATA_SELECT_INPUT_WR(BF_IOMUXC_UART1_UART_RX_DATA_SELECT_INPUT_DAISY_V(CSI0_DATA10_ALT3));
+
+	/*
+		This fix is necessary for reading from the UART
+	*/
+	HW_IOMUXC_UART1_UART_RX_DATA_SELECT_INPUT_WR(BF_IOMUXC_UART1_UART_RX_DATA_SELECT_INPUT_DAISY_V(SD3_DATA6_ALT1));
 #elif (DEFAULT_UART == 2)
 	/*
 		On the SABRE Lite UART-2 (the "console") comes out at pins E24 and E25
@@ -199,6 +100,11 @@ void enable_pins(void)
 	HW_IOMUXC_SW_MUX_CTL_PAD_EIM_DATA26_WR(BF_IOMUXC_SW_MUX_CTL_PAD_EIM_DATA26_SION_V(DISABLED) | BF_IOMUXC_SW_MUX_CTL_PAD_EIM_DATA26_MUX_MODE_V(ALT4));
 	HW_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA26_WR(BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA26_HYS_V(ENABLED) | BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA26_PUS_V(100K_OHM_PU) | BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA26_PUE_V(PULL) | BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA26_PKE_V(ENABLED) | BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA26_ODE_V(DISABLED) | BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA26_SPEED_V(100MHZ) | BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA26_DSE_V(40_OHM) | BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA26_SRE_V(SLOW));
 	HW_IOMUXC_UART2_UART_RX_DATA_SELECT_INPUT_WR(BF_IOMUXC_UART2_UART_RX_DATA_SELECT_INPUT_DAISY_V(EIM_DATA26_ALT4));
+
+	/*
+		This fix is necessary for reading from the UART
+	*/
+	HW_IOMUXC_UART2_UART_RX_DATA_SELECT_INPUT_WR(BF_IOMUXC_UART2_UART_RX_DATA_SELECT_INPUT_DAISY_V(EIM_DATA27_ALT4));
 #else
 	#error "Only UART 1 and 2 are supported"
 #endif
@@ -265,127 +171,8 @@ HW_UART_UBMR(DEFAULT_UART).U = (PLL3_FREQUENCY / (HW_CCM_CSCDR1.B.UART_CLK_PODF 
 */
 void enable_clocks(void)
 {
-//*((uint32_t *)0x020C407C) = 0x0F0000C3;	// CCM Clock Gating Register 5 (CCM_CCGR5) (inc UART clock)
 *((uint32_t *)0x020C407C) = 0x0F000000;	// Enable both UART clocks
-
 }
-
-void delay(void)
-{
-volatile long x;
-
-for (x = 0; x < 10000; x++)
-	;
-}
-
-/*
-	CONFIGURE_SABERLITE()
-	---------------------
-*/
-void configure_saberlite(void)
-{
-*((uint32_t *)0x020E05A8) = 0x00000030; delay();
-*((uint32_t *)0x020E05B0) = 0x00000030; delay();
-*((uint32_t *)0x020E0524) = 0x00000030; delay();
-*((uint32_t *)0x020E051C) = 0x00000030; delay();
-*((uint32_t *)0x020E0518) = 0x00000030; delay();
-*((uint32_t *)0x020E050C) = 0x00000030; delay();
-*((uint32_t *)0x020E05B8) = 0x00000030; delay();
-*((uint32_t *)0x020E05C0) = 0x00000030; delay();
-*((uint32_t *)0x020E05AC) = 0x00020030; delay();
-*((uint32_t *)0x020E05B4) = 0x00020030; delay();
-*((uint32_t *)0x020E0528) = 0x00020030; delay();
-*((uint32_t *)0x020E0520) = 0x00020030; delay();
-*((uint32_t *)0x020E0514) = 0x00020030; delay();
-*((uint32_t *)0x020E0510) = 0x00020030; delay();
-*((uint32_t *)0x020E05BC) = 0x00020030; delay();
-*((uint32_t *)0x020E05C4) = 0x00020030; delay();
-*((uint32_t *)0x020E056C) = 0x00020030; delay();
-*((uint32_t *)0x020E0578) = 0x00020030; delay();
-*((uint32_t *)0x020E0588) = 0x00020030; delay();
-*((uint32_t *)0x020E0594) = 0x00020030; delay();
-*((uint32_t *)0x020E057C) = 0x00020030; delay();
-*((uint32_t *)0x020E0590) = 0x00003000; delay();
-*((uint32_t *)0x020E0598) = 0x00003000; delay();
-*((uint32_t *)0x020E058C) = 0x00000000; delay();
-*((uint32_t *)0x020E059C) = 0x00003030; delay();
-*((uint32_t *)0x020E05A0) = 0x00003030; delay();
-*((uint32_t *)0x020E0784) = 0x00000030; delay();
-*((uint32_t *)0x020E0788) = 0x00000030; delay();
-*((uint32_t *)0x020E0794) = 0x00000030; delay();
-*((uint32_t *)0x020E079C) = 0x00000030; delay();
-*((uint32_t *)0x020E07A0) = 0x00000030; delay();
-*((uint32_t *)0x020E07A4) = 0x00000030; delay();
-*((uint32_t *)0x020E07A8) = 0x00000030; delay();
-*((uint32_t *)0x020E0748) = 0x00000030; delay();
-*((uint32_t *)0x020E074C) = 0x00000030; delay();
-*((uint32_t *)0x020E0750) = 0x00020000; delay();
-*((uint32_t *)0x020E0758) = 0x00000000; delay();
-*((uint32_t *)0x020E0774) = 0x00020000; delay();
-*((uint32_t *)0x020E078C) = 0x00000030; delay();
-*((uint32_t *)0x020E0798) = 0x000C0000; delay();
-*((uint32_t *)0x021B081C) = 0x33333333; delay();
-*((uint32_t *)0x021B0820) = 0x33333333; delay();
-*((uint32_t *)0x021B0824) = 0x33333333; delay();
-*((uint32_t *)0x021B0828) = 0x33333333; delay();
-*((uint32_t *)0x021B481C) = 0x33333333; delay();
-*((uint32_t *)0x021B4820) = 0x33333333; delay();
-*((uint32_t *)0x021B4824) = 0x33333333; delay();
-*((uint32_t *)0x021B4828) = 0x33333333; delay();
-*((uint32_t *)0x021B0018) = 0x00081740; delay();
-*((uint32_t *)0x021B001C) = 0x00008000; delay();
-*((uint32_t *)0x021B000C) = 0x555A7975; delay();
-*((uint32_t *)0x021B0010) = 0xFF538E64; delay();
-*((uint32_t *)0x021B0014) = 0x01FF00DB; delay();
-*((uint32_t *)0x021B002C) = 0x000026D2; delay();
-*((uint32_t *)0x021B0030) = 0x005B0E21; delay();
-*((uint32_t *)0x021B0008) = 0x09444040; delay();
-*((uint32_t *)0x021B0004) = 0x00025576; delay();
-*((uint32_t *)0x021B0040) = 0x00000027; delay();
-*((uint32_t *)0x021B0000) = 0x831A0000; delay();
-*((uint32_t *)0x021B001C) = 0x04088032; delay();
-*((uint32_t *)0x021B001C) = 0x0408803A; delay();
-*((uint32_t *)0x021B001C) = 0x00008033; delay();
-*((uint32_t *)0x021B001C) = 0x0000803B; delay();
-*((uint32_t *)0x021B001C) = 0x00428031; delay();
-*((uint32_t *)0x021B001C) = 0x00428039; delay();
-*((uint32_t *)0x021B001C) = 0x09408030; delay();
-*((uint32_t *)0x021B001C) = 0x09408038; delay();
-*((uint32_t *)0x021B001C) = 0x04008040; delay();
-*((uint32_t *)0x021B001C) = 0x04008048; delay();
-*((uint32_t *)0x021B0800) = 0xA1380003; delay();
-*((uint32_t *)0x021B4800) = 0xA1380003; delay();
-*((uint32_t *)0x021B0020) = 0x00005800; delay();
-*((uint32_t *)0x021B0818) = 0x00022227; delay();
-*((uint32_t *)0x021B4818) = 0x00022227; delay();
-*((uint32_t *)0x021B083C) = 0x434B0350; delay();
-*((uint32_t *)0x021B0840) = 0x034C0359; delay();
-*((uint32_t *)0x021B483C) = 0x434B0350; delay();
-*((uint32_t *)0x021B4840) = 0x03650348; delay();
-*((uint32_t *)0x021B0848) = 0x4436383B; delay();
-*((uint32_t *)0x021B4848) = 0x39393341; delay();
-*((uint32_t *)0x021B0850) = 0x35373933; delay();
-*((uint32_t *)0x021B4850) = 0x48254A36; delay();
-*((uint32_t *)0x021B080C) = 0x001F001F; delay();
-*((uint32_t *)0x021B0810) = 0x001F001F; delay();
-*((uint32_t *)0x021B480C) = 0x00440044; delay();
-*((uint32_t *)0x021B4810) = 0x00440044; delay();
-*((uint32_t *)0x021B08B8) = 0x00000800; delay();
-*((uint32_t *)0x021B48B8) = 0x00000800; delay();
-*((uint32_t *)0x021B001C) = 0x00000000; delay();
-*((uint32_t *)0x021B0404) = 0x00011006; delay();
-*((uint32_t *)0x020C4068) = 0x00C03F3F; delay();
-*((uint32_t *)0x020C406C) = 0x0030FC03; delay();
-*((uint32_t *)0x020C4070) = 0x0FFFC000; delay();
-*((uint32_t *)0x020C4074) = 0x3FF00000; delay();
-*((uint32_t *)0x020C4078) = 0x00FFF300; delay();
-*((uint32_t *)0x020C407C) = 0x0F0000C3; delay();
-*((uint32_t *)0x020C4080) = 0x000003FF; delay();
-*((uint32_t *)0x020E0010) = 0xF00000CF; delay();
-*((uint32_t *)0x020E0018) = 0x007F007F; delay();
-*((uint32_t *)0x020E001C) = 0x007F007F; delay();
-}
-
 
 /*
 	MAIN()
@@ -393,52 +180,14 @@ void configure_saberlite(void)
 */
 int main(void)
 {
-char into[2];
-
 enable_clocks();
 enable_pins();
 serial_init();
 
-debug_puts(__TIME__ "\r\n");
+debug_puts("Compiled on " __DATE__ " at " __TIME__ "\r\n");
 
-//debug_dump_buffer((unsigned char *)0x021e8080, 0x021e8080, 0x39);
-
-debug_print_this("IOMUXC_SW_MUX_CTL_PAD_EIM_DATA27      :", HW_IOMUXC_SW_MUX_CTL_PAD_EIM_DATA27_RD(), "");
-debug_print_this("IOMUXC_SW_PAD_CTL_PAD_EIM_DATA27      :", HW_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA27_RD(), "");
-debug_print_this("IOMUXC_UART2_UART_RX_DATA_SELECT_INPUT:", HW_IOMUXC_UART2_UART_RX_DATA_SELECT_INPUT_RD(), "");
-debug_print_this("IOMUXC_SW_MUX_CTL_PAD_EIM_DATA26      :", HW_IOMUXC_SW_MUX_CTL_PAD_EIM_DATA26_RD(), "");
-debug_print_this("IOMUXC_SW_PAD_CTL_PAD_EIM_DATA26      :", HW_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA26_RD(), "");
-debug_print_this("IOMUXC_UART2_UART_RX_DATA_SELECT_INPUT:", HW_IOMUXC_UART2_UART_RX_DATA_SELECT_INPUT_RD(), "");
-
-debug_print_string("ADDRESSES\r\n");
-debug_print_this("IOMUXC_SW_MUX_CTL_PAD_EIM_DATA27      :", (uint32_t)&HW_IOMUXC_SW_MUX_CTL_PAD_EIM_DATA27, "");
-debug_print_this("IOMUXC_SW_PAD_CTL_PAD_EIM_DATA27      :", (uint32_t)&HW_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA27, "");
-debug_print_this("IOMUXC_UART2_UART_RX_DATA_SELECT_INPUT:", (uint32_t)&HW_IOMUXC_UART2_UART_RX_DATA_SELECT_INPUT, "");
-debug_print_this("IOMUXC_SW_MUX_CTL_PAD_EIM_DATA26      :", (uint32_t)&HW_IOMUXC_SW_MUX_CTL_PAD_EIM_DATA26, "");
-debug_print_this("IOMUXC_SW_PAD_CTL_PAD_EIM_DATA26      :", (uint32_t)&HW_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA26, "");
-debug_print_this("IOMUXC_UART2_UART_RX_DATA_SELECT_INPUT:", (uint32_t)&HW_IOMUXC_UART2_UART_RX_DATA_SELECT_INPUT, "");
-
-/*
-VALUES
-IOMUXC_SW_MUX_CTL_PAD_EIM_DATA27      :00000004
-IOMUXC_SW_PAD_CTL_PAD_EIM_DATA27      :0001B0B0
-IOMUXC_UART2_UART_RX_DATA_SELECT_INPUT:00000000
-IOMUXC_SW_MUX_CTL_PAD_EIM_DATA26      :00000004
-IOMUXC_SW_PAD_CTL_PAD_EIM_DATA26      :0001B0B0
-IOMUXC_UART2_UART_RX_DATA_SELECT_INPUT:00000000
-
-ADDRESSES
-IOMUXC_SW_MUX_CTL_PAD_EIM_DATA27      :020E00C0
-IOMUXC_SW_PAD_CTL_PAD_EIM_DATA27      :020E03D4
-IOMUXC_UART2_UART_RX_DATA_SELECT_INPUT:020E0928
-IOMUXC_SW_MUX_CTL_PAD_EIM_DATA26      :020E00BC
-IOMUXC_SW_PAD_CTL_PAD_EIM_DATA26      :020E03D0
-IOMUXC_UART2_UART_RX_DATA_SELECT_INPUT:020E0928
-*/
-
-into[0] = debug_getc();
-into[1] = '\0';
-debug_puts(into);
+while (1)
+	debug_putc(debug_getc());
 
 return 0;
 }
