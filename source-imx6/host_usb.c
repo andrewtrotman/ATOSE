@@ -1198,14 +1198,21 @@ return device->dead ? NULL : device;
 */
 void ATOSE_host_usb::device_manager(void)
 {
-char k[10];
-debug_print_string("Press any key to start\r\n");
-debug_print_string("]");
-k[0] = ATOSE_api::read();
-k[1] = '\0';
-debug_print_string("You pressed:");
-debug_print_string(k);
+char buffer[10];
+debug_print_string("Enter some text belowsdf\r\n");
 
+ATOSE_api::readline(buffer, sizeof(buffer));
+#ifdef NEVER
+while (1)
+	{
+	char k[10];
+	debug_print_string("]");
+	k[0] = ATOSE_api::read();
+	k[1] = '\0';
+	debug_print_string("You pressed:");
+	debug_print_this(k, k[0]);
+	}
+#endif
 
 /*
 	Wait for a connection then enumerate the USB bus

@@ -19,6 +19,7 @@ enum
 	{
 	ATOSE_WRITE_BYTE,
 	ATOSE_READ_BYTE,
+	ATOSE_PEEK_BYTE,
 	ATOSE_SPAWN,
 	ATOSE_EXIT,
 	ATOSE_SEMAPHORE_CREATE,
@@ -34,6 +35,10 @@ enum
 */
 class ATOSE_api
 {
+protected:
+	static uint32_t read_key(void);
+	static uint32_t getxy(uint32_t *x, uint32_t *y);
+	static uint32_t gotoxy(uint32_t x, uint32_t y);
 public:
 	ATOSE_api() {}
 
@@ -57,12 +62,16 @@ public:
 
 	static uint32_t write(uint8_t byte) { return SYSTEM_CALL(ATOSE_WRITE_BYTE, byte); }
 	static uint32_t read(void) { return SYSTEM_CALL(ATOSE_READ_BYTE); }
+	static uint32_t peek(void) { return SYSTEM_CALL(ATOSE_PEEK_BYTE); }
 	static uint32_t spawn(unsigned char *elf, uint32_t bytes) { return SYSTEM_CALL(ATOSE_SPAWN, (uint32_t)elf, bytes); }
 	static uint32_t exit(uint32_t return_code) { return SYSTEM_CALL(ATOSE_EXIT, return_code); }
 	static uint32_t semaphore_create(void) { return SYSTEM_CALL(ATOSE_SEMAPHORE_CREATE); }
 	static uint32_t semaphore_clear(uint32_t handle) { return SYSTEM_CALL(ATOSE_SEMAPHORE_CLEAR, handle); }
 	static uint32_t semaphore_signal(uint32_t handle) { return SYSTEM_CALL(ATOSE_SEMAPHORE_SIGNAL, handle); }
 	static uint32_t semaphore_wait(uint32_t handle) { return SYSTEM_CALL(ATOSE_SEMAPHORE_WAIT, handle); }
+
+	static char *readline(char *buffer, uint32_t length);
+	static char *writeline(const char *string);
 } ;
 
 #endif

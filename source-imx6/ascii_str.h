@@ -254,6 +254,80 @@ static inline char *ASCII_itoa(int32_t value, char *destination, int base) { ret
 static inline char *ASCII_itoa(uint32_t value, char *destination, int base) { return ASCII_itoa((uint64_t)value, destination, base); }
 
 /*
+	ASCII_ATOI()
+	------------
+	from the ATIRE source code base
+*/
+static inline long ASCII_atol(char *string)
+{
+char *ch;
+long ans = 0, multiplier;
+
+if (*string == '-')
+	{
+	multiplier = -1;
+	string++;
+	}
+else if (*string == '+')
+	{
+	multiplier = 1;
+	string++;
+	}
+else
+	multiplier = 1;
+
+for (ch = string; *ch >= '0' && *ch <= '9'; ch++)
+	ans = ans * 10 + (*ch - '0');
+
+return multiplier * ans;
+}
+
+/*
+	ASCII_ATOUL()
+	-------------
+	from the ATIRE source code base
+*/
+static inline unsigned long ASCII_atoul(char *string, size_t length)
+{
+char *ch;
+unsigned long ans = 0;
+
+for (ch = string; ((size_t)(ch - string) < length) && (*ch >= '0' && *ch <= '9'); ch++)
+	ans = ans * 10 + (*ch - '0');
+
+return ans;
+}
+
+/*
+	ASCII_ATOLL()
+	-------------
+	from the ATIRE source code base
+*/
+static inline long long ASCII_atoll(char *string)
+{
+char *ch;
+long long ans = 0, multiplier;
+
+if (*string == '-')
+	{
+	multiplier = -1;
+	string++;
+	}
+else if (*string == '+')
+	{
+	multiplier = 1;
+	string++;
+	}
+else
+	multiplier = 1;
+
+for (ch = string; *ch >= '0' && *ch <= '9'; ch++)
+	ans = ans * 10 + (*ch - '0');
+
+return multiplier * ans;
+}
+
+/*
 	BZERO()
 	-------
 */

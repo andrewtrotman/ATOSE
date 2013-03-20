@@ -133,6 +133,7 @@ while (1)
 
 uint32_t ATOSE_putc(ATOSE_registers *registers);
 uint32_t ATOSE_getc(ATOSE_registers *registers);
+uint32_t ATOSE_peekc(ATOSE_registers *registers);
 uint32_t ATOSE_spawn(ATOSE_registers *registers);
 uint32_t ATOSE_exit(ATOSE_registers *registers);
 uint32_t ATOSE_semaphore_create(ATOSE_registers *registers);
@@ -145,6 +146,7 @@ ATOSE_system_method ATOSE_call[] =
 {
 ATOSE_putc,
 ATOSE_getc,
+ATOSE_peekc,
 ATOSE_spawn,
 ATOSE_exit,
 ATOSE_semaphore_create,
@@ -210,6 +212,17 @@ uint8_t answer;
 
 ATOSE_atose::get_ATOSE()->debug.read_byte(&answer);
 registers->r0 = answer;
+
+return 0;
+}
+
+/*
+	ATOSE_PEEKC()
+	-------------
+*/
+uint32_t ATOSE_peekc(ATOSE_registers *registers)
+{
+registers->r0 = ATOSE_atose::get_ATOSE()->debug.peek();
 
 return 0;
 }

@@ -45,7 +45,7 @@ inline uint32_t ASCII_isalnum(uint32_t c) { return (ATOSE_to_ctype(c) & ATOSE_CT
 inline uint32_t ASCII_isspace(uint32_t c) { return (ATOSE_to_ctype(c) & ATOSE_CTYPE_SPACE) != 0; }
 inline uint32_t ASCII_ispunct(uint32_t c) { return (ATOSE_to_ctype(c) & ATOSE_CTYPE_PUNC) != 0; }
 inline uint32_t ASCII_isgraph(uint32_t c) { return (ATOSE_to_ctype(c) & ATOSE_CTYPE_ISGRAPH) != 0; }
-inline uint32_t ASCII_ispruint32_t(uint32_t c) { return (ATOSE_to_ctype(c) & ATOSE_CTYPE_ISPRINT) != 0; }
+inline uint32_t ASCII_isprint(uint32_t c) { return (ATOSE_to_ctype(c) & ATOSE_CTYPE_ISPRINT) != 0; }
 inline uint32_t ASCII_iscntrl(uint32_t c) { return (ATOSE_to_ctype(c) & ATOSE_CTYPE_CONTROL) != 0; }
 inline uint32_t ASCII_isascii(uint32_t c) { return c <= 0x7f; }
 

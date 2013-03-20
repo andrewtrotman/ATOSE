@@ -58,6 +58,14 @@ public:
 	virtual uint32_t write(const uint8_t *buffer, uint32_t bytes);
 
 	/*
+		PEEK()
+		------
+		return the number of bytes of information known to be ready to read. This might change between
+		the call to peek() and the call to read() as it might go up.
+	*/
+	virtual uint32_t peek(void) { return 0; }
+
+	/*
 		OPERATOR <<()
 		-------------
 		dump stuff to the output channel

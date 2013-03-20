@@ -31,6 +31,7 @@ public:
 	ATOSE_uart_imx6q();
 	virtual uint32_t write(const uint8_t *buffer, uint32_t bytes);			// to put a single character write(&c,1);
 	virtual uint32_t read(uint8_t *buffer, uint32_t bytes);					// to read a single character read(&c,1);
+	virtual uint32_t peek(void);														// is there another character to be read?
 } ;
 
 #endif

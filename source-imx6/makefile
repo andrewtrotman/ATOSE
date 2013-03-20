@@ -24,6 +24,7 @@ ASFLAGS = -mcpu=cortex-a9
 #
 OBJECTS =						\
 	atose_startup.o				\
+	atose_api.o						\
 	address_space.o				\
 	atose.o						\
 	clock_imx6q.o				\
