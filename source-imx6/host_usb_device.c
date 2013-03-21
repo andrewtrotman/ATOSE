@@ -1,6 +1,8 @@
 /*
 	HOST_USB_DEVICE.C
 	-----------------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
 */
 #include "usb.h"
 #include "host_usb.h"

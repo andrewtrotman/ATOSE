@@ -326,12 +326,6 @@ while (remaining > 0)
 	HW_GPIO_DR_SET(7, 1 << 12);
 	}
 #endif
-/*
-	=====================================================
-	=====================================================
-	=====================================================
-*/
-
 
 /*
 	ATOSE_HOST_USB::ATOSE_HOST_USB()
@@ -1185,8 +1179,12 @@ else
 */
 switch (current.device_class)
 	{
-	case ATOSE_usb::DEVICE_CLASS_HUB: device = new (place) ATOSE_host_usb_device_hub(&current); break;
-	case ATOSE_usb::DEVICE_CLASS_MSD: device = new (place) ATOSE_host_usb_device_disk(&current); break;
+	case ATOSE_usb::DEVICE_CLASS_HUB:			// USB Hub
+		device = new (place) ATOSE_host_usb_device_hub(&current);
+		break;
+	case ATOSE_usb::DEVICE_CLASS_MSD:			// USB Mass Storage Device (disk)
+		device = new (place) ATOSE_host_usb_device_disk(&current);
+		break;
 	}
 
 return device->dead ? NULL : device;
@@ -1199,20 +1197,9 @@ return device->dead ? NULL : device;
 void ATOSE_host_usb::device_manager(void)
 {
 char buffer[10];
-debug_print_string("Enter some text belowsdf\r\n");
+//debug_print_string("Enter some text below:\r\n");
 
-ATOSE_api::readline(buffer, sizeof(buffer));
-#ifdef NEVER
-while (1)
-	{
-	char k[10];
-	debug_print_string("]");
-	k[0] = ATOSE_api::read();
-	k[1] = '\0';
-	debug_print_string("You pressed:");
-	debug_print_this(k, k[0]);
-	}
-#endif
+//ATOSE_api::readline(buffer, sizeof(buffer));
 
 /*
 	Wait for a connection then enumerate the USB bus
@@ -1228,6 +1215,7 @@ wait_for_connection();
 	debug_print_string("enumerate\r\n");
 #endif
 enumerate(0, 0, 0, HW_USBC_UH1_PORTSC1.B.PSPD);
+
 
 debug_print_string("  VID      PID      CLASS    SUBCLASS PROTOCOL\r\n");
 for (uint32_t current = 1; current < device_list_length; current++)
@@ -1247,7 +1235,7 @@ for (uint32_t current = 1; current < device_list_length; current++)
 		debug_print_string(" ");
 		if (device_list[current].device_class == 8 && device_list[current].device_subclass == 6 && device_list[current].device_protocol == 0x50)
 			{
-			((ATOSE_host_usb_device_disk *)&device_list[current])->get_disk_inquiry();
+			((ATOSE_host_usb_device_disk *)&device_list[current])->mount();
 
 			/*
 				We're a disk so we're going to do some extra stuff
@@ -1256,8 +1244,6 @@ for (uint32_t current = 1; current < device_list_length; current++)
 		}
 	debug_print_string("\r\n");
 	}
-
-
 
 #ifdef NEVER
 	debug_print_string("GET STATUS FROM I-PORT\r\n");

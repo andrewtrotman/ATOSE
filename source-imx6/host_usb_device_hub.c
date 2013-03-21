@@ -71,8 +71,6 @@ for (port = 1; port <= hub_ports; port++)
 dead = false;
 }
 
-
-
 /*
 	ATOSE_HOST_USB_DEVICE_HUB::HUB_GET_BEST_CONFIGURATION()
 	-------------------------------------------------------

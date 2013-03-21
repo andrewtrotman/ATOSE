@@ -1,6 +1,8 @@
 /*
 	PROCESS.H
 	---------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
 */
 #ifndef PROCESS_H_
 #define PROCESS_H_

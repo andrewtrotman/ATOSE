@@ -1,6 +1,8 @@
 /*
 	LSB_UINT32_T.H
 	--------------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
 */
 #ifndef LSB_UINT32_T_H_
 #define LSB_UINT32_T_H_

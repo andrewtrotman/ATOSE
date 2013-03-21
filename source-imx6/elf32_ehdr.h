@@ -1,6 +1,9 @@
 /*
 	ELF32_EHDR.H
 	------------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
+
 	This header file includes the declarations of all the structures necessary
 	to load and execute an EFL file
 */
@@ -60,7 +63,7 @@ public:
 	static const uint32_t EV_CURRENT = 1;
 
 public:
-	unsigned char	e_ident[EI_NIDENT];	/* File identification. */
+	uint8_t e_ident[EI_NIDENT];	/* File identification. */
 	uint16_t	e_type;
 	uint16_t	e_machine;
 	uint32_t	e_version;

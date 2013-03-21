@@ -34,20 +34,9 @@
 #include "file_control_block.h"
 
 /*
-	========================
-	========================
-	========================
+	ATOSE_HOST_USB_DEVICE_DISK::ATOSE_USB_SCSI_TEST_UNIT_READY
+	----------------------------------------------------------
 */
-void debug_dump_buffer(unsigned char *buffer, uint32_t address, uint64_t bytes);
-void debug_print_string(const char *string);
-void debug_print_this(const char *start, uint32_t hex, const char *end = "");
-void debug_print_hex(int data);
-/*
-	========================
-	========================
-	========================
-*/
-
 uint8_t ATOSE_host_usb_device_disk::ATOSE_usb_scsi_test_unit_ready[31] =
 {
 0x55, 0x53, 0x42, 0x43, // dCBWSignature
@@ -64,7 +53,11 @@ uint8_t ATOSE_host_usb_device_disk::ATOSE_usb_scsi_test_unit_ready[31] =
 0x00                    // SCSI Control
 };
 
-static uint8_t ATOSE_usb_scsi_request_sense[31] =
+/*
+	ATOSE_HOST_USB_DEVICE_DISK::ATOSE_USB_SCSI_REQUEST_SENSE
+	--------------------------------------------------------
+*/
+uint8_t ATOSE_host_usb_device_disk::ATOSE_usb_scsi_request_sense[31] =
 {
 0x55, 0x53, 0x42, 0x43, // dCBWSignature
 0x00, 0x41, 0x54, 0x00, // dCBWTag
@@ -80,6 +73,10 @@ static uint8_t ATOSE_usb_scsi_request_sense[31] =
 0x00                    // SCSI Control
 };
 
+/*
+	ATOSE_HOST_USB_DEVICE_DISK::ATOSE_USB_SCSI_READ_CAPACITY_10
+	-----------------------------------------------------------
+*/
 uint8_t ATOSE_host_usb_device_disk::ATOSE_usb_scsi_read_capacity_10[31] =
 {
 0x55, 0x53, 0x42, 0x43, // dCBWSignature
@@ -97,6 +94,10 @@ uint8_t ATOSE_host_usb_device_disk::ATOSE_usb_scsi_read_capacity_10[31] =
 0x00                    // SCSI Control
 };
 
+/*
+	ATOSE_HOST_USB_DEVICE_DISK::ATOSE_USB_SCSI_READ_CAPACITY_16
+	-----------------------------------------------------------
+*/
 uint8_t ATOSE_host_usb_device_disk::ATOSE_usb_scsi_read_capacity_16[31] =
 {
 0x55, 0x53, 0x42, 0x43, // dCBWSignature
@@ -114,6 +115,10 @@ uint8_t ATOSE_host_usb_device_disk::ATOSE_usb_scsi_read_capacity_16[31] =
 0x00                    // SCSI Control
 };
 
+/*
+	ATOSE_HOST_USB_DEVICE_DISK::ATOSE_USB_SCSI_READ_10
+	--------------------------------------------------
+*/
 uint8_t ATOSE_host_usb_device_disk::ATOSE_usb_scsi_read_10[31] =
 {
 0x55, 0x53, 0x42, 0x43, // dCBWSignature
@@ -134,6 +139,10 @@ uint8_t ATOSE_host_usb_device_disk::ATOSE_usb_scsi_read_10[31] =
 0x00                    // SCSI Control
 };
 
+/*
+	ATOSE_HOST_USB_DEVICE_DISK::ATOSE_USB_SCSI_READ_16
+	--------------------------------------------------
+*/
 uint8_t ATOSE_host_usb_device_disk::ATOSE_usb_scsi_read_16[31] =
 {
 0x55, 0x53, 0x42, 0x43, // dCBWSignature
@@ -160,6 +169,10 @@ uint8_t ATOSE_host_usb_device_disk::ATOSE_usb_scsi_read_16[31] =
 0x00                    // SCSI Control
 };
 
+/*
+	ATOSE_HOST_USB_DEVICE_DISK::ATOSE_USB_SCSI_WRITE_10
+	---------------------------------------------------
+*/
 uint8_t ATOSE_host_usb_device_disk::ATOSE_usb_scsi_write_10[31] =
 {
 0x55, 0x53, 0x42, 0x43, // dCBWSignature
@@ -180,6 +193,10 @@ uint8_t ATOSE_host_usb_device_disk::ATOSE_usb_scsi_write_10[31] =
 0x00                    // SCSI Control
 };
 
+/*
+	ATOSE_HOST_USB_DEVICE_DISK::ATOSE_USB_SCSI_WRITE_16
+	---------------------------------------------------
+*/
 uint8_t ATOSE_host_usb_device_disk::ATOSE_usb_scsi_write_16[31] =
 {
 0x55, 0x53, 0x42, 0x43, // dCBWSignature
@@ -206,6 +223,10 @@ uint8_t ATOSE_host_usb_device_disk::ATOSE_usb_scsi_write_16[31] =
 0x00                    // SCSI Control
 };
 
+/*
+	ATOSE_HOST_USB_DEVICE_DISK::ATOSE_USB_SCSI_SYNCHORONISE_CACHE_10
+	----------------------------------------------------------------
+*/
 uint8_t ATOSE_host_usb_device_disk::ATOSE_usb_scsi_synchoronise_cache_10[31] =
 {
 0x55, 0x53, 0x42, 0x43, // dCBWSignature
@@ -226,6 +247,10 @@ uint8_t ATOSE_host_usb_device_disk::ATOSE_usb_scsi_synchoronise_cache_10[31] =
 0x00                    // SCSI Control
 };
 
+/*
+	ATOSE_HOST_USB_DEVICE_DISK::ATOSE_USB_SCSI_SYNCHORONISE_CACHE_16
+	----------------------------------------------------------------
+*/
 uint8_t ATOSE_host_usb_device_disk::ATOSE_usb_scsi_synchoronise_cache_16[31] =
 {
 0x55, 0x53, 0x42, 0x43, // dCBWSignature
@@ -251,7 +276,6 @@ uint8_t ATOSE_host_usb_device_disk::ATOSE_usb_scsi_synchoronise_cache_16[31] =
 0x00,                   // SCSI Group number
 0x00                    // SCSI Control
 };
-
 
 /*
 	ATOSE_HOST_USB_DEVICE_DISK::ATOSE_HOST_USB_DEVICE_DISK()
@@ -389,13 +413,6 @@ else
 	if ((error = ehci->recieve_packet(this, endpoint_in, &reply, sizeof(reply))) != 0)
 		return error;
 	}
-
-#ifdef NEVER
-	debug_print_this("SIG:", reply.dCSWSignature);
-	debug_print_this("TAG:", reply.dCSWTag);
-	debug_print_this("RES:", reply.dCSWDataResidue);
-	debug_print_this("STS:", reply.bCSWStatus);
-#endif
 
 /*
 	The USB transaction was successfully transmitted, but we don't know if the the SCSI command was successful or not
@@ -553,72 +570,20 @@ return 0;
 }
 
 /*
-	ATOSE_HOST_USB_DEVICE_DISK::GET_DISK_INQUIRY()
-	----------------------------------------------
+	ATOSE_HOST_USB_DEVICE_DISK::MOUNT()
+	-----------------------------------
 */
-template <class T> T min(T a, T b) { return a < b ? a : b; }
-
-uint32_t ATOSE_host_usb_device_disk::get_disk_inquiry(void)
+uint32_t ATOSE_host_usb_device_disk::mount(void)
 {
+uint8_t buffer[block_size];
 uint32_t error;
 uint8_t *partition_table;
-ATOSE_file_control_block *fcb, fcb_space;
 
-uint8_t buffer[block_size];
-
-//debug_print_string("READ DISK BLOCK\r\n");
 if ((error = scsi_read(buffer, block_size, 0, 1)) != 0)
 	return error;
 
 partition_table = buffer + 0x1BE;
-ATOSE_fat fat(this, (uint32_t)(*(ATOSE_lsb_uint32_t *)(partition_table + 0x08)));
-
-debug_print_string("\r\nDirectory\r\nNAME\r\n----\r\n");
-fat.dir();
-fcb = fat.create(&fcb_space, (uint8_t *)"long file names with spaces are for the.whole.world.txt");
-#ifdef NEVER
-debug_print_string("OPEN FILE\r\n");
-	fcb = fat.open(&fcb_space, (uint8_t *)"B.IN");
-
-	if (fcb == NULL)
-		debug_print_string("Cannot open file\r\n");
-	else
-		{
-debug_print_string("OPEN FILE\r\n");
-
-		uint8_t fcb_buffer[fcb->block_size_in_bytes];
-		uint8_t into[0x2500];
-
-		debug_print_string("\r\n");
-		debug_print_this("first_block        :", fcb->first_block);
-		debug_print_this("block_size_in_bytes:", fcb->block_size_in_bytes);
-		debug_print_this("file_size_in_bytes :", fcb->file_size_in_bytes);
-		debug_print_this("current_block      :", fcb->current_block);
-		debug_print_this("file_offset        :", fcb->file_offset);
-
-		fcb->buffer = fcb_buffer;
-		debug_print_string("Read\r\n");
-		fat.read(fcb, into, 0x2000);
-		debug_dump_buffer(into + 0x1000 - 0x20, 0x1000 - 0x20, 0x40);
-
-		debug_print_string("Write\r\n");
-		fat.seek(fcb, 0x1000 - 0x20);
-		fat.write(fcb, (uint8_t *)"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQR", 40);
-
-		memset(into, 0, sizeof(into));
-		debug_print_string("Check\r\n");
-		fat.seek(fcb, 0);
-		fat.read(fcb, into, 0x2000);
-
-		debug_dump_buffer(into + 0x1000 - 0x20, 0x1000 - 0x20, 0x40);
-
-		fat.extend(fcb, 0x10000);
-		}
-#endif
-
-//scsi_synchronize_cache();
-debug_print_string("\r\nDirectory\r\nNAME\r\n----\r\n");
-fat.dir();
+ATOSE_atose::get_ATOSE()->file_system.initialise(this, (uint32_t)(*(ATOSE_lsb_uint32_t *)(partition_table + 0x08)));
 
 return error;
 }

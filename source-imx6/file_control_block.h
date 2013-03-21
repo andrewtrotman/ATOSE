@@ -1,13 +1,17 @@
 /*
 	FILE_CONTROL_BLOCK.H
 	--------------------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
 */
 #ifndef FILE_CONTROL_BLOCK_H_
 #define FILE_CONTROL_BLOCK_H_
 
+#include "file_system.h"
+
 /*
-	class ATOSE_CLASS FILE_CONTROL_BLOCK
-	------------------------------------
+	class ATOSE_FILE_CONTROL_BLOCK
+	------------------------------
 */
 class ATOSE_file_control_block
 {
@@ -41,6 +45,14 @@ public:
 
 public:
 	ATOSE_file_control_block() {}
+
+	uint64_t seek(uint64_t position_in_file) { return file_system->seek(this, position_in_file); }
+	uint64_t tell(void) { return file_system->tell(this); }
+	uint64_t read(uint8_t *buffer, uint64_t bytes) { return file_system->read(this, buffer, bytes); }
+	uint64_t read(void *buffer, uint64_t bytes) { return read((uint8_t *)buffer, bytes); }
+	uint64_t write(uint8_t *buffer, uint64_t bytes_to_write) { return file_system->write(this, buffer, bytes_to_write); }
+	uint64_t write(void *buffer, uint64_t bytes_to_write) { return write((uint8_t *)buffer, bytes_to_write); }
+	ATOSE_file_control_block *close(void) { return file_system->close(this); }
 } ;
 
 #endif

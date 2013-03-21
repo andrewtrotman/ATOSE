@@ -7,6 +7,7 @@
 #ifndef ATOSE_H_
 #define ATOSE_H_
 
+#include "fat.h"
 #include "stack.h"
 #include "debug.h"
 #include "cpu_arm.h"
@@ -18,7 +19,6 @@
 #include "cpu_arm_imx6q.h"
 #include "process_manager.h"
 #include "interrupt_arm_gic.h"
-
 
 class ATOSE_registers;
 
@@ -41,7 +41,7 @@ private:
 //	ATOSE_usb_imx6q imx6q_usb;
 public:
 	ATOSE_host_usb imx6q_host_usb;
-
+	ATOSE_fat file_system;
 public:
 	/*
 		A few references for syntactic purposes (i.e. standard methods to refer to these objects regardless of subclassing)

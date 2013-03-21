@@ -1,6 +1,8 @@
 /*
 	FAT_FSINFO.H
 	------------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
 */
 #ifndef FAT_FSINFO_H_
 #define FAT_FSINFO_H_

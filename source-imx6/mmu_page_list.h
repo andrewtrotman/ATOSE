@@ -1,6 +1,8 @@
 /*
 	MMU_PAGE_LIST.H
 	---------------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
 */
 #ifndef MMU_PAGE_LIST_H_
 #define MMU_PAGE_LIST_H_

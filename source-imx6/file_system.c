@@ -1,6 +1,8 @@
 /*
 	FILE_SYSTEM.C
 	-------------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
 */
 #include <stdint.h>
 #include "ascii_str.h"
@@ -28,6 +30,7 @@ void debug_print_hex(int data);
 /*
 	ATOSE_FILE_SYSTEM::READ()
 	-------------------------
+	returns the number of bytes read
 */
 uint64_t ATOSE_file_system::read(ATOSE_file_control_block *fcb, uint8_t *buffer, uint64_t wanted)
 {

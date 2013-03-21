@@ -1,6 +1,8 @@
 /*
 	MSB_UINT64_T.H
 	--------------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
 */
 #ifndef MSB_UINT64_T_H_
 #define MSB_UINT64_T_H_

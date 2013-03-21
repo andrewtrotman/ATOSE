@@ -1,6 +1,8 @@
 /*
 	MSB_LSB.H
 	---------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
 */
 #ifndef MSB_LSB_H_
 #define MSB_LSB_H_

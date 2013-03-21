@@ -1,6 +1,8 @@
 /*
 	MSB_UINT32_T.H
 	--------------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
 */
 #ifndef MSB_UINT32_T_H_
 #define MSB_UINT32_T_H_

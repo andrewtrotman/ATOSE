@@ -1,6 +1,8 @@
 /*
 	FAT.H
 	-----
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
 */
 #ifndef FAT_H_
 #define FAT_H_
@@ -18,7 +20,7 @@
 class ATOSE_fat : public ATOSE_file_system
 {
 protected:
-	enum {RETURN_FIRST_BLOCK, DELETE_FILE, SET_FILE_ATTRIBUTES, DEBUG};
+	enum {RETURN_FIRST_BLOCK, DELETE_FILE, SET_FILE_ATTRIBUTES };
 
 public:
 	static const uint64_t EOF = ~0;
@@ -27,11 +29,10 @@ public:
 	static const uint32_t MAX_SHORTNAME_RETRIES = 1000;		// must be smaller than 999999
 
 protected:
-	uint64_t base;										// the offset of the FAT-32 volume from the from the start of the physical device
+	uint64_t base;											// the offset of the FAT-32 volume from the from the start of the physical device
 	ATOSE_host_usb_device_disk *disk;
 
 	uint32_t fat_plus;									// true if the mounted volume is a FAT+ volume (see:http://www.fdos.org/kernel/fatplus.txt)
-	uint32_t dead_volume;								// true if we can't read this volume and should consider it dead
 	uint32_t fats_on_volume;							// when we extend a file we need to make sure we update the primary and all duplicate FATs
 	uint32_t sectors_per_fat;
 
@@ -59,7 +60,7 @@ protected:
 	uint64_t set_filesize(uint32_t *DIR_FileSize, uint8_t *DIR_NTRes, uint64_t filesize);
 	uint32_t write_fsinfo(void);
 
-	uint64_t find_in_directory(ATOSE_fat_directory_entry *stats, uint64_t start_cluster, uint8_t *name, uint32_t action = RETURN_FIRST_BLOCK, void *value = 0);
+	uint64_t find_in_directory(ATOSE_fat_directory_entry *stats, uint64_t start_cluster, const uint8_t *name, uint32_t action = RETURN_FIRST_BLOCK, void *value = 0);
 
 	uint32_t read_sector(void *buffer, uint64_t sector = 0, uint64_t number_of_sectors = 1) { return disk->read_sector(buffer, sector + base, number_of_sectors); }
 	uint32_t write_sector(void *buffer, uint64_t sector = 0, uint64_t number_of_sectors = 1) { return disk->write_sector(buffer, sector + base, number_of_sectors); }
@@ -77,10 +78,11 @@ protected:
 	uint64_t add_to_directory(uint64_t directory_start_cluster, ATOSE_fat_directory_entry *new_filename, uint32_t parts);
 
 public:
-	ATOSE_fat(ATOSE_host_usb_device_disk *disk, uint64_t base = 0);
+	ATOSE_fat() : ATOSE_file_system() {}
+	void initialise(ATOSE_host_usb_device_disk *disk, uint64_t base = 0);
 
 	virtual ATOSE_file_control_block *create(ATOSE_file_control_block *fcb, uint8_t *filename);
-	virtual ATOSE_file_control_block *open(ATOSE_file_control_block *fcb, uint8_t *filename);
+	virtual ATOSE_file_control_block *open(ATOSE_file_control_block *fcb, const uint8_t *filename);
 	virtual ATOSE_file_control_block *close(ATOSE_file_control_block *fcb);
 	virtual uint64_t extend(ATOSE_file_control_block *fcb, uint64_t new_length);
 	virtual uint32_t unlink(uint8_t *filename);
@@ -88,11 +90,6 @@ public:
 	virtual uint8_t *get_next_block(ATOSE_file_control_block *fcb);
 	virtual uint8_t *get_random_block(ATOSE_file_control_block *fcb);
 	virtual uint8_t *write_current_block(ATOSE_file_control_block *fcb);
-
-/*
-	delete this method, its for debug purposes only.
-*/
-	void dir(void) { ATOSE_fat_directory_entry found; find_in_directory(&found, root_directory_cluster, (uint8_t *)"", DEBUG); }
 } ;
 
 #endif

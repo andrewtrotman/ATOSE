@@ -1,6 +1,9 @@
 /*
 	MMU_V5_CONSTANTS.H
 	------------------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
+
 	Constants (etc) for the ARM architecture v5 MMU used by the ARM926EJ-S
 	For more information on the MMU see Chapter 5 of "ARM926EJ-S Technical Reference Manual (Revision: r0p5)"
 

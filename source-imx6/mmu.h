@@ -1,6 +1,8 @@
 /*
 	MMU.H
 	-----
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
 */
 #ifndef MMU_H_
 #define MMU_H_

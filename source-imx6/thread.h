@@ -1,6 +1,8 @@
 /*
 	THREAD.H
 	--------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
 */
 #ifndef THREAD_H_
 #define THREAD_H_

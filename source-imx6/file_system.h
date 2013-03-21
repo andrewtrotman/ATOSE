@@ -1,6 +1,8 @@
 /*
 	FILE_SYSTEM.H
 	-------------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
 */
 #ifndef FILE_SYSTEM_H_
 #define FILE_SYSTEM_H_
@@ -13,6 +15,9 @@ class ATOSE_file_control_block;
 */
 class ATOSE_file_system
 {
+protected:
+	volatile uint32_t dead_volume;								// true if we can't read this volume and should consider it dead
+
 public:
 	enum
 		{
@@ -21,14 +26,15 @@ public:
 		ERROR_DISK_FULL,
 		ERROR_BAD_FILE
 		};
+
 public:
-	ATOSE_file_system() {}
+	ATOSE_file_system() { dead_volume = true; }
 
 	/*
 		A file system is expected to implement the following methods...
 	*/
 	virtual ATOSE_file_control_block *create(ATOSE_file_control_block *fcb, uint8_t *filename) = 0;
-	virtual ATOSE_file_control_block *open(ATOSE_file_control_block *fcb, uint8_t *filename) = 0;
+	virtual ATOSE_file_control_block *open(ATOSE_file_control_block *fcb, const uint8_t *filename) = 0;
 	virtual ATOSE_file_control_block *close(ATOSE_file_control_block *fcb) = 0;
 	virtual uint64_t seek(ATOSE_file_control_block *fcb, uint64_t position_in_file);
 	virtual uint64_t tell(ATOSE_file_control_block *fcb);
@@ -40,6 +46,8 @@ public:
 	virtual uint8_t *get_random_block(ATOSE_file_control_block *fcb) = 0;
 	virtual uint8_t *get_next_block(ATOSE_file_control_block *fcb) = 0;
 	virtual uint8_t *write_current_block(ATOSE_file_control_block *fcb) = 0;
+
+	uint32_t isdead(void) { return dead_volume; }
 };
 
 #endif

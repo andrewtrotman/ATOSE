@@ -24,8 +24,6 @@ public:
 
 public:
 	ATOSE_host_usb_device_generic() : ATOSE_host_usb_device() {}
-
-	uint32_t get_disk_inquiry(void);
 } ;
 
 #endif

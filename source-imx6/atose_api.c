@@ -1,10 +1,11 @@
 /*
 	ATOSE_API.C
 	-----------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
 */
 #include "atose_api.h"
 #include "ascii_str.h"
-
 
 static const uint32_t LONGEST_ESC_SEQUENCE = 8;
 

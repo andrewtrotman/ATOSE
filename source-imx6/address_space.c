@@ -1,6 +1,9 @@
 /*
 	ADDRESS_SPACE.C
 	---------------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
+
 	In ATOSE we assume a model of a thread being the abstraction of the
 	CPU and the address space being the abstraction of the memory.  A
 	process, therefore consists of two seperat abstractions - one for the

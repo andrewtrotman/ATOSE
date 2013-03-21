@@ -1,6 +1,8 @@
 /*
 	USB_DISK_COMMAND_BLOCK_WRAPPER.H
 	--------------------------------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
 */
 #ifndef USB_DISK_COMMAND_BLOCK_WRAPPER_H_
 #define USB_DISK_COMMAND_BLOCK_WRAPPER_H_

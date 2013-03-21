@@ -1,6 +1,8 @@
 /*
 	CTYPES.C
 	--------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
 */
 #include <stdint.h>
 #include "ctypes.h"

@@ -1,6 +1,8 @@
 /*
 	PROCESS_MANAGER.H
 	-----------------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
 */
 #ifndef PROCESS_MANAGER_H_
 #define PROCESS_MANAGER_H_
@@ -9,6 +11,8 @@
 #include "process.h"
 #include "process_allocator.h"
 
+class ATOSE_file_control_block;
+
 /*
 	class ATOSE_PROCESS_MANAGER
 	---------------------------
@@ -16,7 +20,7 @@
 class ATOSE_process_manager
 {
 public:
-	enum {SUCCESS = 0, ELF_BAD_FROM_START, ELF_BAD_ID, ELF_BAD_BITNESS, ELF_BAD_ENDIAN, ELF_BAD_VERSION, ELF_BAD_HEADER, ELF_BAD_HEADER_VERSION, ELF_BAD_TYPE, ELF_BAD_ARCHITECTURE, ELF_BAD_PROGRAM_HEADER, ELF_BAD_PROGRAM_HEADER_SIZE, ELF_BAD_PROGRAM_HEADER_LOCATION, ELF_BAD_PROGRAM_SEGMENT_TYPE, ELF_BAD_PROGRAM_SEGMENT_SIZE, ELF_BAD_PROGRAM_SEGMENT_LOCATION, ELF_BAD_OUT_OF_PAGES, ELF_BAD_ADDRESS_SPACE_FAIL, ELF_BAD_OUT_OF_PROCESSES};
+	enum {SUCCESS = 0, ELF_BAD_FROM_START, ELF_BAD_ID, ELF_BAD_BITNESS, ELF_BAD_ENDIAN, ELF_BAD_VERSION, ELF_BAD_HEADER, ELF_BAD_HEADER_VERSION, ELF_BAD_TYPE, ELF_BAD_ARCHITECTURE, ELF_BAD_PROGRAM_HEADER, ELF_BAD_PROGRAM_HEADER_SIZE, ELF_BAD_PROGRAM_HEADER_LOCATION, ELF_BAD_PROGRAM_SEGMENT_TYPE, ELF_BAD_PROGRAM_SEGMENT_SIZE, ELF_BAD_PROGRAM_SEGMENT_LOCATION, ELF_BAD_OUT_OF_PAGES, ELF_BAD_ADDRESS_SPACE_FAIL, ELF_BAD_OUT_OF_PROCESSES, ELF_BAD_FILE_NOT_FOUND };
 
 private:
 	ATOSE_mmu *mmu;
@@ -30,7 +34,7 @@ protected:
 	/*
 		Method to create a process from and ELF file
 	*/
-	uint32_t elf_load(ATOSE_process *process, const uint8_t *file, uint32_t length);
+	uint32_t elf_load(ATOSE_process *process, ATOSE_file_control_block *infile);
 
 	/*
 		Set up a process ready to run
@@ -54,7 +58,7 @@ public:
 	/*
 		Process Management Methods
 	*/
-	uint32_t create_process(const uint8_t *elf_file, uint32_t length);
+	uint32_t create_process(const uint8_t *elf_filename);
 	uint32_t create_system_thread(uint32_t (*start)(void), uint32_t is_idle_process = false);
 	uint32_t terminate_current_process(void);
 

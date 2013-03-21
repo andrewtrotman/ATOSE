@@ -1,6 +1,8 @@
 /*
 	USB_HUB_PORT_CHANGE_FIELD.H
 	---------------------------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
 */
 
 #ifndef USB_HUB_PORT_CHANGE_FIELD_H_

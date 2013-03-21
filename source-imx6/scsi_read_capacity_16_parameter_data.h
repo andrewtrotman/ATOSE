@@ -1,6 +1,8 @@
 /*
 	SCSI_READ_CAPACITY_16_PARAMETER_DATA.H
 	--------------------------------------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
 */
 
 #ifndef SCSI_READ_CAPACITY_16_PARAMETER_DATA_H_

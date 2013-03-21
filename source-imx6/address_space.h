@@ -1,6 +1,8 @@
 /*
 	ADDRESS_SPACE.H
 	---------------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
 */
 #ifndef ADDRESS_SPACE_H_
 #define ADDRESS_SPACE_H_

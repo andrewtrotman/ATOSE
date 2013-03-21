@@ -1,6 +1,8 @@
 /*
 	CTYPES.H
 	--------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
 */
 #ifndef CTYPES_H_
 #define CTYPES_H_

@@ -1,6 +1,8 @@
 /*
 	REGISTERS.H
 	-----------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
 */
 #ifndef REGISTERS_H_
 #define REGISTERS_H_

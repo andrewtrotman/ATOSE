@@ -1,6 +1,8 @@
 /*
 	KERNEL_MEMORY_ALLOCATOR.H
 	-------------------------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
 */
 #ifndef KERNEL_MEMORY_ALLOCATOR_H_
 #define KERNEL_MEMORY_ALLOCATOR_H_

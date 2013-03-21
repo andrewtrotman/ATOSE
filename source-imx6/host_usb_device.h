@@ -1,6 +1,8 @@
 /*
 	HOST_USB_DEVICE.H
 	-----------------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
 */
 #ifndef HOST_USB_DEVICE_H_
 #define HOST_USB_DEVICE_H_

@@ -1,6 +1,8 @@
 /*
 	IDLE.H
 	------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
 */
 #ifndef IDLE_H_
 #define IDLE_H_

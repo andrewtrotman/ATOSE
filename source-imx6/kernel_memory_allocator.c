@@ -1,6 +1,8 @@
 /*
 	KERNEL_MEMORY_ALLOCATOR.C
 	-------------------------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
 */
 #include "kernel_memory_allocator.h"
 

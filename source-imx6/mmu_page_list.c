@@ -1,6 +1,8 @@
 /*
 	MMU_PAGE_LIST.C
 	---------------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
 */
 #include "mmu_page.h"
 #include "mmu_page_list.h"

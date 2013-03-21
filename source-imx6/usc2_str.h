@@ -1,6 +1,8 @@
 /*
 	USC2_STR.H
 	----------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
 */
 #ifndef USC2_STR_H_
 #define USC2_STR_H_

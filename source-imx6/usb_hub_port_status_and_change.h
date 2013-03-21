@@ -1,6 +1,8 @@
 /*
 	USB_HUB_PORT_STATUS_AND_CHANGE.H
 	--------------------------------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
 */
 
 #ifndef USB_HUB_PORT_STATUS_AND_CHANGE_H_

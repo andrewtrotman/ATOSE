@@ -1,6 +1,9 @@
 /*
 	ELF32_PHDR.H
 	------------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
+
 	This header file includes the declarations of all the structures necessary
 	to load and execute an EFL file
 */

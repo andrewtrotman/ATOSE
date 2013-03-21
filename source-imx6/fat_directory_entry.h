@@ -1,6 +1,8 @@
 /*
 	FAT_DIRECTORY_ENTRY.H
 	---------------------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
 */
 #ifndef FAT_DIRECTORY_ENTRY_H_
 #define FAT_DIRECTORY_ENTRY_H_

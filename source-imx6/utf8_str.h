@@ -1,6 +1,8 @@
 /*
 	UTF8_STR.H
 	----------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
 */
 #ifndef UTF8_STR_H_
 #define UTF8_STR_H_

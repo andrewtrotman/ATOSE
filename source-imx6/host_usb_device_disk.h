@@ -19,6 +19,7 @@ class ATOSE_host_usb_device_disk : public ATOSE_host_usb_device
 {
 private:
 	static uint8_t ATOSE_usb_scsi_test_unit_ready[];
+	static uint8_t ATOSE_usb_scsi_request_sense[];
 	static uint8_t ATOSE_usb_scsi_read_capacity_10[];
 	static uint8_t ATOSE_usb_scsi_read_10[];
 	static uint8_t ATOSE_usb_scsi_write_10[];
@@ -61,10 +62,7 @@ public:
 	uint32_t read_sector(void *buffer, uint64_t sector, uint64_t number_of_sectors = 1) { return scsi_read((uint8_t *)buffer, number_of_sectors * block_size, sector, number_of_sectors); }
 	uint32_t write_sector(void *buffer, uint64_t sector, uint64_t number_of_sectors = 1) { return scsi_write((uint8_t *)buffer, number_of_sectors * block_size, sector, number_of_sectors); }
 
-	/*
-		Experimental disk stuff
-	*/
-	uint32_t get_disk_inquiry(void);
+	uint32_t mount(void);
 } ;
 
 static_assert(sizeof(ATOSE_host_usb_device_generic) > sizeof(ATOSE_host_usb_device_disk), "Increase the padding in ATOSE_host_usb_device_generic so that it is at lease the size of ATOSE_host_usb_device_disk");

@@ -1,6 +1,8 @@
 /*
 	FAT_BOOT_SECTOR.H
 	-----------------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
 */
 #ifndef FAT_BOOT_SECTOR_H_
 #define FAT_BOOT_SECTOR_H_

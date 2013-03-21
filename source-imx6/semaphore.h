@@ -1,6 +1,8 @@
 /*
 	SEMAPHORE.H
 	-----------
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
 */
 #ifndef SEMAPHORE_H_
 #define SEMAPHORE_H_

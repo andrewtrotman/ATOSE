@@ -1,6 +1,9 @@
 /*
 	FAT.C
 	-----
+	Copyright (c) 2013 Andrew Trotman
+	Licensed BSD
+
 	At present we only support FAT-32.  Its implemented according to
 	"Microsoft Extensible Firmware Initiative FAT32 File System Specification FAT: General Overview of On- Disk Format Version 1.03, December 6, 2000 Microsoft Corporation".
 	Which was sourced from the thinFAT32 project. I did not use the thinFAT32 code because the structures were
@@ -18,33 +21,15 @@
 #include "file_control_block.h"
 
 /*
-	------------------------
-	------------------------
-	------------------------
+	ATOSE_FAT::INITIALISE()
+	-----------------------
 */
-void debug_dump_buffer(unsigned char *buffer, uint32_t address, uint64_t bytes);
-void debug_print_string(const char *string);
-void debug_print_this(const char *start, uint32_t hex, const char *end = "");
-void debug_print_cf_this(const char *start, uint32_t hex, uint32_t second, const char *end = "");
-void debug_print_hex(int data);
-/*
-	------------------------
-	------------------------
-	------------------------
-*/
-
-
-/*
-	ATOSE_FAT::ATOSE_FAT()
-	----------------------
-*/
-ATOSE_fat::ATOSE_fat(ATOSE_host_usb_device_disk *disk, uint64_t base)
+void ATOSE_fat::initialise(ATOSE_host_usb_device_disk *disk, uint64_t base)
 {
 ATOSE_fat_boot_sector boot_sector;
 ATOSE_fat_fsinfo *fsinfo = (ATOSE_fat_fsinfo *)&boot_sector;
 uint64_t data_sectors;
 
-dead_volume = true;
 this->disk = disk;
 this->base = base;
 
@@ -345,10 +330,16 @@ return destination;
 	ATOSE_FAT::OPEN()
 	-----------------
 */
-ATOSE_file_control_block *ATOSE_fat::open(ATOSE_file_control_block *fcb, uint8_t *filename)
+ATOSE_file_control_block *ATOSE_fat::open(ATOSE_file_control_block *fcb, const uint8_t *filename)
 {
 uint32_t first_block;
 ATOSE_fat_directory_entry found_file;
+
+/*
+	Is the file system up and running?
+*/
+if (dead_volume)
+	return NULL;
 
 /*
 	Make sure the filename isn't too long
@@ -1075,7 +1066,7 @@ return sum;
 	do when we find the file.  Those actions include : RETURN_FIRST_BLOCK, DELETE_FILE, SET_FILE_ATTRIBUTES
 	in the case of SET_FILE_ATTRIBUTES, parameter points to an FCB.  It will *not* rename the file
 */
-uint64_t ATOSE_fat::find_in_directory(ATOSE_fat_directory_entry *stats, uint64_t start_cluster, uint8_t *name, uint32_t action, void *parameter)
+uint64_t ATOSE_fat::find_in_directory(ATOSE_fat_directory_entry *stats, uint64_t start_cluster, const uint8_t *name, uint32_t action, void *parameter)
 {
 uint8_t checksum = 0;
 uint8_t long_filename[(ATOSE_fat_directory_entry::MAX_LONG_FILENAME_LENGTH + 1) * sizeof(uint16_t)];
@@ -1201,16 +1192,14 @@ for (cluster_id = start_cluster; cluster_id != EOF; cluster_id = next_cluster_af
 				UCS2_to_utf8_strcpy(utf8_long_filename, (uint16_t *)long_filename, sizeof(utf8_long_filename));
 			else
 				eight_point_three_to_utf8_strcpy(utf8_long_filename, file->DIR_Name, sizeof(utf8_long_filename));
-
+#ifdef NEVER
+void debug_print_string(const char *string);
+debug_print_string((char *)utf8_long_filename);
+debug_print_string("\r\n");
+#endif
 			/*
 				We got the name, now do the comparison (in UTF-8)
 			*/
-			if (action == DEBUG)
-				{
-				debug_print_string((char *)utf8_long_filename);
-				debug_print_string("\r\n");
-				}
-
 			if (ASCII_strcmp((char *)utf8_long_filename, (char *)name) == 0)
 				{
 				switch (action)

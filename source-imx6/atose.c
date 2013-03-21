@@ -12,6 +12,8 @@
 #include "semaphore.h"
 #include "process_allocator.h"
 
+void debug_print_string(const char *string);
+
 /*
 	ATOSE_ATOSE::ATOSE_ATOSE()
 	--------------------------
@@ -19,6 +21,24 @@
 ATOSE_atose::ATOSE_atose() : imx6q_heap(), process_allocator(&imx6q_heap), scheduler(&imx6q_heap, &process_allocator), process_clock(imx6q_process_clock), heap(imx6q_heap), debug(imx6q_serial_port), cpu(imx6q_cpu), interrupt_controller(imx6q_gic) /*, usb(imx6q_usb) */
 {
 set_ATOSE();
+}
+
+/*
+	START_SHELL()
+	-------------
+*/
+uint32_t start_shell(void)
+{
+while (ATOSE_atose::get_ATOSE()->file_system.isdead())
+	;	// do nothing
+
+ATOSE_api::writeline("\r\nStart SHELL\r\n");
+ATOSE_api::spawn("SHELL.ELF");
+ATOSE_api::writeline("BACK\r\n");
+
+ATOSE_api::exit(0);
+
+return 0;
 }
 
 /*
@@ -46,7 +66,6 @@ heap.init();		// and turn on the MMU
 interrupt_controller.enable(&process_clock, process_clock.get_interrup_id());
 process_clock.enable();
 
-
 //debug  << "Start the IDLE process";
 scheduler.create_system_thread(idle, true);
 //debug << "done" << ATOSE_debug::eoln;
@@ -54,11 +73,12 @@ scheduler.create_system_thread(idle, true);
 interrupt_controller.enable(&imx6q_host_usb, imx6q_host_usb.get_interrup_id());
 imx6q_host_usb.enable();
 
+scheduler.create_system_thread(start_shell);
+/*
+	Now we've bootstrapped ATIRE, we start processing
+*/
 //debug << "Enable IRQ" << ATOSE_debug::eoln;
-
 cpu.enable_irq();
-
-debug << "Wait for startup" << ATOSE_debug::eoln;
 
 while (1)
 	;	// this will never happen because once we enable IRQ we'll get an event to switch processes
@@ -205,6 +225,7 @@ return ATOSE_atose::get_ATOSE()->debug.write_byte(registers->r1);
 /*
 	ATOSE_GETC()
 	------------
+	return the next character from the input buffer
 */
 uint32_t ATOSE_getc(ATOSE_registers *registers)
 {
@@ -219,6 +240,7 @@ return 0;
 /*
 	ATOSE_PEEKC()
 	-------------
+	return the number of characters known to be in the input buffer
 */
 uint32_t ATOSE_peekc(ATOSE_registers *registers)
 {
@@ -230,13 +252,14 @@ return 0;
 /*
 	ATOSE_SPAWN()
 	-------------
+	r1 = filename to execute
 */
 uint32_t ATOSE_spawn(ATOSE_registers *registers)
 {
 uint32_t answer;
 
 ATOSE_atose::get_ATOSE()->heap.assume_identity();
-if ((answer = ATOSE_atose::get_ATOSE()->scheduler.create_process((const uint8_t *)registers->r1, registers->r2)) ==  ATOSE_process_manager::SUCCESS)
+if ((answer = ATOSE_atose::get_ATOSE()->scheduler.create_process((uint8_t *)registers->r1)) ==  ATOSE_process_manager::SUCCESS)
 	ATOSE_atose::get_ATOSE()->heap.assume(ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->address_space);
 
 return answer;
