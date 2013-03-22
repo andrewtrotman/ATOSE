@@ -5,6 +5,7 @@
 	Licensed BSD
 */
 #include "idle.h"
+#include "pipe.h"
 #include "atose.h"
 #include "stack.h"
 #include "registers.h"
@@ -73,7 +74,12 @@ scheduler.create_system_thread(idle, true);
 interrupt_controller.enable(&imx6q_host_usb, imx6q_host_usb.get_interrup_id());
 imx6q_host_usb.enable();
 
-scheduler.create_system_thread(start_shell);
+//scheduler.create_system_thread(start_shell);
+
+void pipe_test(void);
+pipe_test();
+
+
 /*
 	Now we've bootstrapped ATIRE, we start processing
 */
@@ -160,6 +166,13 @@ uint32_t ATOSE_semaphore_create(ATOSE_registers *registers);
 uint32_t ATOSE_semaphore_clear(ATOSE_registers *registers);
 uint32_t ATOSE_semaphore_signal(ATOSE_registers *registers);
 uint32_t ATOSE_semaphore_wait(ATOSE_registers *registers);
+uint32_t ATOSE_pipe_create(ATOSE_registers *registers);
+uint32_t ATOSE_pipe_bind(ATOSE_registers *registers);
+uint32_t ATOSE_pipe_connect(ATOSE_registers *registers);
+uint32_t ATOSE_pipe_close(ATOSE_registers *registers);
+uint32_t ATOSE_pipe_send(ATOSE_registers *registers);
+uint32_t ATOSE_pipe_receive(ATOSE_registers *registers);
+uint32_t ATOSE_pipe_peek(ATOSE_registers *registers);
 
 typedef uint32_t(*ATOSE_system_method)(ATOSE_registers *);
 ATOSE_system_method ATOSE_call[] =
@@ -172,7 +185,14 @@ ATOSE_exit,
 ATOSE_semaphore_create,
 ATOSE_semaphore_clear,
 ATOSE_semaphore_signal,
-ATOSE_semaphore_wait
+ATOSE_semaphore_wait,
+ATOSE_pipe_create,
+ATOSE_pipe_bind,
+ATOSE_pipe_connect,
+ATOSE_pipe_close,
+ATOSE_pipe_send,
+ATOSE_pipe_receive,
+ATOSE_pipe_peek
 };
 
 /*
@@ -321,3 +341,101 @@ uint32_t ATOSE_semaphore_wait(ATOSE_registers *registers)
 return 0;
 }
 
+
+/*
+	=================
+	=================
+	=================
+*/
+uint32_t global_pipe_used = 0;
+ATOSE_pipe globlal_pipe[2];
+/*
+	=================
+	=================
+	=================
+*/
+
+/*
+	ATOSE_PIPE_CREATE()
+	-------------------
+*/
+uint32_t ATOSE_pipe_create(ATOSE_registers *registers)
+{
+registers->r0 = global_pipe_used;
+global_pipe_used++;
+
+return 0;
+}
+
+/*
+	ATOSE_PIPE_BIND()
+	-----------------
+*/
+uint32_t ATOSE_pipe_bind(ATOSE_registers *registers)
+{
+ATOSE_pipe *pipe = &globlal_pipe[registers->r1];
+
+registers->r0 = pipe->bind(registers->r2);
+
+return 0;
+}
+
+/*
+	ATOSE_PIPE_CONNECT()
+	--------------------
+*/
+uint32_t ATOSE_pipe_connect(ATOSE_registers *registers)
+{
+ATOSE_pipe *pipe = &globlal_pipe[registers->r1];
+registers->r0 = pipe->connect(registers->r2);
+
+return 0;
+}
+
+/*
+	ATOSE_PIPE_CLOSE()
+	------------------
+*/
+uint32_t ATOSE_pipe_close(ATOSE_registers *registers)
+{
+ATOSE_pipe *pipe = &globlal_pipe[registers->r1];
+registers->r0 = pipe->close();
+
+return 0;
+}
+
+/*
+	ATOSE_PIPE_SEND()
+	-----------------
+*/
+uint32_t ATOSE_pipe_send(ATOSE_registers *registers)
+{
+ATOSE_pipe *pipe = &globlal_pipe[registers->r1];
+registers->r0 = pipe->send((void *)registers->r2, registers->r3);
+
+return 0;
+}
+
+/*
+	ATOSE_PIPE_RECEIVE()
+	--------------------
+*/
+uint32_t ATOSE_pipe_receive(ATOSE_registers *registers)
+{
+ATOSE_pipe *pipe = &globlal_pipe[registers->r1];
+registers->r0 = pipe->receive((void *)registers->r2, registers->r3);
+
+return 0;
+}
+
+/*
+	ATOSE_PIPE_PEEK()
+	-----------------
+*/
+uint32_t ATOSE_pipe_peek(ATOSE_registers *registers)
+{
+ATOSE_pipe *pipe = &globlal_pipe[registers->r1];
+registers->r0 = pipe->peek();
+
+return 0;
+}

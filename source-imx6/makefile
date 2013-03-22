@@ -46,6 +46,8 @@ OBJECTS =						\
 	main.o						\
 	mmu.o						\
 	mmu_page_list.o				\
+	pipe.o						\
+	pipe_test.o					\
 	process_manager.o			\
 	process_allocator.o			\
 	semaphore.o					\

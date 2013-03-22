@@ -28,6 +28,13 @@ enum
 	ATOSE_SEMAPHORE_CLEAR,
 	ATOSE_SEMAPHORE_SIGNAL,
 	ATOSE_SEMAPHORE_WAIT,
+	ATOSE_PIPE_CREATE,
+	ATOSE_PIPE_BIND,
+	ATOSE_PIPE_CONNECT,
+	ATOSE_PIPE_CLOSE,
+	ATOSE_PIPE_SEND,
+	ATOSE_PIPE_RECEIVE,
+	ATOSE_PIPE_PEEK,
 	ATOSE_END_OF_METHODS
 	} ;
 
@@ -44,7 +51,7 @@ protected:
 public:
 	ATOSE_api() {}
 
-	static uint32_t SYSTEM_CALL(uint32_t function_id, uint32_t parameter_1 = 0, uint32_t parameter_2 = 0)
+	static uint32_t SYSTEM_CALL(uint32_t function_id, uint32_t parameter_1 = 0, uint32_t parameter_2 = 0, uint32_t parameter_3 = 0)
 	{
 	uint32_t answer;
 
@@ -53,27 +60,37 @@ public:
 		"mov r0, %[function_id];"
 		"mov r1, %[parameter_1];"
 		"mov r2, %[parameter_2];"
+		"mov r3, %[parameter_3];"
 		"swi %[ATOSE_swi];"
 		"mov %[answer], r0;"
 		: [answer]"=r" (answer)
-		: [function_id]"r"(function_id), [parameter_1]"r"(parameter_1), [parameter_2]"r"(parameter_2), [ATOSE_swi]"i"(ATOSE_SWI)
-		: "r0", "r1", "r2"
+		: [function_id]"r"(function_id), [parameter_1]"r"(parameter_1), [parameter_2]"r"(parameter_2), [parameter_3]"r"(parameter_3), [ATOSE_swi]"i"(ATOSE_SWI)
+		: "r0", "r1", "r2", "r3"
 		);
 	return answer;
 	}
 
-	static uint32_t write(uint8_t byte) { return SYSTEM_CALL(ATOSE_WRITE_BYTE, byte); }
-	static uint32_t read(void) { return SYSTEM_CALL(ATOSE_READ_BYTE); }
-	static uint32_t peek(void) { return SYSTEM_CALL(ATOSE_PEEK_BYTE); }
-	static uint32_t spawn(const char *elf_filename) { return SYSTEM_CALL(ATOSE_SPAWN, (uint32_t)elf_filename); }
-	static uint32_t exit(uint32_t return_code) { return SYSTEM_CALL(ATOSE_EXIT, return_code); }
-	static uint32_t semaphore_create(void) { return SYSTEM_CALL(ATOSE_SEMAPHORE_CREATE); }
-	static uint32_t semaphore_clear(uint32_t handle) { return SYSTEM_CALL(ATOSE_SEMAPHORE_CLEAR, handle); }
-	static uint32_t semaphore_signal(uint32_t handle) { return SYSTEM_CALL(ATOSE_SEMAPHORE_SIGNAL, handle); }
-	static uint32_t semaphore_wait(uint32_t handle) { return SYSTEM_CALL(ATOSE_SEMAPHORE_WAIT, handle); }
+	static uint32_t write(uint8_t byte)                                         { return SYSTEM_CALL(ATOSE_WRITE_BYTE, byte); }
+	static uint32_t read(void)                                                  { return SYSTEM_CALL(ATOSE_READ_BYTE); }
+	static uint32_t peek(void)                                                  { return SYSTEM_CALL(ATOSE_PEEK_BYTE); }
+	static uint32_t spawn(const char *elf_filename)                             { return SYSTEM_CALL(ATOSE_SPAWN, (uint32_t)elf_filename); }
+	static uint32_t exit(uint32_t return_code)                                  { return SYSTEM_CALL(ATOSE_EXIT, return_code); }
+
+	static uint32_t semaphore_create(void)                                      { return SYSTEM_CALL(ATOSE_SEMAPHORE_CREATE); }
+	static uint32_t semaphore_clear(uint32_t handle)                            { return SYSTEM_CALL(ATOSE_SEMAPHORE_CLEAR, handle); }
+	static uint32_t semaphore_signal(uint32_t handle)                           { return SYSTEM_CALL(ATOSE_SEMAPHORE_SIGNAL, handle); }
+	static uint32_t semaphore_wait(uint32_t handle)                             { return SYSTEM_CALL(ATOSE_SEMAPHORE_WAIT, handle); }
 
 	static char *readline(char *buffer, uint32_t length);
 	static char *writeline(const char *string);
+
+	static uint32_t pipe_create(void)                                           { return SYSTEM_CALL(ATOSE_PIPE_CREATE); }
+	static uint32_t pipe_bind(uint32_t pipe_id, uint32_t port)                  { return SYSTEM_CALL(ATOSE_PIPE_BIND, pipe_id, port); }
+	static uint32_t pipe_connect(uint32_t pipe_id, uint32_t port)               { return SYSTEM_CALL(ATOSE_PIPE_CONNECT, pipe_id, port); }
+	static uint32_t pipe_close(uint32_t pipe_id)                                { return SYSTEM_CALL(ATOSE_PIPE_CLOSE, pipe_id); }
+	static uint32_t pipe_send(uint32_t pipe_id, void *data, uint32_t length)    { return SYSTEM_CALL(ATOSE_PIPE_SEND, pipe_id, (uint32_t)data, length); }
+	static uint32_t pipe_receive(uint32_t pipe_id, void *data, uint32_t length) { return SYSTEM_CALL(ATOSE_PIPE_RECEIVE, pipe_id, (uint32_t)data, length); }
+	static uint64_t pipe_peek(uint32_t pipe_id)                                 { return SYSTEM_CALL(ATOSE_PIPE_PEEK, pipe_id); }
 } ;
 
 #endif

@@ -20,7 +20,7 @@ class ATOSE_semaphore
 {
 private:
 	ATOSE_process *sleepers;
-	int32_t value;
+	volatile int32_t value;
 
 public:
 	ATOSE_semaphore *next;		// for the purpose of free chains
