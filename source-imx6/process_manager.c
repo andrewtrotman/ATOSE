@@ -15,6 +15,7 @@
 
 void debug_print_string(const char *string);
 void debug_print_this(const char *start, uint32_t hex, const char *end = "");
+void debug_dump_buffer(unsigned char *buffer, uint32_t address, uint64_t bytes);
 
 /*
 	ATOSE_PROCESS_MANAGER::ATOSE_PROCESS_MANAGER()
@@ -215,6 +216,10 @@ for (which = 0; which < header_num; which++)
 	if (error == SUCCESS)
 		if ((into = process->address_space->add((void *)(current_header.p_vaddr), current_header.p_memsz, permissions)) == NULL)
 			error = ELF_BAD_OUT_OF_PAGES;
+	/*
+		When we change the address space we need to make sure the CPU can see it... we have to (at a minimum) flush the TLB
+	*/
+	mmu->assume(process->address_space);
 
 	/*
 		We might fail at this point for seveal reasons; for example, we
@@ -223,6 +228,7 @@ for (which = 0; which < header_num; which++)
 	*/
 	if (error != SUCCESS)
 		{
+		mmu->assume_identity();
 		process->address_space->destroy();
 		return error;
 		}
@@ -232,6 +238,9 @@ for (which = 0; which < header_num; which++)
 	*/
 	infile->seek(current_header.p_offset);
 	infile->read((void *)current_header.p_vaddr, current_header.p_filesz);
+
+debug_print_string("\r\n");
+debug_dump_buffer((unsigned char *)current_header.p_vaddr, current_header.p_vaddr, 0x80);
 	}
 
 /*
@@ -243,7 +252,11 @@ mmu->assume_identity();
 	Extract the process entry point (that is, the location we are to
 	branch to for the process to start
 */
+
 process->entry_point = (uint8_t *)header.e_entry;
+
+ATOSE_atose::get_ATOSE()->debug.hex();
+ATOSE_atose::get_ATOSE()->debug << "e_entry=" << header.e_entry << "\r\n";
 
 return SUCCESS;
 }
@@ -346,6 +359,8 @@ uint32_t ATOSE_process_manager::create_process(const uint8_t *elf_filename)
 uint32_t answer;
 ATOSE_process *new_process;
 
+ATOSE_atose::get_ATOSE()->debug << "==\r\n";
+
 /*
 	Create a new process
 */
@@ -365,8 +380,6 @@ fcb->buffer = fcb_buffer;
 answer = elf_load(new_process, fcb);
 fcb->close();
 
-debug_print_this("ELF LOAD RETURNS:", answer);
-
 if (answer != SUCCESS)
 	{
 	ATOSE_atose::get_ATOSE()->process_allocator.free(new_process);
@@ -382,6 +395,16 @@ answer = initialise_process(new_process, (size_t)new_process->entry_point, ATOSE
 	Add to the process queues (for the scheduler to sort out)
 */
 push(new_process);
+
+ATOSE_atose::get_ATOSE()->debug << "ELF created new process:" << (uint32_t)new_process << "\r\n";
+ATOSE_atose::get_ATOSE()->debug << "ELF entry point" << (uint32_t)new_process->entry_point << "(R14=" << new_process->execution_path->registers.r14_current << ")\r\n";
+
+
+mmu->assume(new_process->address_space);
+debug_dump_buffer((unsigned char *)0x10010000, 0x10010000, 0x80);
+mmu->assume_identity();
+
+ATOSE_atose::get_ATOSE()->debug << "==\r\n";
 
 return answer;
 }
@@ -451,18 +474,32 @@ ATOSE_process *current_process, *next_process;
 current_process = get_current_process();
 next_process = get_next_process();
 
+ATOSE_atose::get_ATOSE()->debug.hex();
+ATOSE_atose::get_ATOSE()->debug << "[";
+ATOSE_atose::get_ATOSE()->debug <<	(uint32_t)current_process << "@";
+if (current_process == 0)
+	ATOSE_atose::get_ATOSE()->debug << "?->";
+else
+	ATOSE_atose::get_ATOSE()->debug << current_process->execution_path->registers.r14_current << "->";
+ATOSE_atose::get_ATOSE()->debug <<	(uint32_t)next_process << "@" ;
+if (next_process == 0)
+	ATOSE_atose::get_ATOSE()->debug << "? ";
+else
+	ATOSE_atose::get_ATOSE()->debug << next_process->execution_path->registers.r14_current << " ";
+
 if (current_process == next_process && next_process != NULL)
 	{
 	/*
 		If the current process is the next process then there is no work to do
 	*/
+	ATOSE_atose::get_ATOSE()->debug << "SELF";
 	}
 else if (next_process == NULL)
 	{
 	/*
 		We don't have any more work to do so we invoke the idle process
 	*/
-//	ATOSE_atose::get_ATOSE()->debug << "[IDLE]";
+	ATOSE_atose::get_ATOSE()->debug << "IDLE";
 	memcpy(registers, &idle->execution_path->registers, sizeof(*registers));
 	ATOSE_atose::get_ATOSE()->heap.assume(idle->address_space);
 	}
@@ -473,13 +510,18 @@ else
 		this way if we cause a context switch then we've not lost anything
 	*/
 	if (current_process != NULL)
+		{
+		debug_print_string("S");
 		memcpy(&current_process->execution_path->registers, registers, sizeof(*registers));
+		}
 
 	/*
 		Context switch
 	*/
 	if (next_process != NULL)
 		{
+		debug_print_string("R");
+
 		/*
 			Set the registers so that we fall back to the next context
 		*/
@@ -489,9 +531,20 @@ else
 			Set the address space to fall back to the next context, but only if we aren't a thread of the same address space
 		*/
 		if (current_process == NULL || next_process->address_space != current_process->address_space)
-			ATOSE_atose::get_ATOSE()->heap.assume(next_process->address_space);
+			{
+			debug_print_string("A");
+
+			mmu->assume(next_process->address_space);
+
+			if (registers->r14_current == 0x10010000)
+				{
+				debug_print_string("\r\n");
+				debug_dump_buffer((unsigned char *)registers->r14_current, registers->r14_current, 0x80);
+				}
+			}
 		}
 	}
+debug_print_string("]");
 
 return 0;
 }

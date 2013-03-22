@@ -34,10 +34,9 @@ while (ATOSE_atose::get_ATOSE()->file_system.isdead())
 
 ATOSE_api::writeline("\r\nStart SHELL\r\n");
 ATOSE_api::spawn("SHELL.ELF");
-ATOSE_api::writeline("BACK\r\n");
+ATOSE_api::writeline("HOME\r\n");
 
 ATOSE_api::exit(0);
-
 return 0;
 }
 
@@ -90,7 +89,8 @@ while (1)
 */
 void ATOSE_atose::isr_prefetch_abort(ATOSE_registers *registers)
 {
-debug << "Prefetch Abort" << ATOSE_debug::eoln;
+debug.hex();
+debug << "Prefetch Abort at address:0x" << (registers->r14_current - 4) << ATOSE_debug::eoln;
 while (1)
 	;	/* hang */
 }
@@ -181,6 +181,7 @@ ATOSE_semaphore_wait
 */
 uint32_t ATOSE_atose::isr_swi(ATOSE_registers *registers)
 {
+debug << "\r\n{" << registers->r0 << " ";
 /*
 	First we need to determine whether or no the SWI is for us.  We do this by getting the SWI number,
 	that number is stored in the instruction just executed, which is stored at R14.  So we subtract 4 from
@@ -210,6 +211,7 @@ ATOSE_call[registers->r0](registers);
 */
 ATOSE_atose::get_ATOSE()->scheduler.context_switch(registers);
 
+debug << "}\r\n";
 return 0;
 }
 

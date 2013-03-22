@@ -121,6 +121,7 @@ HW_GPT_SR.U = HW_GPT_SR.U;
 registers->r14_current -= 4;
 ATOSE_atose::get_ATOSE()->scheduler.context_switch(registers);
 registers->r14_current += 4;
+ATOSE_atose::get_ATOSE()->debug << "[IRQ]";
 }
 
 /*
