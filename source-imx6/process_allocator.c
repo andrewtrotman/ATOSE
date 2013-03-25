@@ -56,6 +56,17 @@ for (current = 0; current < MAX_SEMAPHORES; current++)
 	semaphore_list[current].next = free_semaphore_head;
 	free_semaphore_head = semaphore_list + current;
 	}
+
+/*
+	chain together each of the pipe tasks
+*/
+free_pipe_task_head = NULL;
+for (current = 0; current < MAX_PIPE_TASKS; current++)
+	{
+	pipe_task_list[current].next = free_pipe_task_head;
+	free_pipe_task_head = pipe_task_list + current;
+	}
+
 }
 
 /*
@@ -178,4 +189,28 @@ void ATOSE_process_allocator::free(ATOSE_semaphore *semaphore)
 {
 semaphore->next = free_semaphore_head;
 free_semaphore_head = semaphore;
+}
+
+/*
+	ATOSE_PROCESS_ALLOCATOR::MALLOC_PIPE_TASK()
+	-------------------------------------------
+*/
+ATOSE_pipe_task *ATOSE_process_allocator::malloc_pipe_task(void)
+{
+ATOSE_pipe_task *task;
+
+if ((task = free_pipe_task_head) != NULL)
+	free_pipe_task_head = free_pipe_task_head->next;
+
+return task;
+}
+
+/*
+	ATOSE_PROCESS_ALLOCATOR::FREE()
+	-------------------------------
+*/
+void ATOSE_process_allocator::free(ATOSE_pipe_task *task)
+{
+task->next = free_pipe_task_head;
+free_pipe_task_head = task;
 }

@@ -50,7 +50,6 @@ void ATOSE_atose::reset(ATOSE_registers *registers)
 {
 ATOSE_api api;
 
-//debug << "ATOSE SIZE:" << sizeof(ATOSE_atose) << "\r\n";
 /*
 	No need to set up the stacks because that was done as part of the object creation
 	But we do need to set up the IRQ
@@ -58,6 +57,7 @@ ATOSE_api api;
 cpu.set_interrupt_handlers(this);
 debug << "\033[1;1H\033[40;1;37m\033[2J";
 debug << "ATOSE version i" << ATOSE_debug::eoln;
+//debug << "ATOSE SIZE:" << sizeof(ATOSE_atose) << "\r\n";
 
 heap.init();		// and turn on the MMU
 
@@ -96,7 +96,8 @@ while (1)
 */
 void ATOSE_atose::isr_prefetch_abort(ATOSE_registers *registers)
 {
-debug << "Prefetch Abort" << ATOSE_debug::eoln;
+debug.hex();
+debug << "Prefetch Abort at address:0x" << (registers->r14_current - 4) << ATOSE_debug::eoln;
 while (1)
 	;	/* hang */
 }
@@ -172,7 +173,7 @@ uint32_t ATOSE_pipe_connect(ATOSE_registers *registers);
 uint32_t ATOSE_pipe_close(ATOSE_registers *registers);
 uint32_t ATOSE_pipe_send(ATOSE_registers *registers);
 uint32_t ATOSE_pipe_receive(ATOSE_registers *registers);
-uint32_t ATOSE_pipe_peek(ATOSE_registers *registers);
+uint32_t ATOSE_pipe_reply(ATOSE_registers *registers);
 
 typedef uint32_t(*ATOSE_system_method)(ATOSE_registers *);
 ATOSE_system_method ATOSE_call[] =
@@ -192,7 +193,7 @@ ATOSE_pipe_connect,
 ATOSE_pipe_close,
 ATOSE_pipe_send,
 ATOSE_pipe_receive,
-ATOSE_pipe_peek
+ATOSE_pipe_reply
 };
 
 /*
@@ -223,6 +224,7 @@ memcpy(&ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->execution_pat
 /*
 	Dispatch
 */
+//ATOSE_atose::get_ATOSE()->debug << "{" << registers->r0 << "}";
 ATOSE_call[registers->r0](registers);
 
 /*
@@ -361,6 +363,7 @@ ATOSE_pipe globlal_pipe[2];
 */
 uint32_t ATOSE_pipe_create(ATOSE_registers *registers)
 {
+globlal_pipe[global_pipe_used].initialise(ATOSE_atose::get_ATOSE()->scheduler.get_current_process());
 registers->r0 = global_pipe_used;
 global_pipe_used++;
 
@@ -411,7 +414,7 @@ return 0;
 uint32_t ATOSE_pipe_send(ATOSE_registers *registers)
 {
 ATOSE_pipe *pipe = &globlal_pipe[registers->r1];
-registers->r0 = pipe->send((void *)registers->r2, registers->r3);
+pipe->send((void *)registers->r2, registers->r3, (void *)registers->r4, registers->r5);
 
 return 0;
 }
@@ -423,19 +426,18 @@ return 0;
 uint32_t ATOSE_pipe_receive(ATOSE_registers *registers)
 {
 ATOSE_pipe *pipe = &globlal_pipe[registers->r1];
-registers->r0 = pipe->receive((void *)registers->r2, registers->r3);
+pipe->receive((void *)registers->r2, registers->r3);
 
 return 0;
 }
 
 /*
-	ATOSE_PIPE_PEEK()
-	-----------------
+	ATOSE_PIPE_REPLY()
+	------------------
 */
-uint32_t ATOSE_pipe_peek(ATOSE_registers *registers)
+uint32_t ATOSE_pipe_reply(ATOSE_registers *registers)
 {
-ATOSE_pipe *pipe = &globlal_pipe[registers->r1];
-registers->r0 = pipe->peek();
+((ATOSE_pipe_task*)registers->r1)->server->reply(registers->r1, (void *)registers->r2, registers->r3);
 
 return 0;
 }

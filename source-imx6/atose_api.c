@@ -55,8 +55,11 @@ char *ATOSE_api::writeline(const char *string)
 {
 char *start = (char *)string;
 
-while (*string != 0)
-	write(*string++);
+while (*string != '\0')
+	{
+	write(*string);
+	string++;
+	}
 
 return start;
 }

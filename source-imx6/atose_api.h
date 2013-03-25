@@ -34,7 +34,7 @@ enum
 	ATOSE_PIPE_CLOSE,
 	ATOSE_PIPE_SEND,
 	ATOSE_PIPE_RECEIVE,
-	ATOSE_PIPE_PEEK,
+	ATOSE_PIPE_REPLY,
 	ATOSE_END_OF_METHODS
 	} ;
 
@@ -51,7 +51,7 @@ protected:
 public:
 	ATOSE_api() {}
 
-	static uint32_t SYSTEM_CALL(uint32_t function_id, uint32_t parameter_1 = 0, uint32_t parameter_2 = 0, uint32_t parameter_3 = 0)
+	static uint32_t SYSTEM_CALL(uint32_t function_id, uint32_t parameter_1 = 0, uint32_t parameter_2 = 0, uint32_t parameter_3 = 0, uint32_t parameter_4 = 0, uint32_t parameter_5 = 0)
 	{
 	uint32_t answer;
 
@@ -61,11 +61,19 @@ public:
 		"mov r1, %[parameter_1];"
 		"mov r2, %[parameter_2];"
 		"mov r3, %[parameter_3];"
+		"mov r4, %[parameter_4];"
+		"mov r5, %[parameter_5];"
 		"swi %[ATOSE_swi];"
 		"mov %[answer], r0;"
 		: [answer]"=r" (answer)
-		: [function_id]"r"(function_id), [parameter_1]"r"(parameter_1), [parameter_2]"r"(parameter_2), [parameter_3]"r"(parameter_3), [ATOSE_swi]"i"(ATOSE_SWI)
-		: "r0", "r1", "r2", "r3"
+		: [function_id]"r"(function_id),
+        [parameter_1]"r"(parameter_1),
+        [parameter_2]"r"(parameter_2),
+        [parameter_3]"r"(parameter_3),
+        [parameter_4]"r"(parameter_4),
+        [parameter_5]"r"(parameter_5),
+        [ATOSE_swi]"i"(ATOSE_SWI)
+		: "r0", "r1", "r2", "r3", "r4", "r5"
 		);
 	return answer;
 	}
@@ -88,9 +96,9 @@ public:
 	static uint32_t pipe_bind(uint32_t pipe_id, uint32_t port)                  { return SYSTEM_CALL(ATOSE_PIPE_BIND, pipe_id, port); }
 	static uint32_t pipe_connect(uint32_t pipe_id, uint32_t port)               { return SYSTEM_CALL(ATOSE_PIPE_CONNECT, pipe_id, port); }
 	static uint32_t pipe_close(uint32_t pipe_id)                                { return SYSTEM_CALL(ATOSE_PIPE_CLOSE, pipe_id); }
-	static uint32_t pipe_send(uint32_t pipe_id, void *data, uint32_t length)    { return SYSTEM_CALL(ATOSE_PIPE_SEND, pipe_id, (uint32_t)data, length); }
+	static uint32_t pipe_send(uint32_t pipe_id, void *source, uint32_t source_length, void *destination, uint32_t destination_length) { return SYSTEM_CALL(ATOSE_PIPE_SEND, pipe_id, (uint32_t)source, source_length, (uint32_t)destination, destination_length); }
 	static uint32_t pipe_receive(uint32_t pipe_id, void *data, uint32_t length) { return SYSTEM_CALL(ATOSE_PIPE_RECEIVE, pipe_id, (uint32_t)data, length); }
-	static uint64_t pipe_peek(uint32_t pipe_id)                                 { return SYSTEM_CALL(ATOSE_PIPE_PEEK, pipe_id); }
+	static uint32_t pipe_reply(uint32_t message_id, void *data, uint32_t length) { return SYSTEM_CALL(ATOSE_PIPE_REPLY, message_id, (uint32_t)data, length); }
 } ;
 
 #endif
