@@ -20,23 +20,21 @@ uint32_t pipe, message;
 
 pipe = ATOSE_api::pipe_create();
 ATOSE_api::pipe_bind(pipe, TEST_PIPE);
-ATOSE_api::writeline("listening\r\n");
 
 for (uint32_t x = 0; x < 10; x++)
 	{
-	ATOSE_api::writeline("GET\r\n");
+//	ATOSE_api::write('1');
 	message = ATOSE_api::pipe_receive(pipe, buffer, 5);
-	ATOSE_api::writeline("GOT\r\n");
-
-ATOSE_atose::get_ATOSE()->debug << "[ID:" << message << "]";
+//	ATOSE_api::write('2');
 
 	buffer[5] = '\0';
 	ATOSE_api::writeline(buffer);
 
-	ATOSE_api::writeline("REPLY\r\n");
+//	ATOSE_api::write('3');
 	ATOSE_api::pipe_reply(message, buffer, 1);
-	ATOSE_api::writeline("DONE\r\n");
+//	ATOSE_api::write('4');
 	}
+
 ATOSE_api::exit(0);
 return 0;
 }
@@ -56,18 +54,17 @@ do
 	got = ATOSE_api::pipe_connect(pipe, TEST_PIPE);
 while (got != 0);
 
-for (volatile uint32_t x = 0; x < 10000000; x++);
+for (volatile uint32_t x = 0; x < 5000000; x++);
 
-ATOSE_api::writeline("GOT PIPE\r\n");
 
 for (uint32_t x = 0; x < 10; x++)
 	{
-for (volatile uint32_t x = 0; x < 10000; x++);
 	memset(buffer, 'A' + x, sizeof(buffer));
-	ATOSE_api::writeline("SEND\r\n");
+//	ATOSE_api::write('a');
 	ATOSE_api::pipe_send(pipe, buffer, 5, buffer, 1);
-	ATOSE_api::writeline("SENT\r\n");
-}
+//	ATOSE_api::write('b');
+	}
+
 ATOSE_api::exit(0);
 return 0;
 }

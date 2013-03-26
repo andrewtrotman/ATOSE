@@ -18,7 +18,7 @@
 */
 class ATOSE_semaphore
 {
-private:
+public: //private:
 	ATOSE_process *sleepers;
 	volatile int32_t value;
 

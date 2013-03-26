@@ -24,7 +24,7 @@ private:
 public:
 	enum {SUCCESS, ERROR_PIPE_IN_USE, ERROR_PIPE_NOT_OWNER, ERROR_PIPE_BAD_ID, ERROR_PIPE_OVERFLOW};
 
-private:
+public://private:
 	static ATOSE_pipe *pipelist[];
 	ATOSE_pipe *other_end;
 	ATOSE_pipe_task *send_queue;				// this is send() to this node, not "outgoing"

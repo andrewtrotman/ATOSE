@@ -22,10 +22,10 @@ ATOSE_pipe *ATOSE_pipe::pipelist[MAX_PIPES] = {0};
 */
 uint32_t ATOSE_pipe::initialise(ATOSE_process *process)
 {
+semaphore.clear();
 other_end = NULL;
 send_queue = receive_queue = NULL;
 this->process = process;
-semaphore.clear();
 
 return 0;
 }
@@ -98,9 +98,8 @@ if (receive_queue != NULL)
 	/*
 		Pass the ID of the task to the process and wake it up
 	*/
-	semaphore.signal();
-	ATOSE_atose::get_ATOSE()->debug << "[T: " << (uint32_t)task << "]";
 	process->execution_path->registers.r0 = (uint32_t)task;
+	semaphore.signal();
 	}
 }
 
@@ -121,9 +120,6 @@ if (send_queue == NULL)
 		We queue up for work that will be copied into our buffers by enqueue()
 	*/
 	task = ATOSE_atose::get_ATOSE()->process_allocator.malloc_pipe_task();
-	task->source = NULL;					// strictly not necessary
-	task->source_length = 0;			// strictly not necessary
-	task->client = task->server = NULL;	// strictly not necessary
 	task->destination = data;
 	task->destination_length = length;
 
@@ -147,10 +143,7 @@ else
 	send_queue = send_queue->next;
 
 	memcpy(data, task->source, min(length, task->source_length));
-
-	ATOSE_atose::get_ATOSE()->debug << "[t: " << (uint32_t)task << "]";
 	process->execution_path->registers.r0 = (uint32_t)task;
-	ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->execution_path->registers.r0 = (uint32_t)task;
 	}
 
 return 0;
@@ -169,9 +162,6 @@ ATOSE_pipe_task *task;
 	Get a message object
 */
 task = ATOSE_atose::get_ATOSE()->process_allocator.malloc_pipe_task();
-
-ATOSE_atose::get_ATOSE()->debug.hex();
-ATOSE_atose::get_ATOSE()->debug << "[MSG: " << (uint32_t)task << "]";
 
 /*
 	Fill it
@@ -225,10 +215,7 @@ memcpy(event->destination, data, min(length, event->destination_length));
 /*
 	Tell the client we're done.  Recall that the other end *must* be blocking waiting for this reply.
 */
-ATOSE_atose::get_ATOSE()->debug.hex();
-ATOSE_atose::get_ATOSE()->debug << "[reply to:" << message_id;
 event->client->semaphore.signal();
-ATOSE_atose::get_ATOSE()->debug << "]";
 
 /*
 	Return the event back to the event pool

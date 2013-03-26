@@ -113,15 +113,24 @@ void ATOSE_timer_imx6q::acknowledge(ATOSE_registers *registers)
 HW_GPT_SR.U = HW_GPT_SR.U;
 
 /*
-	Cause a context switch
-	Now, internally we store the true return address.  To get that from an IRQ we must subtract 4 from the
+	Internally we store the true return address.  To get that from an IRQ we must subtract 4 from the
 	link pointer.  But when we return from and IRQ we subtract four from the link pointer to we need to
 	add four once we get the new process's registers back out
 */
 registers->r14_current -= 4;
+
+/*
+	If we're running a process then copy the registers into its register space
+	this way if we cause a context switch then we've not lost anything
+*/
+if (ATOSE_atose::get_ATOSE()->scheduler.get_current_process() != NULL)
+	memcpy(&ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->execution_path->registers, registers, sizeof(*registers));
+
+/*
+	Cause a context switch
+*/
 ATOSE_atose::get_ATOSE()->scheduler.context_switch(registers);
 registers->r14_current += 4;
-//ATOSE_atose::get_ATOSE()->debug << "[IRQ]";
 }
 
 /*

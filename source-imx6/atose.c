@@ -224,8 +224,7 @@ memcpy(&ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->execution_pat
 /*
 	Dispatch
 */
-//ATOSE_atose::get_ATOSE()->debug << "{" << registers->r0 << "}";
-ATOSE_call[registers->r0](registers);
+ATOSE_call[registers->r0](&ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->execution_path->registers);
 
 /*
 	Context switch
@@ -377,7 +376,6 @@ return 0;
 uint32_t ATOSE_pipe_bind(ATOSE_registers *registers)
 {
 ATOSE_pipe *pipe = &globlal_pipe[registers->r1];
-
 registers->r0 = pipe->bind(registers->r2);
 
 return 0;

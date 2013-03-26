@@ -474,81 +474,37 @@ ATOSE_process *current_process, *next_process;
 current_process = get_current_process();
 next_process = get_next_process();
 
-/*
-ATOSE_atose::get_ATOSE()->debug.hex();
-ATOSE_atose::get_ATOSE()->debug << "[";
-ATOSE_atose::get_ATOSE()->debug <<	(uint32_t)current_process << "@";
-if (current_process == 0)
-	ATOSE_atose::get_ATOSE()->debug << "?->";
-else
-	ATOSE_atose::get_ATOSE()->debug << current_process->execution_path->registers.r14_current << "->";
-ATOSE_atose::get_ATOSE()->debug <<	(uint32_t)next_process << "@" ;
-if (next_process == 0)
-	ATOSE_atose::get_ATOSE()->debug << "? ";
-else
-	ATOSE_atose::get_ATOSE()->debug << next_process->execution_path->registers.r14_current << " ";
-*/
-
 if (current_process == next_process && next_process != NULL)
 	{
 	/*
-		If the current process is the next process then there is no work to do
+		If the current process is the next process then there is no work to do...
+		except that somewhere inside ATOSE a driver might have changed the values
+		of the registers so we must put those back.
 	*/
-//	ATOSE_atose::get_ATOSE()->debug << "SELF";
+	memcpy(registers, &next_process->execution_path->registers, sizeof(*registers));
 	}
 else if (next_process == NULL)
 	{
 	/*
 		We don't have any more work to do so we invoke the idle process
 	*/
-//	ATOSE_atose::get_ATOSE()->debug << "IDLE";
 	memcpy(registers, &idle->execution_path->registers, sizeof(*registers));
 	ATOSE_atose::get_ATOSE()->heap.assume(idle->address_space);
 	}
 else
 	{
 	/*
-		If we're running a process then copy the registers into its register space
-		this way if we cause a context switch then we've not lost anything
+		Context Switch
+		Set the registers so that we fall back to the next context
 	*/
-	if (current_process != NULL)
-		{
-//		debug_print_string("S");
-		memcpy(&current_process->execution_path->registers, registers, sizeof(*registers));
-		}
+	memcpy(registers, &next_process->execution_path->registers, sizeof(*registers));
 
 	/*
-		Context switch
+		Set the address space to fall back to the next context, but only if we aren't a thread of the same address space
 	*/
-	if (next_process != NULL)
-		{
-//		debug_print_string("R");
-
-		/*
-			Set the registers so that we fall back to the next context
-		*/
-		memcpy(registers, &next_process->execution_path->registers, sizeof(*registers));
-
-		/*
-			Set the address space to fall back to the next context, but only if we aren't a thread of the same address space
-		*/
-		if (current_process == NULL || next_process->address_space != current_process->address_space)
-			{
-//			debug_print_string("A");
-
-			mmu->assume(next_process->address_space);
-
-/*
-			if (registers->r14_current == 0x10010000)
-				{
-				debug_print_string("\r\n");
-				debug_dump_buffer((unsigned char *)registers->r14_current, registers->r14_current, 0x80);
-				}
-*/
-			}
-		}
+	if (current_process == NULL || next_process->address_space != current_process->address_space)
+		mmu->assume(next_process->address_space);
 	}
-//debug_print_string("]");
 
 return 0;
 }
