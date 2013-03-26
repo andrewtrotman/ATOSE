@@ -20,12 +20,11 @@ ATOSE_pipe *ATOSE_pipe::pipelist[MAX_PIPES] = {0};
 	ATOSE_PIPE::INITIALISE()
 	------------------------
 */
-uint32_t ATOSE_pipe::initialise(ATOSE_process *process)
+uint32_t ATOSE_pipe::initialise(void)
 {
 semaphore.clear();
 other_end = NULL;
-send_queue = receive_queue = NULL;
-this->process = process;
+send_queue = receive_queue = tail_of_receive_queue = 	tail_of_send_queue = NULL;
 
 return 0;
 }
@@ -72,6 +71,48 @@ return SUCCESS;
 }
 
 /*
+	ATOSE_PIPE::MEMCPY()
+	--------------------
+*/
+void ATOSE_pipe::memcpy(ATOSE_process *target_space, void *target_address, ATOSE_process *source_space, void *source_address, uint32_t length)
+{
+uint8_t buffer[16 * 1024];
+uint8_t *from = (uint8_t *)source_address;
+uint8_t *into = (uint8_t *)target_address;
+ATOSE_mmu *mmu = &ATOSE_atose::get_ATOSE()->heap;
+
+if (source_space->address_space != target_space->address_space)
+	{
+	/*
+		Until we write something cleaner we'll just copy through a buffer guaranteed to be in both spaces (i.e. the kernel stack)
+	*/
+	while (length > sizeof(buffer))
+		{
+		mmu->assume(source_space->address_space);
+		::memcpy(buffer, from, sizeof(buffer));
+		mmu->assume(target_space->address_space);
+		::memcpy(into, buffer, sizeof(buffer));
+
+		from += sizeof(buffer);
+		into += sizeof(buffer);
+		length -= sizeof(buffer);
+		}
+
+	mmu->assume(source_space->address_space);
+	::memcpy(buffer, from, length);
+	mmu->assume(target_space->address_space);
+	::memcpy(into, buffer, length);
+	}
+else
+	{
+	/*
+		We're in the same address space so we can just copy
+	*/
+	::memcpy(target_address, source_address, length);
+	}
+}
+
+/*
 	ATOSE_PIPE::ENQUEUE()
 	---------------------
 */
@@ -80,73 +121,37 @@ void ATOSE_pipe::enqueue(ATOSE_pipe_task *task)
 ATOSE_pipe_task *into;
 
 /*
-	Always bung this task on the queue
-*/
-task->next = send_queue;
-send_queue = task;
-
-/*
 	Now check to see if anyone is blocking waiting for us.  If they are we wake them up and tell them to start working again.
-	Note that send_queue cannot be NULL because we just added a task to it.
 */
 if (receive_queue != NULL)
 	{
+	/*
+		Get the item at the head of the queue
+	*/
 	into = receive_queue;
-	receive_queue = receive_queue->next;
-	memcpy(into->destination, send_queue->source, min(send_queue->source_length, into->destination_length));
+	if ((receive_queue = receive_queue->next) == NULL)
+		tail_of_receive_queue = NULL;
+
+	memcpy(into->process, into->destination, task->process, task->source, min(task->source_length, into->destination_length));
 
 	/*
 		Pass the ID of the task to the process and wake it up
 	*/
-	process->execution_path->registers.r0 = (uint32_t)task;
+	into->process->execution_path->registers.r0 = (uint32_t)task;
 	semaphore.signal();
-	}
-}
-
-/*
-	ATOSE_PIPE::DEQUEUE()
-	---------------------
-*/
-ATOSE_pipe_task *ATOSE_pipe::dequeue(void *data, uint32_t length)
-{
-ATOSE_pipe_task *task;
-
-/*
-	There are two cases here. Either there's a list of stuff to do, or we queue up for it
-*/
-if (send_queue == NULL)
-	{
-	/*
-		We queue up for work that will be copied into our buffers by enqueue()
-	*/
-	task = ATOSE_atose::get_ATOSE()->process_allocator.malloc_pipe_task();
-	task->destination = data;
-	task->destination_length = length;
-
-	/*
-		Put it in the queue
-	*/
-	task->next = receive_queue;
-	receive_queue = task;
-
-	/*
-		Sleep the process until we get a signal
-	*/
-	semaphore.wait();
 	}
 else
 	{
 	/*
-		There's stuff to do so we do the copy and keep going
+		Else we've got work to do and must wait for a receiver to get ready to receive
 	*/
-	task = send_queue;
-	send_queue = send_queue->next;
-
-	memcpy(data, task->source, min(length, task->source_length));
-	process->execution_path->registers.r0 = (uint32_t)task;
+	task->next = NULL;
+	if (tail_of_send_queue != NULL)
+		tail_of_send_queue->next = task;
+	tail_of_send_queue = task;
+	if (send_queue == NULL)
+		send_queue = task;
 	}
-
-return 0;
 }
 
 /*
@@ -172,6 +177,7 @@ task->destination = reply;
 task->destination_length = reply_length;
 task->client = this;
 task->server = other_end;
+task->process = ATOSE_atose::get_ATOSE()->scheduler.get_current_process();
 
 /*
 	Place it on the other end's queue and wake it up (if necessary)
@@ -193,10 +199,50 @@ return 0;
 */
 uint32_t ATOSE_pipe::receive(void *data, uint32_t length)
 {
+ATOSE_pipe_task *task;
+
 /*
-	Get the next message from the queue or sleep
+	There are two cases here. Either there's a list of stuff to do, or we queue up for it
 */
-return (uint32_t)dequeue(data, length);
+if (send_queue == NULL)
+	{
+	/*
+		We queue up for work that will be copied into our buffers by enqueue()
+	*/
+	task = ATOSE_atose::get_ATOSE()->process_allocator.malloc_pipe_task();
+	task->destination = data;
+	task->destination_length = length;
+	task->process = ATOSE_atose::get_ATOSE()->scheduler.get_current_process();
+
+	/*
+		Put it in the queue
+	*/
+	task->next = NULL;
+	if (tail_of_receive_queue != NULL)
+		tail_of_receive_queue->next = task;
+	tail_of_receive_queue = task;
+	if (receive_queue == NULL)
+		receive_queue = task;
+
+	/*
+		Sleep the process until we get a signal
+	*/
+	semaphore.wait();
+	}
+else
+	{
+	/*
+		There's stuff to do so we do the copy and keep going
+	*/
+	task = send_queue;
+	if ((send_queue = send_queue->next) == NULL)
+		tail_of_send_queue = NULL;
+
+	memcpy(ATOSE_atose::get_ATOSE()->scheduler.get_current_process(), data, task->process, task->source, min(length, task->source_length));
+	ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->execution_path->registers.r0 = (uint32_t)task;
+	}
+
+return 0;
 }
 
 /*
@@ -210,7 +256,7 @@ ATOSE_pipe_task *event = (ATOSE_pipe_task *)message_id;
 /*
 	Copy from the server address space into the client address space
 */
-memcpy(event->destination, data, min(length, event->destination_length));
+memcpy(event->process, event->destination, ATOSE_atose::get_ATOSE()->scheduler.get_current_process(), data, min(length, event->destination_length));
 
 /*
 	Tell the client we're done.  Recall that the other end *must* be blocking waiting for this reply.

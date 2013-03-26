@@ -158,24 +158,24 @@ while (1)
 
 
 
-uint32_t ATOSE_putc(ATOSE_registers *registers);
-uint32_t ATOSE_getc(ATOSE_registers *registers);
-uint32_t ATOSE_peekc(ATOSE_registers *registers);
-uint32_t ATOSE_spawn(ATOSE_registers *registers);
-uint32_t ATOSE_exit(ATOSE_registers *registers);
-uint32_t ATOSE_semaphore_create(ATOSE_registers *registers);
-uint32_t ATOSE_semaphore_clear(ATOSE_registers *registers);
-uint32_t ATOSE_semaphore_signal(ATOSE_registers *registers);
-uint32_t ATOSE_semaphore_wait(ATOSE_registers *registers);
-uint32_t ATOSE_pipe_create(ATOSE_registers *registers);
-uint32_t ATOSE_pipe_bind(ATOSE_registers *registers);
-uint32_t ATOSE_pipe_connect(ATOSE_registers *registers);
-uint32_t ATOSE_pipe_close(ATOSE_registers *registers);
-uint32_t ATOSE_pipe_send(ATOSE_registers *registers);
-uint32_t ATOSE_pipe_receive(ATOSE_registers *registers);
-uint32_t ATOSE_pipe_reply(ATOSE_registers *registers);
+void ATOSE_putc(ATOSE_registers *registers);
+void ATOSE_getc(ATOSE_registers *registers);
+void ATOSE_peekc(ATOSE_registers *registers);
+void ATOSE_spawn(ATOSE_registers *registers);
+void ATOSE_exit(ATOSE_registers *registers);
+void ATOSE_semaphore_create(ATOSE_registers *registers);
+void ATOSE_semaphore_clear(ATOSE_registers *registers);
+void ATOSE_semaphore_signal(ATOSE_registers *registers);
+void ATOSE_semaphore_wait(ATOSE_registers *registers);
+void ATOSE_pipe_create(ATOSE_registers *registers);
+void ATOSE_pipe_bind(ATOSE_registers *registers);
+void ATOSE_pipe_connect(ATOSE_registers *registers);
+void ATOSE_pipe_close(ATOSE_registers *registers);
+void ATOSE_pipe_send(ATOSE_registers *registers);
+void ATOSE_pipe_receive(ATOSE_registers *registers);
+void ATOSE_pipe_reply(ATOSE_registers *registers);
 
-typedef uint32_t(*ATOSE_system_method)(ATOSE_registers *);
+typedef void(*ATOSE_system_method)(ATOSE_registers *);
 ATOSE_system_method ATOSE_call[] =
 {
 ATOSE_putc,
@@ -200,47 +200,37 @@ ATOSE_pipe_reply
 	ATOSE_ATOSE::ISR_SWI()
 	----------------------
 */
-uint32_t ATOSE_atose::isr_swi(ATOSE_registers *registers)
+void ATOSE_atose::isr_swi(ATOSE_registers *registers)
 {
-/*
-	First we need to determine whether or no the SWI is for us.  We do this by getting the SWI number,
-	that number is stored in the instruction just executed, which is stored at R14.  So we subtract 4 from
-	R14 to get the instruction then turn off the top bits to get the number
-*/
-if (( (*(uint32_t *)(registers->r14_current - 4)) & 0x00FFFFFF) != ATOSE_SWI)
-	return 0;
-
-/*
-	Illegal function call
-*/
-if (registers->r0 >= ATOSE_END_OF_METHODS)
-	return 0;
-
 /*
 	Save the state of the registers
 */
 memcpy(&ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->execution_path->registers, registers, sizeof(*registers));
 
 /*
-	Dispatch
+	First we need to determine whether or no the SWI is for us.  We do this by getting the SWI number,
+	that number is stored in the instruction just executed, which is stored at R14.  So we subtract 4 from
+	R14 to get the instruction then turn off the top bits to get the number
+
+	If it is for us we validate the method id.  If that's valid we call the method
 */
-ATOSE_call[registers->r0](&ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->execution_path->registers);
+if (( (*(uint32_t *)(registers->r14_current - 4)) & 0x00FFFFFF) == ATOSE_SWI)
+	if (registers->r0 < ATOSE_END_OF_METHODS)
+		ATOSE_call[registers->r0](&ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->execution_path->registers);
 
 /*
 	Context switch
 */
 ATOSE_atose::get_ATOSE()->scheduler.context_switch(registers);
-
-return 0;
 }
 
 /*
 	ATOSE_PUTC()
 	------------
 */
-uint32_t ATOSE_putc(ATOSE_registers *registers)
+void ATOSE_putc(ATOSE_registers *registers)
 {
-return ATOSE_atose::get_ATOSE()->debug.write_byte(registers->r1);
+ATOSE_atose::get_ATOSE()->debug.write_byte(registers->r1);
 }
 
 /*
@@ -248,14 +238,12 @@ return ATOSE_atose::get_ATOSE()->debug.write_byte(registers->r1);
 	------------
 	return the next character from the input buffer
 */
-uint32_t ATOSE_getc(ATOSE_registers *registers)
+void ATOSE_getc(ATOSE_registers *registers)
 {
 uint8_t answer;
 
 ATOSE_atose::get_ATOSE()->debug.read_byte(&answer);
 registers->r0 = answer;
-
-return 0;
 }
 
 /*
@@ -263,11 +251,9 @@ return 0;
 	-------------
 	return the number of characters known to be in the input buffer
 */
-uint32_t ATOSE_peekc(ATOSE_registers *registers)
+void ATOSE_peekc(ATOSE_registers *registers)
 {
 registers->r0 = ATOSE_atose::get_ATOSE()->debug.peek();
-
-return 0;
 }
 
 /*
@@ -275,167 +261,128 @@ return 0;
 	-------------
 	r1 = filename to execute
 */
-uint32_t ATOSE_spawn(ATOSE_registers *registers)
+void ATOSE_spawn(ATOSE_registers *registers)
 {
-uint32_t answer;
-
 ATOSE_atose::get_ATOSE()->heap.assume_identity();
-if ((answer = ATOSE_atose::get_ATOSE()->scheduler.create_process((uint8_t *)registers->r1)) ==  ATOSE_process_manager::SUCCESS)
+if (ATOSE_atose::get_ATOSE()->scheduler.create_process((uint8_t *)registers->r1) == ATOSE_process_manager::SUCCESS)
 	ATOSE_atose::get_ATOSE()->heap.assume(ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->address_space);
-
-return answer;
 }
 
 /*
 	ATOSE_EXIT()
 	------------
 */
-uint32_t ATOSE_exit(ATOSE_registers *registers)
+void ATOSE_exit(ATOSE_registers *registers)
 {
 ATOSE_atose::get_ATOSE()->debug << "EXIT()";
-return ATOSE_atose::get_ATOSE()->scheduler.terminate_current_process();
+ATOSE_atose::get_ATOSE()->scheduler.terminate_current_process();
 }
 
 /*
 	ATOSE_SEMAPHORE_CREATE()
 	------------------------
 */
-uint32_t ATOSE_semaphore_create(ATOSE_registers *registers)
+void ATOSE_semaphore_create(ATOSE_registers *registers)
 {
 ATOSE_semaphore *semaphore;
 
 semaphore = ATOSE_atose::get_ATOSE()->process_allocator.malloc_semaphore();
 semaphore->clear();
 
-return registers->r0 = (uint32_t)semaphore;
+registers->r0 = (uint32_t)semaphore;
 }
 
 /*
 	ATOSE_SEMAPHORE_CLEAR()
 	-----------------------
 */
-uint32_t ATOSE_semaphore_clear(ATOSE_registers *registers)
+void ATOSE_semaphore_clear(ATOSE_registers *registers)
 {
 ((ATOSE_semaphore *)registers->r1)->clear();
-
-return 0;
 }
 
 /*
 	ATOSE_SEMAPHORE_SIGNAL()
 	------------------------
 */
-uint32_t ATOSE_semaphore_signal(ATOSE_registers *registers)
+void ATOSE_semaphore_signal(ATOSE_registers *registers)
 {
 ((ATOSE_semaphore *)registers->r1)->signal();
-return 0;
 }
 
 /*
 	ATOSE_SEMAPHORE_WAIT()
 	----------------------
 */
-uint32_t ATOSE_semaphore_wait(ATOSE_registers *registers)
+void ATOSE_semaphore_wait(ATOSE_registers *registers)
 {
 ((ATOSE_semaphore *)registers->r1)->wait();
-
-return 0;
 }
-
-
-/*
-	=================
-	=================
-	=================
-*/
-uint32_t global_pipe_used = 0;
-ATOSE_pipe globlal_pipe[2];
-/*
-	=================
-	=================
-	=================
-*/
 
 /*
 	ATOSE_PIPE_CREATE()
 	-------------------
 */
-uint32_t ATOSE_pipe_create(ATOSE_registers *registers)
+void ATOSE_pipe_create(ATOSE_registers *registers)
 {
-globlal_pipe[global_pipe_used].initialise(ATOSE_atose::get_ATOSE()->scheduler.get_current_process());
-registers->r0 = global_pipe_used;
-global_pipe_used++;
+ATOSE_pipe *pipe;
 
-return 0;
+pipe = ATOSE_atose::get_ATOSE()->process_allocator.malloc_pipe();
+pipe->initialise();
+registers->r0 = (uint32_t)pipe;
 }
 
 /*
 	ATOSE_PIPE_BIND()
 	-----------------
 */
-uint32_t ATOSE_pipe_bind(ATOSE_registers *registers)
+void ATOSE_pipe_bind(ATOSE_registers *registers)
 {
-ATOSE_pipe *pipe = &globlal_pipe[registers->r1];
-registers->r0 = pipe->bind(registers->r2);
-
-return 0;
+registers->r0 = ((ATOSE_pipe *)registers->r1)->bind(registers->r2);
 }
 
 /*
 	ATOSE_PIPE_CONNECT()
 	--------------------
 */
-uint32_t ATOSE_pipe_connect(ATOSE_registers *registers)
+void ATOSE_pipe_connect(ATOSE_registers *registers)
 {
-ATOSE_pipe *pipe = &globlal_pipe[registers->r1];
-registers->r0 = pipe->connect(registers->r2);
-
-return 0;
+registers->r0 = ((ATOSE_pipe *)registers->r1)->connect(registers->r2);
 }
 
 /*
 	ATOSE_PIPE_CLOSE()
 	------------------
 */
-uint32_t ATOSE_pipe_close(ATOSE_registers *registers)
+void ATOSE_pipe_close(ATOSE_registers *registers)
 {
-ATOSE_pipe *pipe = &globlal_pipe[registers->r1];
-registers->r0 = pipe->close();
-
-return 0;
+registers->r0 = ((ATOSE_pipe *)registers->r1)->close();
+ATOSE_atose::get_ATOSE()->process_allocator.free((ATOSE_pipe *)registers->r1);
 }
 
 /*
 	ATOSE_PIPE_SEND()
 	-----------------
 */
-uint32_t ATOSE_pipe_send(ATOSE_registers *registers)
+void ATOSE_pipe_send(ATOSE_registers *registers)
 {
-ATOSE_pipe *pipe = &globlal_pipe[registers->r1];
-pipe->send((void *)registers->r2, registers->r3, (void *)registers->r4, registers->r5);
-
-return 0;
+((ATOSE_pipe *)registers->r1)->send((void *)registers->r2, registers->r3, (void *)registers->r4, registers->r5);
 }
 
 /*
 	ATOSE_PIPE_RECEIVE()
 	--------------------
 */
-uint32_t ATOSE_pipe_receive(ATOSE_registers *registers)
+void ATOSE_pipe_receive(ATOSE_registers *registers)
 {
-ATOSE_pipe *pipe = &globlal_pipe[registers->r1];
-pipe->receive((void *)registers->r2, registers->r3);
-
-return 0;
+((ATOSE_pipe *)registers->r1)->receive((void *)registers->r2, registers->r3);
 }
 
 /*
 	ATOSE_PIPE_REPLY()
 	------------------
 */
-uint32_t ATOSE_pipe_reply(ATOSE_registers *registers)
+void ATOSE_pipe_reply(ATOSE_registers *registers)
 {
 ((ATOSE_pipe_task*)registers->r1)->server->reply(registers->r1, (void *)registers->r2, registers->r3);
-
-return 0;
 }

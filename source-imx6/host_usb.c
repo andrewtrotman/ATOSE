@@ -1198,7 +1198,7 @@ void ATOSE_host_usb::device_manager(void)
 {
 char buffer[10];
 //debug_print_string("Enter some text below:\r\n");
-
+ATOSE_api::exit(0);
 //ATOSE_api::readline(buffer, sizeof(buffer));
 
 /*

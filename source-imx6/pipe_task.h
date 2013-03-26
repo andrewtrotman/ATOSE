@@ -14,13 +14,14 @@ class ATOSE_pipe;
 class ATOSE_pipe_task
 {
 public:
-	ATOSE_pipe_task *next;
-	ATOSE_pipe *client;
-	ATOSE_pipe *server;
+	ATOSE_pipe_task *next;					// these things are chained together
+	ATOSE_pipe *client;						// the client's end of the pipe
+	ATOSE_pipe *server;						// the server's end of the pipe
+	ATOSE_process *process;					// the process that is blocked on this message
 
-	void *source;
+	void *source;								// copy from
 	uint32_t source_length;
-	void *destination;
+	void *destination;						// copy to
 	uint32_t destination_length;
 } ;
 

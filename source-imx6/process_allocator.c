@@ -66,7 +66,15 @@ for (current = 0; current < MAX_PIPE_TASKS; current++)
 	pipe_task_list[current].next = free_pipe_task_head;
 	free_pipe_task_head = pipe_task_list + current;
 	}
-
+/*
+	chain together each of the pipes
+*/
+free_pipe_head = NULL;
+for (current = 0; current < MAX_PIPES; current++)
+	{
+	pipe_list[current].next = free_pipe_head;
+	free_pipe_head = pipe_list + current;
+	}
 }
 
 /*
@@ -213,4 +221,28 @@ void ATOSE_process_allocator::free(ATOSE_pipe_task *task)
 {
 task->next = free_pipe_task_head;
 free_pipe_task_head = task;
+}
+
+/*
+	ATOSE_PROCESS_ALLOCATOR::MALLOC_PIPE()
+	--------------------------------------
+*/
+ATOSE_pipe *ATOSE_process_allocator::malloc_pipe(void)
+{
+ATOSE_pipe *pipe;
+
+if ((pipe = free_pipe_head) != NULL)
+	free_pipe_head = free_pipe_head->next;
+
+return pipe;
+}
+
+/*
+	ATOSE_PROCESS_ALLOCATOR::FREE()
+	-------------------------------
+*/
+void ATOSE_process_allocator::free(ATOSE_pipe *pipe)
+{
+pipe->next = free_pipe_head;
+free_pipe_head = pipe;
 }

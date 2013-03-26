@@ -11,6 +11,7 @@
 #include "semaphore.h"
 
 class ATOSE_pipe_task;
+class ATOSE_process;
 
 /*
 	class ATOSE_PIPE
@@ -19,26 +20,31 @@ class ATOSE_pipe_task;
 class ATOSE_pipe
 {
 private:
-	static const uint32_t MAX_PIPES = 16;
+	static const uint32_t MAX_PIPES = 128;
 
 public:
 	enum {SUCCESS, ERROR_PIPE_IN_USE, ERROR_PIPE_NOT_OWNER, ERROR_PIPE_BAD_ID, ERROR_PIPE_OVERFLOW};
 
-public://private:
+private:
 	static ATOSE_pipe *pipelist[];
 	ATOSE_pipe *other_end;
-	ATOSE_pipe_task *send_queue;				// this is send() to this node, not "outgoing"
-	ATOSE_pipe_task *receive_queue;			// this is receive() on this node, which is "incoming"
+	ATOSE_pipe_task *send_queue;						// this is send() to this node, not "outgoing"
+	ATOSE_pipe_task *receive_queue;					// this is receive() on this node, which is "incoming"
+	ATOSE_pipe_task *tail_of_send_queue;			// this is the insertion end of the queue
+	ATOSE_pipe_task *tail_of_receive_queue;		// this is the insertion end of the queue
 	ATOSE_process *process;
 	ATOSE_semaphore semaphore;
 
+public:
+	ATOSE_pipe *next;										// so that we can build lists of these
+
 private:
+	void memcpy(ATOSE_process *target_space, void *target_address, ATOSE_process *source_space, void *source_address, uint32_t length);
 	void enqueue(ATOSE_pipe_task *task);
-	ATOSE_pipe_task *dequeue(void *data, uint32_t length);
 
 public:
 	ATOSE_pipe() {}
-	uint32_t initialise(ATOSE_process *process);
+	uint32_t initialise(void);
 
 	uint32_t bind(uint32_t pipe_id);
 	uint32_t connect(uint32_t pipe_id);

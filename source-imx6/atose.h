@@ -65,7 +65,7 @@ public:
 
 	virtual void reset(ATOSE_registers *registers = NULL);		// we can't normally have the registers on reset.
 	virtual void isr_firq(ATOSE_registers *registers);
-	virtual uint32_t isr_swi(ATOSE_registers *registers);
+	virtual void isr_swi(ATOSE_registers *registers);
 	virtual void isr_prefetch_abort(ATOSE_registers *registers);
 	virtual void isr_data_abort(ATOSE_registers *registers);
 	virtual void isr_undefined(ATOSE_registers *registers);

@@ -466,44 +466,27 @@ return 0;
 */
 uint32_t ATOSE_process_manager::context_switch(ATOSE_registers *registers)
 {
-ATOSE_process *current_process, *next_process;
+ATOSE_process *next_process;
 
 /*
-	What's running and what's next to run?
+	What's next to run?
 */
-current_process = get_current_process();
-next_process = get_next_process();
-
-if (current_process == next_process && next_process != NULL)
+if ((next_process = get_next_process()) == NULL)
 	{
 	/*
-		If the current process is the next process then there is no work to do...
-		except that somewhere inside ATOSE a driver might have changed the values
-		of the registers so we must put those back.
-	*/
-	memcpy(registers, &next_process->execution_path->registers, sizeof(*registers));
-	}
-else if (next_process == NULL)
-	{
-	/*
-		We don't have any more work to do so we invoke the idle process
+		We don't have any more work to do so we context switch the idle process
 	*/
 	memcpy(registers, &idle->execution_path->registers, sizeof(*registers));
-	ATOSE_atose::get_ATOSE()->heap.assume(idle->address_space);
+	mmu->assume(idle->address_space);
 	}
 else
 	{
 	/*
-		Context Switch
-		Set the registers so that we fall back to the next context
+		Context switch to a queued process
+		Set the registers and the address space for the new process
 	*/
 	memcpy(registers, &next_process->execution_path->registers, sizeof(*registers));
-
-	/*
-		Set the address space to fall back to the next context, but only if we aren't a thread of the same address space
-	*/
-	if (current_process == NULL || next_process->address_space != current_process->address_space)
-		mmu->assume(next_process->address_space);
+	mmu->assume(next_process->address_space);
 	}
 
 return 0;
