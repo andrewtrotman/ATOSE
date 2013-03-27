@@ -23,7 +23,6 @@ ATOSE_pipe *ATOSE_pipe::pipelist[MAX_PIPES] = {0};
 uint32_t ATOSE_pipe::initialise(void)
 {
 ATOSE_atose::get_ATOSE()->debug.hex();
-semaphore.clear();
 other_end = NULL;
 send_queue = receive_queue = tail_of_receive_queue = 	tail_of_send_queue = NULL;
 
@@ -207,8 +206,6 @@ ATOSE_pipe_task *into;
 */
 if (receive_queue != NULL)
 	{
-//	ATOSE_atose::get_ATOSE()->debug << "[give to server '" << *((char *)task->source) << "']\r\n";
-
 	/*
 		Get the item at the head of the queue
 	*/
@@ -225,16 +222,10 @@ if (receive_queue != NULL)
 	/*
 		Wake the server
 	*/
-	{
-	semaphore.signal();
 	ATOSE_atose::get_ATOSE()->scheduler.wake((uint32_t)into->process);
-	}
-//	ATOSE_atose::get_ATOSE()->debug << "[W" << (uint32_t)into->process << "]";
 	}
 else
 	{
-//	ATOSE_atose::get_ATOSE()->debug << "[queue for server '" << *((char *)task->source) << "']\r\n";
-
 	/*
 		Else we've got work to do and must wait for a receiver to get ready to receive
 	*/
@@ -256,8 +247,6 @@ uint32_t ATOSE_pipe::send(void *message, uint32_t length, void *reply, uint32_t 
 {
 ATOSE_pipe_task *task;
 uint32_t error;
-
-//ATOSE_atose::get_ATOSE()->debug << "[send]\r\n";
 
 if ((error = validate()) != SUCCESS)
 	return error;
@@ -312,10 +301,7 @@ other_end->enqueue(task);
 	reply will be NULL in the case of an event, in which case we don't wait
 */
 if (reply != NULL)
-	{
-	//semaphore.wait();
 	ATOSE_atose::get_ATOSE()->scheduler.sleep_current_process();
-	}
 
 return 0;
 }
@@ -329,8 +315,6 @@ uint32_t ATOSE_pipe::receive(void *data, uint32_t length)
 {
 ATOSE_pipe_task *task;
 uint32_t error;
-
-//ATOSE_atose::get_ATOSE()->debug << "[receive]\r\n";
 
 if ((error = validate()) != SUCCESS)
 	return error;
@@ -346,8 +330,6 @@ while (1)
 	*/
 	if (send_queue == NULL)
 		{
-//		ATOSE_atose::get_ATOSE()->debug << "[wait for message]\r\n";
-
 		/*
 			We queue up for work that will be copied into our buffers by enqueue()
 		*/
@@ -369,38 +351,18 @@ while (1)
 		/*
 			Sleep the server until we get a signal
 		*/
-//		ATOSE_atose::get_ATOSE()->debug << "[Q" << (uint32_t)ATOSE_atose::get_ATOSE()->scheduler.get_current_process() << "]";
-		{
-//		semaphore.wait();
 		ATOSE_atose::get_ATOSE()->scheduler.sleep_current_process();
-		}
 
 		return 0;
 		}
 	else
 		{
-
-#ifdef NEVER
-{
-ATOSE_pipe_task *current;
-
-for (current = send_queue; current != NULL; current = current->next)
-	{
-	ATOSE_atose::get_ATOSE()->debug << "\r\nS-Q\r\n";
-	ATOSE_atose::get_ATOSE()->debug << *((char *)current->source) << "\r\n";
-	}
-}
-#endif
-
 		/*
 			There's stuff to do so we do the copy and keep going
 		*/
 		task = send_queue;
 		if ((send_queue = send_queue->next) == NULL)
 			tail_of_send_queue = NULL;
-
-//		ATOSE_atose::get_ATOSE()->debug << "[take message '" << *((char *)task->source) << "']\r\n";
-
 
 		if (!task->dead)
 			{
@@ -424,8 +386,6 @@ uint32_t ATOSE_pipe::reply(uint32_t message_id, void *data, uint32_t length)
 ATOSE_pipe_task *task = (ATOSE_pipe_task *)message_id;
 uint32_t error;
 
-//ATOSE_atose::get_ATOSE()->debug << "[reply]\r\n";
-
 /*
 	Validate that we own the pipe
 	We should also here make sure the task's address is in the pool.
@@ -448,10 +408,7 @@ memcpy(task->process, task->destination, ATOSE_atose::get_ATOSE()->scheduler.get
 /*
 	Tell the client we're done.  Recall that the other end *must* be blocking waiting for this reply.
 */
-{
-//task->client->semaphore.signal();
 ATOSE_atose::get_ATOSE()->scheduler.wake((uint32_t)task->process);
-}
 
 /*
 	Return the task back to the task pool

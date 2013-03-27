@@ -34,7 +34,6 @@ private:
 	ATOSE_pipe_task *tail_of_send_queue;			// this is the insertion end of the queue
 	ATOSE_pipe_task *tail_of_receive_queue;		// this is the insertion end of the queue
 	ATOSE_process *process;								// the process that owns this end of the pipe
-	ATOSE_semaphore semaphore;
 
 public:
 	ATOSE_pipe *next;										// so that we can build lists of these
