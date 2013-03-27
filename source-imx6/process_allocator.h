@@ -14,6 +14,8 @@
 #include "semaphore.h"
 #include "pipe_task.h"
 #include "pipe.h"
+#include "address_space.h"
+#include "thread.h"
 
 /*
 	class ATOSE_PROCESS_ALLOCATOR
@@ -26,7 +28,7 @@ private:
 	static const uint32_t MAX_ADDRESS_SPACES = 10;
 	static const uint32_t MAX_THREADS = 10;
 	static const uint32_t MAX_SEMAPHORES = 10;
-	static const uint32_t MAX_PIPE_TASKS = 10;
+	static const uint32_t MAX_PIPE_TASKS = 30;
 	static const uint32_t MAX_PIPES = 10;
 
 private:

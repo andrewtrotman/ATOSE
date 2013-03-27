@@ -142,6 +142,8 @@ free_thread_head = free_thread_head->next;
 */
 process->address_space = address_space;
 process->execution_path = thread;
+process->current_pipe_task = NULL;
+process->open_pipes = NULL;
 
 /*
 	Tell the thread who owns us

@@ -51,6 +51,7 @@ OBJECTS =						\
 	process_manager.o			\
 	process_allocator.o			\
 	semaphore.o					\
+	sleep_wake.o				\
 	stack.o						\
 	timer_imx6q.o				\
 	uart_imx6q.o				\

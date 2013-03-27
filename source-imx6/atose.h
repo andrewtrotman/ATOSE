@@ -42,6 +42,7 @@ private:
 public:
 	ATOSE_host_usb imx6q_host_usb;
 	ATOSE_fat file_system;
+
 public:
 	/*
 		A few references for syntactic purposes (i.e. standard methods to refer to these objects regardless of subclassing)

@@ -10,6 +10,7 @@
 #include "mmu.h"
 #include "process.h"
 #include "process_allocator.h"
+#include "sleep_wake.h"
 
 class ATOSE_file_control_block;
 
@@ -29,6 +30,7 @@ private:
 	ATOSE_process *active_tail;			// tail of the active process list
 	ATOSE_process *idle;						// the idle process
 	ATOSE_process *current_process;		// the process that is currently executing
+	ATOSE_sleep_wake inactive_queue;	// the sleeping processes
 
 protected:
 	/*
@@ -54,6 +56,8 @@ public:
 	*/
  	void push(ATOSE_process *process);
 	ATOSE_process *pull(void);
+	ATOSE_process *wake(uint32_t id) { return inactive_queue.wake(id); }
+	uint32_t sleep_current_process(void) { return inactive_queue.sleep_current_process(); }
 
 	/*
 		Process Management Methods

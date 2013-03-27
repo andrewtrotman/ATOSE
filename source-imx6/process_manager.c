@@ -489,5 +489,7 @@ else
 	mmu->assume(next_process->address_space);
 	}
 
+//ATOSE_atose::get_ATOSE()->debug << "[S:" << (uint32_t)current_process << "]";
+
 return 0;
 }
