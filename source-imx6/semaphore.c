@@ -21,8 +21,6 @@ if (sleepers == NULL)
 got = sleepers;
 sleepers = sleepers->next;
 ATOSE_atose::get_ATOSE()->scheduler.push(got);
-
-ATOSE_atose::get_ATOSE()->debug << "   [wake:" << (uint32_t)got << "]\r\n";
 }
 
 /*
@@ -44,8 +42,6 @@ os->scheduler.set_current_process(NULL);
 
 process->next = sleepers;
 sleepers = process;
-
-ATOSE_atose::get_ATOSE()->debug << "   [sleep:" << (uint32_t)process << "]\r\n";
 }
 
 /*
@@ -78,6 +74,6 @@ void ATOSE_semaphore::signal(void)
 {
 value++;
 
-if (value >= 0)
+if (value <= 0)
 	wake_one();
 }

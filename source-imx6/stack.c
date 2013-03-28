@@ -22,9 +22,6 @@ uint32_t ATOSE_stack::system_stack[(STACK_SIZE_SYSTEM + 1) / sizeof(uint32_t)];	
 */
 inline void ATOSE_stack::set_stack(void *address, uint32_t mode)
 {
-/*
-	get the current mode
-*/
 asm volatile
 	(
 	"mov r0, %[address];"
@@ -79,7 +76,7 @@ if (current_mode != ATOSE_cpu_arm::MODE_SYSTEM)
 
 /*
 	Go back into what ever mode we were in before (probably Supervisor mode)
-*/																
+*/
 asm volatile
 	(
 	"msr cpsr, %[status_register] \n"

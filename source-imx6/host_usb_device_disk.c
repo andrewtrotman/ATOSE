@@ -15,23 +15,20 @@
 
 */
 #include "fat.h"
-
 #include "atose.h"
 #include "ascii_str.h"
 #include "host_usb_device.h"
 #include "host_usb_device_disk.h"
 #include "host_usb.h"
-
 #include "usb_disk_command_status_wrapper.h"
 #include "usb_standard_interface_descriptor.h"
 #include "usb_standard_endpoint_descriptor.h"
-
 #include "scsi_read_capacity_10_parameter_data.h"
 #include "scsi_read_capacity_16_parameter_data.h"
-
 #include "usb_disk_command_block_wrapper.h"
-
 #include "file_control_block.h"
+
+void debug_print_string(const char *string);
 
 /*
 	ATOSE_HOST_USB_DEVICE_DISK::ATOSE_USB_SCSI_TEST_UNIT_READY
@@ -473,6 +470,7 @@ ATOSE_msb_uint16_t *number_16;
 ATOSE_lsb_uint32_t *bytes_to_transfer;
 uint8_t command[31];
 
+debug_print_string("[SCSI_READ]");
 /*
 	Set up the USB transfer
 */

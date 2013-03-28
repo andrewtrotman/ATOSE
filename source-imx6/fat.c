@@ -20,6 +20,9 @@
 #include "utf8_str.h"
 #include "file_control_block.h"
 
+void debug_print_string(const char *string);
+void debug_dump_buffer(unsigned char *buffer, uint32_t address, uint64_t bytes);
+
 /*
 	ATOSE_FAT::INITIALISE()
 	-----------------------
@@ -335,11 +338,17 @@ ATOSE_file_control_block *ATOSE_fat::open(ATOSE_file_control_block *fcb, const u
 uint32_t first_block;
 ATOSE_fat_directory_entry found_file;
 
+debug_print_string("\r\n[FATOPEN]\r\n");
+debug_dump_buffer(0, 0, 0x30);
+
+
 /*
 	Is the file system up and running?
 */
 if (dead_volume)
 	return NULL;
+
+debug_print_string("[LIVE]\r\n");
 
 /*
 	Make sure the filename isn't too long
@@ -347,11 +356,19 @@ if (dead_volume)
 if (ASCII_strlen(filename) > sizeof(fcb->filename))
 	return NULL;
 
+debug_print_string("[FILENAME:");
+debug_print_string((char *)filename);
+debug_print_string("]\r\n");
+
 /*
 	Find the directory entry (if there is one)
 */
 if ((first_block = find_in_directory(&found_file, root_directory_cluster, filename)) == EOF)
+	{
+	debug_print_string("[FILE NOT FOUND]");
 	return NULL;
+	}
+debug_print_string("[FILE FOUND]");
 
 /*
 	Create the FCB
@@ -1078,12 +1095,19 @@ uint64_t cluster_id, long_filename_start_cluster = start_cluster;
 ATOSE_fat_directory_entry *file, *end, *long_filename_start_entry;
 ATOSE_file_control_block *fcb;
 
+debug_print_string("[FIND_IN_DIRECTORY]\r\n");
+
 long_filename_start_entry = (ATOSE_fat_directory_entry *)cluster;
 end = (ATOSE_fat_directory_entry *)(cluster + bytes_per_cluster);
 for (cluster_id = start_cluster; cluster_id != EOF; cluster_id = next_cluster_after(cluster_id))
 	{
+	debug_print_string("[READ CLUSTER]\r\n");
 	if (read_cluster(cluster, cluster_id) != 0)
+		{
+		debug_print_string("[FAIL]\r\n");
 		return EOF;
+		}
+	debug_print_string("[SUCCESS]\r\n");
 	for (file = (ATOSE_fat_directory_entry *)cluster; file < end; file++)
 		{
 		/*
@@ -1192,11 +1216,11 @@ for (cluster_id = start_cluster; cluster_id != EOF; cluster_id = next_cluster_af
 				UCS2_to_utf8_strcpy(utf8_long_filename, (uint16_t *)long_filename, sizeof(utf8_long_filename));
 			else
 				eight_point_three_to_utf8_strcpy(utf8_long_filename, file->DIR_Name, sizeof(utf8_long_filename));
-#ifdef NEVER
+//#ifdef NEVER
 void debug_print_string(const char *string);
 debug_print_string((char *)utf8_long_filename);
 debug_print_string("\r\n");
-#endif
+//#endif
 			/*
 				We got the name, now do the comparison (in UTF-8)
 			*/

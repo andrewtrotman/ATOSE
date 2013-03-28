@@ -143,8 +143,11 @@ return 0;
 */
 void pipe_test(void)
 {
+#ifdef NEVER
 ATOSE_atose::get_ATOSE()->scheduler.create_system_thread(process_one);				// server
 ATOSE_atose::get_ATOSE()->scheduler.create_system_thread(process_two);				// client
 ATOSE_atose::get_ATOSE()->scheduler.create_system_thread(process_three);			// client
 ATOSE_atose::get_ATOSE()->scheduler.create_system_thread(process_four);				// server
+#endif
+ATOSE_atose::get_ATOSE()->scheduler.create_process((uint8_t *)"a.elf");
 }

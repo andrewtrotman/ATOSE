@@ -79,7 +79,6 @@ imx6q_host_usb.enable();
 void pipe_test(void);
 pipe_test();
 
-
 /*
 	Now we've bootstrapped ATIRE, we start processing
 */

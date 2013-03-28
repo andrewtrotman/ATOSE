@@ -8,6 +8,7 @@
 #include "atose.h"
 #include "cpu_arm.h"
 #include "mmu_page.h"
+#include "atose_api.h"
 #include "ascii_str.h"
 #include "elf32_ehdr.h"
 #include "elf32_phdr.h"
@@ -146,12 +147,6 @@ if (header_size != sizeof(ATOSE_elf32_phdr))
 if ((header_offset + header_size * header_num) > length)
 	return ELF_BAD_PROGRAM_HEADER_LOCATION;
 #endif
-
-/*
-	We passed all the initial tests so we create the address space
-*/
-if (process->address_space->create() == 0)
-	return ELF_BAD_ADDRESS_SPACE_FAIL;
 
 /*
 	The address space we just created has ATOSE in it so we can
@@ -350,6 +345,60 @@ return SUCCESS;
 }
 
 /*
+	ATOSE_PROCESS_MANAGER::EXEC()
+	-----------------------------
+*/
+uint32_t ATOSE_process_manager::exec(uint32_t parameter)
+{
+uint32_t answer;
+uint8_t *filename = (uint8_t *)"SHELL.ELF";
+ATOSE_file_control_block *fcb, fcb_space;
+ATOSE_process *new_process = ATOSE_atose::get_ATOSE()->scheduler.get_current_process();
+
+for (volatile uint32_t x = 0; x < 100000000; x++);
+ATOSE_api::writeline("[EXEC]");
+
+filename = (uint8_t *)parameter;
+
+/*
+	Load the ELF file into the current process space
+*/
+if ((fcb = ATOSE_atose::get_ATOSE()->file_system.open(&fcb_space, filename)) == NULL)
+	return ELF_BAD_FILE_NOT_FOUND;
+
+for (;;);		// HANG
+
+uint8_t fcb_buffer[fcb->block_size_in_bytes];
+fcb->buffer = fcb_buffer;
+
+answer = ATOSE_atose::get_ATOSE()->scheduler.elf_load(new_process, fcb);
+fcb->close();
+
+if (answer != SUCCESS)
+	ATOSE_api::exit(0);
+
+/*
+	Drop into user mode and branch to the entry point
+*/
+asm volatile
+	(
+	"mrs r0, cpsr;"
+	"bic r0, #0x1F;"
+	"orr r0, r0, #0x10;"
+	"msr cpsr, r0;"
+	:
+	:
+	: "r0"
+	);
+
+(*((void (*)(void))new_process->entry_point))();
+
+ATOSE_api::exit(0);
+
+return answer;
+}
+
+/*
 	ATOSE_PROCESS_MANAGER::CREATE_PROCESS()
 	---------------------------------------
 	returns SUCCESS on success, all other values are error codes
@@ -359,8 +408,6 @@ uint32_t ATOSE_process_manager::create_process(const uint8_t *elf_filename)
 uint32_t answer;
 ATOSE_process *new_process;
 
-ATOSE_atose::get_ATOSE()->debug << "==\r\n";
-
 /*
 	Create a new process
 */
@@ -368,43 +415,33 @@ if ((new_process = ATOSE_atose::get_ATOSE()->process_allocator.malloc()) == NULL
 	return ELF_BAD_OUT_OF_PROCESSES;
 
 /*
-	Load the ELF file into it
+	Create the address space
 */
-ATOSE_file_control_block *fcb, fcb_space;
-if ((fcb = ATOSE_atose::get_ATOSE()->file_system.open(&fcb_space, elf_filename)) == NULL)
-	return ELF_BAD_FILE_NOT_FOUND;
-
-uint8_t fcb_buffer[fcb->block_size_in_bytes];
-fcb->buffer = fcb_buffer;
-
-answer = elf_load(new_process, fcb);
-fcb->close();
-
-if (answer != SUCCESS)
-	{
-	ATOSE_atose::get_ATOSE()->process_allocator.free(new_process);
-	return answer;
-	}
+if (new_process->address_space->create() == 0)
+	return ELF_BAD_ADDRESS_SPACE_FAIL;
 
 /*
 	Set up the register set
 */
-answer = initialise_process(new_process, (size_t)new_process->entry_point, ATOSE_cpu_arm::MODE_USER, mmu->highest_address);
+//answer = initialise_process(new_process, (size_t)my_exec, ATOSE_cpu_arm::MODE_USER, mmu->highest_address);
+answer = initialise_process(new_process, (size_t)exec, ATOSE_cpu_arm::MODE_SYSTEM, mmu->highest_address);
+
+/*
+	Copy the command line onto the top of the stack
+	Put a pointer to the filename in R0
+	Then realign the stack
+*/
+mmu->assume(new_process->address_space);
+new_process->execution_path->registers.r13 -= ASCII_strlen(elf_filename) + 1;
+ASCII_strcpy((char *)new_process->execution_path->registers.r13 , elf_filename);
+new_process->execution_path->registers.r0 = new_process->execution_path->registers.r13;
+while (new_process->execution_path->registers.r13 & 0x03)
+	new_process->execution_path->registers.r13--;
 
 /*
 	Add to the process queues (for the scheduler to sort out)
 */
 push(new_process);
-
-ATOSE_atose::get_ATOSE()->debug << "ELF created new process:" << (uint32_t)new_process << "\r\n";
-ATOSE_atose::get_ATOSE()->debug << "ELF entry point" << (uint32_t)new_process->entry_point << "(R14=" << new_process->execution_path->registers.r14_current << ")\r\n";
-
-
-mmu->assume(new_process->address_space);
-debug_dump_buffer((unsigned char *)0x10010000, 0x10010000, 0x80);
-mmu->assume_identity();
-
-ATOSE_atose::get_ATOSE()->debug << "==\r\n";
 
 return answer;
 }
@@ -432,7 +469,7 @@ system_address_space->get_reference();
 */
 page = system_address_space->add_to_identity();
 
-answer = initialise_process(new_process, (size_t)(start), ATOSE_cpu_arm::MODE_SYSTEM, (uint32_t)(page->physical_address + page->page_size));
+answer = initialise_process(new_process, (size_t)start, ATOSE_cpu_arm::MODE_SYSTEM, (uint32_t)(page->physical_address + page->page_size));
 
 /*
 	Add to the process queues (for the scheduler to sort out)
@@ -488,8 +525,6 @@ else
 	memcpy(registers, &next_process->execution_path->registers, sizeof(*registers));
 	mmu->assume(next_process->address_space);
 	}
-
-//ATOSE_atose::get_ATOSE()->debug << "[S:" << (uint32_t)current_process << "]";
 
 return 0;
 }

@@ -509,7 +509,7 @@ HW_USBC_UH1_USBSTS.U = usb_status.U;
 */
 if (usb_status.B.UI)
 	{
-//	debug_print_string("USB INT\r\n");
+	debug_print_string(".USBint.");
 	semaphore->signal();
 	}
 
@@ -518,7 +518,7 @@ if (usb_status.B.UI)
 */
 if (usb_status.B.URI)
 	{
-//	debug_print_string("USB RESET\r\n");
+	debug_print_string(".USBreset.");
 	}
 
 /*
@@ -526,7 +526,7 @@ if (usb_status.B.URI)
 */
 if (usb_status.B.PCI)
 	{
-//	debug_print_string("USB PCI\r\n");
+	debug_print_string(".USBpci.");
 	/*
 		Wait for the connect to finish
 	*/
@@ -695,7 +695,9 @@ uint32_t ATOSE_host_usb::perform_transaction(ATOSE_usb_ehci_queue_head *queue)
 
 #endif
 
+debug_print_string("[SEM-WAIT...");
 ATOSE_api::semaphore_wait(semaphore_handle);
+debug_print_string("DONE]");
 
 #ifdef NEVER
 	//empty_queue_head.queue_head_horizontal_link_pointer.all = (ATOSE_usb_ehci_queue_head *)((uint32_t)&empty_queue_head | ATOSE_usb_ehci_queue_head_horizontal_link_pointer::QUEUE_HEAD);
@@ -1197,9 +1199,6 @@ return device->dead ? NULL : device;
 void ATOSE_host_usb::device_manager(void)
 {
 char buffer[10];
-//debug_print_string("Enter some text below:\r\n");
-ATOSE_api::exit(0);
-//ATOSE_api::readline(buffer, sizeof(buffer));
 
 /*
 	Wait for a connection then enumerate the USB bus

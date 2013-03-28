@@ -62,7 +62,7 @@ for (current = 1; current < 256; current++)
 	page_table[current] = (current << 20) | mmu->peripheral_page;			// user access is forbidden
 
 /*
-	The ROM must be executable by the OS because otherwise an IRQ cannot be services, but no user read
+	The ROM must be executable by the OS because otherwise an IRQ cannot be serviced, but no user read
 	The 1MB of OC-RAM including its alias can be cachable, buffereable, etc, but no user read
 */
 page_table[0] = (0 << 20) | mmu->os_page;

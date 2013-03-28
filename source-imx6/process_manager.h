@@ -48,6 +48,8 @@ protected:
 	*/
 	void set_idle(ATOSE_process *process) { idle = process; }
 
+	static uint32_t exec(uint32_t parameter);
+
 public:
 	ATOSE_process_manager(ATOSE_mmu *mmu, ATOSE_process_allocator *process_allocator);
 
