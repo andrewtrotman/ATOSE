@@ -106,9 +106,6 @@ user_data_page = (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V7_PAGE_SECTI
 */
 user_code_page = (ARM_MMU_V5_PAGE_SECTION_USER_READONLY | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION);
 
-
-//os_page = peripheral_page = user_data_page = user_code_page = (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_NONCACHED_NONBUFFERED | ARM_MMU_V5_PAGE_TYPE_SECTION);
-
 /*
 	A page table can now be set up with: each page is 1MB in size (ARM V5 Sections), full permission to do anything
 */

@@ -35,7 +35,7 @@
 
 
 //#define USB_DEBUG 1
-
+#include "server_disk.h"
 /*
 	=====================================================
 	=====================================================
@@ -509,7 +509,7 @@ HW_USBC_UH1_USBSTS.U = usb_status.U;
 */
 if (usb_status.B.UI)
 	{
-	debug_print_string(".USBint.");
+//	debug_print_string(".USBint.");
 	semaphore->signal();
 	}
 
@@ -518,7 +518,7 @@ if (usb_status.B.UI)
 */
 if (usb_status.B.URI)
 	{
-	debug_print_string(".USBreset.");
+//	debug_print_string(".USBreset.");
 	}
 
 /*
@@ -526,7 +526,7 @@ if (usb_status.B.URI)
 */
 if (usb_status.B.PCI)
 	{
-	debug_print_string(".USBpci.");
+//	debug_print_string(".USBpci.");
 	/*
 		Wait for the connect to finish
 	*/
@@ -695,9 +695,9 @@ uint32_t ATOSE_host_usb::perform_transaction(ATOSE_usb_ehci_queue_head *queue)
 
 #endif
 
-debug_print_string("[SEM-WAIT...");
+//debug_print_string("[SEM-WAIT...");
 ATOSE_api::semaphore_wait(semaphore_handle);
-debug_print_string("DONE]");
+//debug_print_string("DONE]");
 
 #ifdef NEVER
 	//empty_queue_head.queue_head_horizontal_link_pointer.all = (ATOSE_usb_ehci_queue_head *)((uint32_t)&empty_queue_head | ATOSE_usb_ehci_queue_head_horizontal_link_pointer::QUEUE_HEAD);
@@ -1192,6 +1192,7 @@ switch (current.device_class)
 return device->dead ? NULL : device;
 }
 
+
 /*
 	ATOSE_HOST_USB::DEVICE_MANAGER()
 	--------------------------------
@@ -1239,6 +1240,9 @@ for (uint32_t current = 1; current < device_list_length; current++)
 			/*
 				We're a disk so we're going to do some extra stuff
 			*/
+			ATOSE_api::spawn("SHELL.ELF");
+			ATOSE_server_disk disk;
+			disk.serve();
 			}
 		}
 	debug_print_string("\r\n");

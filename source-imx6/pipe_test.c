@@ -6,8 +6,8 @@
 */
 #include "atose_api.h"
 #include "atose.h"
-
-static const uint32_t TEST_PIPE = 1;
+#include "stdpipe.h"
+#include "server_disk.h"
 
 volatile uint32_t global_pipe = 0;
 volatile uint32_t global_client_pipe = 0;
@@ -23,7 +23,7 @@ uint32_t message;
 uint32_t pipe;
 
 pipe = ATOSE_api::pipe_create();
-ATOSE_api::pipe_bind(pipe, TEST_PIPE);
+ATOSE_api::pipe_bind(pipe, PIPE_TEST);
 global_pipe = pipe;
 
 while (1)
@@ -57,7 +57,7 @@ uint32_t got;
 global_client_pipe = ATOSE_api::pipe_create();
 
 do
-	got = ATOSE_api::pipe_connect(global_client_pipe, TEST_PIPE);
+	got = ATOSE_api::pipe_connect(global_client_pipe, PIPE_TEST);
 while (got != 0);
 
 for (uint32_t x = 0; x < 10; x++)
@@ -85,7 +85,7 @@ uint32_t pipe;
 pipe = ATOSE_api::pipe_create();
 
 do
-	got = ATOSE_api::pipe_connect(pipe, TEST_PIPE);
+	got = ATOSE_api::pipe_connect(pipe, PIPE_TEST);
 while (got != 0);
 
 for (uint32_t x = 0; x < 10; x++)
@@ -136,6 +136,21 @@ ATOSE_api::exit(0);
 return 0;
 }
 
+/*
+	DISK_SERVE()
+	------------
+*/
+uint32_t disk_serve(void)
+{
+ATOSE_api::writeline("[DISK_SERVE]");
+
+ATOSE_server_disk disk;
+
+disk.serve();
+
+while (1);
+return 0;
+}
 
 /*
 	PIPE_TEST()
@@ -143,11 +158,13 @@ return 0;
 */
 void pipe_test(void)
 {
+//ATOSE_atose::get_ATOSE()->scheduler.create_system_thread(disk_serve);
+
 #ifdef NEVER
 ATOSE_atose::get_ATOSE()->scheduler.create_system_thread(process_one);				// server
 ATOSE_atose::get_ATOSE()->scheduler.create_system_thread(process_two);				// client
 ATOSE_atose::get_ATOSE()->scheduler.create_system_thread(process_three);			// client
 ATOSE_atose::get_ATOSE()->scheduler.create_system_thread(process_four);				// server
 #endif
-ATOSE_atose::get_ATOSE()->scheduler.create_process((uint8_t *)"a.elf");
+//ATOSE_atose::get_ATOSE()->scheduler.create_process((uint8_t *)"a.elf");
 }

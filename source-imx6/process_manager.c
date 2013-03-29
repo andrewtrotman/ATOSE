@@ -14,6 +14,12 @@
 #include "elf32_phdr.h"
 #include "process_manager.h"
 
+
+#include "server_disk.h"
+#include "server_disk_protocol.h"
+#include "ascii_str.h"
+#include "file_control_block.h"
+
 void debug_print_string(const char *string);
 void debug_print_this(const char *start, uint32_t hex, const char *end = "");
 void debug_dump_buffer(unsigned char *buffer, uint32_t address, uint64_t bytes);
@@ -350,6 +356,28 @@ return SUCCESS;
 */
 uint32_t ATOSE_process_manager::exec(uint32_t parameter)
 {
+uint32_t pipe, got;
+ATOSE_server_disk_protocol message;
+
+pipe = ATOSE_api::pipe_create();
+do
+	got = ATOSE_api::pipe_connect(pipe, ATOSE_server_disk::PIPE);
+while (got != 0);
+
+message.command = ATOSE_server_disk_protocol::COMMAND_OPEN;
+ASCII_strcpy(message.filename, (uint8_t *)parameter);
+ATOSE_api::pipe_send(pipe, &message, sizeof(message), &message, sizeof(message));
+
+if (message.return_code == 0)
+	ATOSE_api::writeline("FILE NOT FOUND");
+else
+	ATOSE_api::writeline("FILE FOUND");
+
+ATOSE_api::exit(0);
+return 0;
+
+
+#ifdef NEVER
 uint32_t answer;
 uint8_t *filename = (uint8_t *)"SHELL.ELF";
 ATOSE_file_control_block *fcb, fcb_space;
@@ -396,6 +424,7 @@ asm volatile
 ATOSE_api::exit(0);
 
 return answer;
+#endif
 }
 
 /*
@@ -407,6 +436,15 @@ uint32_t ATOSE_process_manager::create_process(const uint8_t *elf_filename)
 {
 uint32_t answer;
 ATOSE_process *new_process;
+uint8_t filename[ATOSE_file_control_block::MAX_PATH];
+
+/*
+	Copy the filename out of the caller's address space into kernel space
+	because we are going to want to swap address spaces a few times but
+	will need this the whole time.
+*/
+ASCII_strncpy((char *)filename, (char *)elf_filename, ATOSE_file_control_block::MAX_PATH);
+filename[ATOSE_file_control_block::MAX_PATH - 1] = '\0';
 
 /*
 	Create a new process
@@ -432,8 +470,8 @@ answer = initialise_process(new_process, (size_t)exec, ATOSE_cpu_arm::MODE_SYSTE
 	Then realign the stack
 */
 mmu->assume(new_process->address_space);
-new_process->execution_path->registers.r13 -= ASCII_strlen(elf_filename) + 1;
-ASCII_strcpy((char *)new_process->execution_path->registers.r13 , elf_filename);
+new_process->execution_path->registers.r13 -= ASCII_strlen(filename) + 1;
+ASCII_strcpy((char *)new_process->execution_path->registers.r13 , filename);
 new_process->execution_path->registers.r0 = new_process->execution_path->registers.r13;
 while (new_process->execution_path->registers.r13 & 0x03)
 	new_process->execution_path->registers.r13--;

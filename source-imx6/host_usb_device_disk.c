@@ -470,7 +470,6 @@ ATOSE_msb_uint16_t *number_16;
 ATOSE_lsb_uint32_t *bytes_to_transfer;
 uint8_t command[31];
 
-debug_print_string("[SCSI_READ]");
 /*
 	Set up the USB transfer
 */
