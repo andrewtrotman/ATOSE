@@ -18,7 +18,6 @@ public:
 
 public:
 	uint32_t command;
-	uint32_t return_code;
 	uint8_t filename[255];
 } ;
 

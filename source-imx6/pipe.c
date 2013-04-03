@@ -128,7 +128,7 @@ uint8_t *from = (uint8_t *)source_address;
 uint8_t *into = (uint8_t *)target_address;
 ATOSE_mmu *mmu = &ATOSE_atose::get_ATOSE()->heap;
 
-if (source_space->address_space != target_space->address_space)
+if (source_space->address_space != target_space->address_space)			// if they are the same then they must also be the current address space (I think!)
 	{
 	/*
 		Until we write something cleaner we'll just copy through a buffer guaranteed to be in both spaces (i.e. the kernel stack)
@@ -214,15 +214,26 @@ if (receive_queue != NULL)
 		tail_of_receive_queue = NULL;
 
 	/*
-		Copy the message and return the message ID to the message to the server
+		Copy the message and the process ID, then return the message ID to the server
 	*/
 	memcpy(into->process, into->destination, task->process, task->source, min(task->source_length, into->destination_length));
 	into->process->execution_path->registers.r0 = (uint32_t)task->event_id;
+	if (into->place_to_put_client_process_id != NULL)
+		memcpy(into->process, into->place_to_put_client_process_id, task->process, &task->client_process_id, sizeof(task->client_process_id));
 
 	/*
 		Wake the server
 	*/
 	ATOSE_atose::get_ATOSE()->scheduler.wake((uint32_t)into->process);
+
+	/*
+		If we're an event then we're done and can return the blob to the pool!
+	*/
+	if (task->destination == NULL)
+		{
+		into->process->execution_path->registers.r0 = 0;
+		free(task);
+		}
 	}
 else
 	{
@@ -241,9 +252,9 @@ else
 /*
 	ATOSE_PIPE::SEND()
 	------------------
-	This is the client side
+	This is the client side... the parameters are the "usual" (destination, source) order
 */
-uint32_t ATOSE_pipe::send(void *message, uint32_t length, void *reply, uint32_t reply_length, uint32_t event_id)
+uint32_t ATOSE_pipe::send(void *reply, uint32_t reply_length, void *message, uint32_t length, uint32_t event_id)
 {
 ATOSE_pipe_task *task;
 uint32_t error;
@@ -266,30 +277,28 @@ if (message == NULL)
 	/*
 		We're an event
 	*/
+	task->event_id = event_id;
 	task->source = &task->event_id;
 	task->source_length = sizeof(task->event_id);
-	task->destination = reply;
-	task->destination_length = reply_length;
-	task->client = other_end;			// we don't know the client will be alive, but we do know that event is in kernel space so it's also in target space
-	task->server = other_end;
-	task->process = ATOSE_atose::get_ATOSE()->scheduler.get_current_process();
-	task->process->current_pipe_task = task;
-	task->dead = false;
-	task->event_id = event_id;
 	}
 else
 	{
+	/*
+		We're a message
+	*/
+	task->event_id = (uint32_t)task;
 	task->source = message;
 	task->source_length = length;
-	task->destination = reply;
-	task->destination_length = reply_length;
-	task->client = this;
-	task->server = other_end;
-	task->process = ATOSE_atose::get_ATOSE()->scheduler.get_current_process();
-	task->process->current_pipe_task = task;
-	task->dead = false;
-	task->event_id = (uint32_t)task;
 	}
+
+task->destination = reply;
+task->destination_length = reply_length;
+task->server = other_end;
+task->process = ATOSE_atose::get_ATOSE()->scheduler.get_current_process();
+task->client_process_id = task->process;
+task->process->current_pipe_task = task;
+task->dead = false;
+task->place_to_put_client_process_id = NULL;
 
 /*
 	Place it on the other end's queue and wake it up (if necessary)
@@ -311,7 +320,7 @@ return 0;
 	---------------------
 	This is the server side
 */
-uint32_t ATOSE_pipe::receive(void *data, uint32_t length)
+uint32_t ATOSE_pipe::receive(void *data, uint32_t length, uint32_t *client_id)
 {
 ATOSE_pipe_task *task;
 uint32_t error;
@@ -337,6 +346,7 @@ while (1)
 		task->destination = data;
 		task->destination_length = length;
 		task->process = ATOSE_atose::get_ATOSE()->scheduler.get_current_process();
+		task->place_to_put_client_process_id = client_id;
 
 		/*
 			Put it in the queue
@@ -364,10 +374,33 @@ while (1)
 		if ((send_queue = send_queue->next) == NULL)
 			tail_of_send_queue = NULL;
 
-		if (!task->dead)
+		if (task->dead)
+			free(task);
+		else
 			{
-			memcpy(ATOSE_atose::get_ATOSE()->scheduler.get_current_process(), data, task->process, task->source, min(length, task->source_length));
-			ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->execution_path->registers.r0 = (uint32_t)task;
+			/*
+				Return the caller's process ID to the client (we can do this because we're in the server's address space)
+			*/
+			if (client_id != NULL)
+				*client_id = (uint32_t)task->client_process_id;
+
+			if (task->destination == NULL)
+				{
+				/*
+					We're and event so we can copy directly and don't need to play the address space game, but we do need to clean up the event object
+				*/
+				::memcpy(data, &task->event_id, min(length, (uint32_t)sizeof(task->event_id)));
+				ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->execution_path->registers.r0 = 0;
+				free(task);
+				}
+			else
+				{
+				/*
+					We're a regular message (we're not an event)
+				*/
+				memcpy(ATOSE_atose::get_ATOSE()->scheduler.get_current_process(), data, task->process, task->source, min(length, task->source_length));
+				ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->execution_path->registers.r0 = (uint32_t)task;
+				}
 
 			return 0;
 			}
@@ -378,13 +411,14 @@ return 0;
 }
 
 /*
-	ATOSE_PIPE::REPLY()
-	-------------------
+	ATOSE_PIPE::MEMCPY()
+	--------------------
+	Copy from the server's address space into the client's address space
 */
-uint32_t ATOSE_pipe::reply(uint32_t message_id, void *data, uint32_t length)
+uint32_t ATOSE_pipe::memcpy(uint32_t message_id, uint32_t destination_offset, void *source, uint32_t length)
 {
 ATOSE_pipe_task *task = (ATOSE_pipe_task *)message_id;
-uint32_t error;
+uint32_t error, bytes_to_copy;
 
 /*
 	Validate that we own the pipe
@@ -403,7 +437,35 @@ if (task->dead)
 /*
 	Copy from the server address space into the client address space
 */
-memcpy(task->process, task->destination, ATOSE_atose::get_ATOSE()->scheduler.get_current_process(), data, min(length, task->destination_length));
+if ((bytes_to_copy = min(length, task->destination_length - destination_offset)) > 0)
+	memcpy(task->process, ((uint8_t *)task->destination) + destination_offset, ATOSE_atose::get_ATOSE()->scheduler.get_current_process(), source, bytes_to_copy);
+
+/*
+	YAY!
+*/
+return 0;
+}
+
+/*
+	ATOSE_PIPE::REPLY()
+	-------------------
+*/
+uint32_t ATOSE_pipe::reply(uint32_t message_id, void *data, uint32_t length, uint32_t return_code)
+{
+ATOSE_pipe_task *task = (ATOSE_pipe_task *)message_id;
+uint32_t error;
+
+/*
+	Copy into the client's address space
+	NOTE: this also does the validation check
+*/
+if ((error = memcpy(message_id, 0, data, length)) != 0)
+	return error;
+
+/*
+	Set up the client's return code (returned from their call to send)
+*/
+task->process->execution_path->registers.r0 = return_code;
 
 /*
 	Tell the client we're done.  Recall that the other end *must* be blocking waiting for this reply.

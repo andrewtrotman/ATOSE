@@ -25,16 +25,17 @@ void debug_print_this(const char *start, uint32_t hex, const char *end = "");
 void debug_dump_buffer(unsigned char *buffer, uint32_t address, uint64_t bytes);
 
 /*
-	ATOSE_PROCESS_MANAGER::ATOSE_PROCESS_MANAGER()
-	----------------------------------------------
+	ATOSE_PROCESS_MANAGER::INITIALISE()
+	-----------------------------------
 */
-ATOSE_process_manager::ATOSE_process_manager(ATOSE_mmu *mmu, ATOSE_process_allocator *process_allocator)
+void ATOSE_process_manager::initialise(ATOSE_mmu *mmu, ATOSE_process_allocator *process_allocator)
 {
 this->mmu = mmu;
 active_head = active_tail = NULL;
 current_process = 0;
 system_address_space = process_allocator->malloc_address_space();
-system_address_space->create_identity();
+//system_address_space->create_identity();
+system_address_space->create();
 }
 
 /*
@@ -223,13 +224,13 @@ for (which = 0; which < header_num; which++)
 	mmu->assume(process->address_space);
 
 	/*
-		We might fail at this point for seveal reasons; for example, we
+		We might fail at this point for several reasons; for example, we
 		might be out of pages or we might be trying to change the
 		permissions on an existing page
 	*/
 	if (error != SUCCESS)
 		{
-		mmu->assume_identity();
+//		mmu->assume_identity();
 		process->address_space->destroy();
 		return error;
 		}
@@ -247,7 +248,7 @@ debug_dump_buffer((unsigned char *)current_header.p_vaddr, current_header.p_vadd
 /*
 	Get out of this process's address space
 */
-mmu->assume_identity();
+//mmu->assume_identity();
 
 /*
 	Extract the process entry point (that is, the location we are to
@@ -333,7 +334,7 @@ uint32_t ATOSE_process_manager::initialise_process(ATOSE_process *process, size_
 /*
 	Set up the stack-pointer (ARM register R13)
 */
-process->execution_path->registers.r13 = top_of_stack & ((uint32_t)~0x03);		// align it correctly
+process->execution_path->registers.r13 = top_of_stack & ((uint32_t)~0x03);		// align it correctly (rounding down)
 
 /*
 	The process will enter where-ever the link-register (ARM register
@@ -358,6 +359,7 @@ uint32_t ATOSE_process_manager::exec(uint32_t parameter)
 {
 uint32_t pipe, got;
 ATOSE_server_disk_protocol message;
+uint32_t fcb;
 
 pipe = ATOSE_api::pipe_create();
 do
@@ -366,9 +368,9 @@ while (got != 0);
 
 message.command = ATOSE_server_disk_protocol::COMMAND_OPEN;
 ASCII_strcpy(message.filename, (uint8_t *)parameter);
-ATOSE_api::pipe_send(pipe, &message, sizeof(message), &message, sizeof(message));
+fcb = ATOSE_api::pipe_send(pipe, &message, sizeof(message), &message, sizeof(message));
 
-if (message.return_code == 0)
+if (fcb == 0)
 	ATOSE_api::writeline("FILE NOT FOUND");
 else
 	ATOSE_api::writeline("FILE FOUND");
@@ -438,6 +440,10 @@ uint32_t answer;
 ATOSE_process *new_process;
 uint8_t filename[ATOSE_file_control_block::MAX_PATH];
 
+debug_print_string("\r\n[CREATE PROCESS:");
+debug_print_string((char *)elf_filename);
+debug_print_string("]\r\n");
+
 /*
 	Copy the filename out of the caller's address space into kernel space
 	because we are going to want to swap address spaces a few times but
@@ -484,15 +490,57 @@ push(new_process);
 return answer;
 }
 
+
+/*
+	ATOSE_PROCESS_MANAGER::CREATE_THREAD()
+	--------------------------------------
+*/
+uint32_t ATOSE_process_manager::create_thread(uint32_t (*start)(void))
+{
+uint32_t answer;
+ATOSE_process *new_process;
+uint8_t *old_stack_break;
+ATOSE_address_space *address_space = system_address_space;
+
+debug_print_string("\r\n[CREATE THREAD]");
+
+if ((new_process = ATOSE_atose::get_ATOSE()->process_allocator.malloc(address_space)) == NULL)
+	return ELF_BAD_OUT_OF_PROCESSES;
+
+/*
+	Add one to the address-space's reference count
+*/
+address_space->get_reference();
+
+/*
+	Give it a local stack
+*/
+old_stack_break = address_space->the_stack_break;
+
+address_space->the_stack_break -= mmu->page_size;
+address_space->add(address_space->the_stack_break, mmu->page_size, ATOSE_address_space::WRITE | ATOSE_address_space::READ);
+
+debug_print_this("[new stack at ", (uint32_t)old_stack_break, "]");
+answer = initialise_process(new_process, (size_t)start, ATOSE_cpu_arm::MODE_SYSTEM, (uint32_t)old_stack_break);
+
+push(new_process);
+
+return answer;
+}
+
 /*
 	ATOSE_PROCESS_MANAGER::CREATE_SYSTEM_THREAD()
 	---------------------------------------------
 */
-uint32_t ATOSE_process_manager::create_system_thread(uint32_t (*start)(void), uint32_t is_idle_thread)
+uint32_t ATOSE_process_manager::create_system_thread(uint32_t (*start)(void), const char *name, uint32_t is_idle_thread)
 {
 uint32_t answer;
 ATOSE_process *new_process;
-ATOSE_mmu_page *page;
+uint8_t *old_stack_break;
+
+debug_print_string("\r\n[CREATE SYSTEM THREAD:");
+debug_print_string(name);
+debug_print_string("]\r\n");
 
 if ((new_process = ATOSE_atose::get_ATOSE()->process_allocator.malloc(system_address_space)) == NULL)
 	return ELF_BAD_OUT_OF_PROCESSES;
@@ -505,15 +553,26 @@ system_address_space->get_reference();
 /*
 	Give it a local stack
 */
-page = system_address_space->add_to_identity();
+//ATOSE_mmu_page *page;
+//page = system_address_space->add_to_identity();
+//answer = initialise_process(new_process, (size_t)start, ATOSE_cpu_arm::MODE_SYSTEM, (uint32_t)(page->physical_address + page->page_size));
+old_stack_break = system_address_space->the_stack_break;
 
-answer = initialise_process(new_process, (size_t)start, ATOSE_cpu_arm::MODE_SYSTEM, (uint32_t)(page->physical_address + page->page_size));
+debug_print_string("[add stack]\r\n");
+system_address_space->the_stack_break -= mmu->page_size;
+system_address_space->add(system_address_space->the_stack_break, mmu->page_size, ATOSE_address_space::WRITE | ATOSE_address_space::READ);
+
+debug_print_this("[new stack at ", (uint32_t)old_stack_break, "]");
+answer = initialise_process(new_process, (size_t)start, ATOSE_cpu_arm::MODE_SYSTEM, (uint32_t)old_stack_break);
 
 /*
 	Add to the process queues (for the scheduler to sort out)
 */
 if (is_idle_thread)
+	{
+	debug_print_string("[IDLE CREATED]");
 	set_idle(new_process);
+	}
 else
 	push(new_process);
 

@@ -19,6 +19,7 @@ class ATOSE_interrupt
 {
 public:
 	ATOSE_interrupt() {}
+	virtual void initialise(void) {}
 	virtual void enable(ATOSE_device_driver *driver, uint32_t source) = 0;
 
 	virtual void isr_irq(ATOSE_registers *registers) = 0;

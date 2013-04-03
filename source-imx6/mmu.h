@@ -35,7 +35,7 @@ public:
 
 private:
 	uint32_t page_count;										// the number of pages (is size page_size) we have
-
+	uint32_t initialised;									// has the object been initialised or not?
 protected:
 	ATOSE_mmu_page_list free_list;
 	uint32_t *identity_page_table;								// a copy of the identity page table (used by the kernel)
@@ -53,16 +53,17 @@ protected:
 	void assume(uint32_t *page_table);
 
 public:
-	ATOSE_mmu() { page_count = 0; }
-	void init(void);
+	ATOSE_mmu() { page_count = initialised = 0; }
+	virtual void initialise(void);
 
 	void push(ATOSE_mmu_page *page);
 	ATOSE_mmu_page *pull(void);
 
 	void flush_caches(void);
 	void assume(ATOSE_address_space *address_space);				// switch to the given address space
-	void assume_identity(void);										// switch to the kernel's identity address space
-	uint32_t *get_identity_page_table(void) { return identity_page_table; } 	// return a pointer to the identity page table
+
+	void assume_identity(void);											// switch to the identity address space
+//	uint32_t *get_identity_page_table(void) { return identity_page_table; } 	// return a pointer to the identity page table
 };
 
 #endif /* MMU_H_ */

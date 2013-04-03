@@ -34,7 +34,7 @@
 #include "usb_standard_configuration_descriptor.h"
 
 
-//#define USB_DEBUG 1
+#define USB_DEBUG 1
 #include "server_disk.h"
 /*
 	=====================================================
@@ -48,6 +48,27 @@
 	The periodic schedule, used for interrupt transfers.  It must lie on a 4K boundary
 */
 static ATOSE_usb_ehci_queue_head *periodic_schedule[8] __attribute__ ((aligned (4096)));
+
+
+/*
+	Although the reference manual alignes transfer descriptors on 32-byte boundaries, the
+	i.MX6Q SDK (iMX6_Platform_SDK\sdk\drivers\usb\src\usbh_drv.c) alligns them on 64-byte
+	boundaries (see usbh_qtd_init()).  We'll stick with 64 because it seems to work well.
+*/
+static ATOSE_usb_ehci_queue_head queue_head __attribute__ ((aligned(64)));
+static ATOSE_usb_ehci_queue_head queue_head_2 __attribute__ ((aligned(64)));
+
+/*
+	Although the reference manual allignes transfer descriptors on 32-byte boundaries, the
+	i.MX6Q SDK (iMX6_Platform_SDK\sdk\drivers\usb\src\usbh_drv.c) alligns them on 64-byte
+	boundaries (see usbh_qtd_init()).  We'll stick with 64 because it seems to work well.
+*/
+static ATOSE_usb_ehci_queue_element_transfer_descriptor transfer_descriptor_1 __attribute__ ((aligned(64)));
+static ATOSE_usb_ehci_queue_element_transfer_descriptor transfer_descriptor_2 __attribute__ ((aligned(64)));
+static ATOSE_usb_ehci_queue_element_transfer_descriptor transfer_descriptor_3 __attribute__ ((aligned(64)));
+
+
+
 /*
 	=====================================================
 	=====================================================
@@ -58,10 +79,6 @@ static ATOSE_usb_ehci_queue_head *periodic_schedule[8] __attribute__ ((aligned (
 #define DEFAULT_UART 2
 #define BAUD_RATE 115200
 #define PLL3_FREQUENCY 80000000
-
-void dump_usbsts(void);
-void do_some_magic(void);
-
 
 /*
 	DEBUG_INIT()
@@ -328,10 +345,10 @@ while (remaining > 0)
 #endif
 
 /*
-	ATOSE_HOST_USB::ATOSE_HOST_USB()
-	--------------------------------
+	ATOSE_HOST_USB::INITIALISE()
+	----------------------------
 */
-ATOSE_host_usb::ATOSE_host_usb() : ATOSE_device_driver()
+void ATOSE_host_usb::initialise(void)
 {
 /*
 	USB Core 1 is different from Core 0 because its not an OTG port. It differs from
@@ -474,12 +491,6 @@ semaphore = ATOSE_atose::get_ATOSE()->process_allocator.malloc_semaphore();
 semaphore->clear();
 semaphore_handle = (uint32_t)semaphore;
 
-/*
-	Initialise the worker thread
-*/
-uint32_t ATOSE_host_usb_device_manager(void);
-ATOSE_atose::get_ATOSE()->scheduler.create_system_thread(ATOSE_host_usb_device_manager);
-
 #ifdef SABRE_LITE
 	/*
 		Turn on the USB Hub on the SABRE Lite board.
@@ -509,8 +520,13 @@ HW_USBC_UH1_USBSTS.U = usb_status.U;
 */
 if (usb_status.B.UI)
 	{
-//	debug_print_string(".USBint.");
+#ifdef USB_DEBUG
+	debug_print_string("[USBint");
+#endif
 	semaphore->signal();
+#ifdef USB_DEBUG
+	debug_print_string("]");
+#endif
 	}
 
 /*
@@ -518,7 +534,9 @@ if (usb_status.B.UI)
 */
 if (usb_status.B.URI)
 	{
-//	debug_print_string(".USBreset.");
+#ifdef USB_DEBUG
+	debug_print_string("[USBreset]");
+#endif
 	}
 
 /*
@@ -526,7 +544,9 @@ if (usb_status.B.URI)
 */
 if (usb_status.B.PCI)
 	{
-//	debug_print_string(".USBpci.");
+//#ifdef USB_DEBUG
+	debug_print_string("[USBpci");
+//#endif
 	/*
 		Wait for the connect to finish
 	*/
@@ -535,6 +555,9 @@ if (usb_status.B.PCI)
 
 	semaphore->signal();
 	HW_USBC_UH1_USBSTS.B.PCI = 1;
+//#ifdef USB_DEBUG
+	debug_print_string("]");
+//#endif
 	}
 }
 
@@ -554,7 +577,9 @@ while(HW_USBC_UH1_PORTSC1_RD() & BM_USBC_UH1_PORTSC1_PR)
 /*
 	Wait for the interrupt
 */
+debug_print_string("[SEM-WAIT(usb_bus_reset)...");
 ATOSE_api::semaphore_wait(semaphore_handle);
+debug_print_string("]");
 
 return 0;
 }
@@ -613,9 +638,12 @@ queue_head->next_qtd_pointer = queue_head->alternate_next_qtd_pointer = (ATOSE_u
 	because if we worst case aligned then the first buffer will contain only one byte.
 	So, don't call this routine with more than 20KB of data
 */
-void ATOSE_host_usb::initialise_transfer_descriptor(ATOSE_usb_ehci_queue_element_transfer_descriptor *descriptor, uint32_t transaction_type, char *data, uint32_t data_length)
+void ATOSE_host_usb::initialise_transfer_descriptor(ATOSE_usb_ehci_queue_element_transfer_descriptor *descriptor, uint32_t transaction_type, char *user_space_data, uint32_t data_length)
 {
+char *data;
 uint32_t offset, remaining, block;
+
+data = (char *)ATOSE_atose::physical_address_of(user_space_data);
 
 /*
 	Set everything to zero
@@ -695,9 +723,11 @@ uint32_t ATOSE_host_usb::perform_transaction(ATOSE_usb_ehci_queue_head *queue)
 
 #endif
 
-//debug_print_string("[SEM-WAIT...");
+for (volatile uint64_t x = 0; x < 1000000; x++);
+
+debug_print_string("[SEM-WAIT(perform_transaction)...");
 ATOSE_api::semaphore_wait(semaphore_handle);
-//debug_print_string("DONE]");
+debug_print_string("DONE]");
 
 #ifdef NEVER
 	//empty_queue_head.queue_head_horizontal_link_pointer.all = (ATOSE_usb_ehci_queue_head *)((uint32_t)&empty_queue_head | ATOSE_usb_ehci_queue_head_horizontal_link_pointer::QUEUE_HEAD);
@@ -770,23 +800,6 @@ uint32_t ATOSE_host_usb::get_toggle(ATOSE_host_usb_device *device, uint32_t endp
 return (device->toggle & (1 << endpoint)) ? 1 : 0;
 }
 
-	/*
-		Although the reference manual allignes transfer descriptors on 32-byte boundaries, the
-		i.MX6Q SDK (iMX6_Platform_SDK\sdk\drivers\usb\src\usbh_drv.c) alligns them on 64-byte
-		boundaries (see usbh_qtd_init()).  We'll stick with 64 because it seems to work well.
-	*/
-	static ATOSE_usb_ehci_queue_head queue_head __attribute__ ((aligned(64)));
-	static ATOSE_usb_ehci_queue_head queue_head_2 __attribute__ ((aligned(64)));
-
-	/*
-		Although the reference manual allignes transfer descriptors on 32-byte boundaries, the
-		i.MX6Q SDK (iMX6_Platform_SDK\sdk\drivers\usb\src\usbh_drv.c) alligns them on 64-byte
-		boundaries (see usbh_qtd_init()).  We'll stick with 64 because it seems to work well.
-	*/
-	static ATOSE_usb_ehci_queue_element_transfer_descriptor transfer_descriptor_1 __attribute__ ((aligned(64)));
-	static ATOSE_usb_ehci_queue_element_transfer_descriptor transfer_descriptor_2 __attribute__ ((aligned(64)));
-	static ATOSE_usb_ehci_queue_element_transfer_descriptor transfer_descriptor_3 __attribute__ ((aligned(64)));
-
 /*
 	ATOSE_HOST_USB::SEND_SETUP_PACKET()
 	-----------------------------------
@@ -826,7 +839,12 @@ queue_head.next_qtd_pointer = &transfer_descriptor_1;
 /*
 	Yay, success!
 */
-return perform_transaction(&queue_head);
+debug_print_string("[SETUP-PACKET");
+uint32_t answer;
+answer = perform_transaction(&queue_head);
+debug_print_string("]");
+
+return answer;
 }
 
 /*
@@ -1026,18 +1044,6 @@ return 0;
 */
 
 /*
-	ATOSE_HOST_USB_DEVICE_MANAGER()
-	-------------------------------
-*/
-uint32_t ATOSE_host_usb_device_manager(void)
-{
-ATOSE_atose::get_ATOSE()->imx6q_host_usb.device_manager();
-
-ATOSE_api::exit(0);
-return 0;
-}
-
-/*
 	ATOSE_HOST_USB::WAIT_FOR_CONNECTION()
 	-------------------------------------
 */
@@ -1046,7 +1052,9 @@ uint32_t ATOSE_host_usb::wait_for_connection(void)
 /*
 	Wait for a connect event
 */
+debug_print_string("[SEM-WAIT(wait_for_connection)...");
 ATOSE_api::semaphore_wait(semaphore_handle);
+debug_print_string("]");
 
 /*
 	Reset the USB bus
@@ -1068,7 +1076,6 @@ ATOSE_host_usb_device_generic current;
 ATOSE_host_usb_device *device = NULL;
 uint8_t address;
 char *place;
-
 
 /*
 	Do we have room for this device?
@@ -1176,15 +1183,25 @@ if (device_descriptor.bNumConfigurations == 1)
 else
 	return NULL;
 
+#ifdef USB_DEBUG
+	debug_print_string("create driver object\r\n");
+#endif
+
 /*
 	Create a driver object for what ever it is we just found
 */
 switch (current.device_class)
 	{
 	case ATOSE_usb::DEVICE_CLASS_HUB:			// USB Hub
+#ifdef USB_DEBUG
+		debug_print_string("create hub\r\n");
+#endif
 		device = new (place) ATOSE_host_usb_device_hub(&current);
 		break;
 	case ATOSE_usb::DEVICE_CLASS_MSD:			// USB Mass Storage Device (disk)
+#ifdef USB_DEBUG
+		debug_print_string("create msd\r\n");
+#endif
 		device = new (place) ATOSE_host_usb_device_disk(&current);
 		break;
 	}
@@ -1192,13 +1209,13 @@ switch (current.device_class)
 return device->dead ? NULL : device;
 }
 
-
 /*
 	ATOSE_HOST_USB::DEVICE_MANAGER()
 	--------------------------------
 */
 void ATOSE_host_usb::device_manager(void)
 {
+debug_print_string("[***   IN   ***]");
 char buffer[10];
 
 /*
@@ -1215,7 +1232,6 @@ wait_for_connection();
 	debug_print_string("enumerate\r\n");
 #endif
 enumerate(0, 0, 0, HW_USBC_UH1_PORTSC1.B.PSPD);
-
 
 debug_print_string("  VID      PID      CLASS    SUBCLASS PROTOCOL\r\n");
 for (uint32_t current = 1; current < device_list_length; current++)
@@ -1240,6 +1256,7 @@ for (uint32_t current = 1; current < device_list_length; current++)
 			/*
 				We're a disk so we're going to do some extra stuff
 			*/
+			ATOSE_api::writeline("[CREATE PROCESS]");
 			ATOSE_api::spawn("SHELL.ELF");
 			ATOSE_server_disk disk;
 			disk.serve();

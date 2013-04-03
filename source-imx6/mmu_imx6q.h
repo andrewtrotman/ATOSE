@@ -16,13 +16,15 @@
 class ATOSE_mmu_imx6q : public ATOSE_mmu
 {
 public:
-	ATOSE_mmu_imx6q() : ATOSE_mmu()
-	{
-	/*
-		The SABRE Lite board has 1GB RAM located at 0x10000000
-	*/
-	push((void *)0x10000000, 1024 * 1024 * 1024);
-	}
+	ATOSE_mmu_imx6q() : ATOSE_mmu() {}
+	virtual void initialise(void)
+		{
+		/*
+			The SABRE Lite board has 1GB RAM located at 0x10000000
+		*/
+		push((void *)0x10000000, 1024 * 1024 * 1024);
+		ATOSE_mmu::initialise();
+		}
 };
 
 #endif

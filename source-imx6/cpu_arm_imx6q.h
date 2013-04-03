@@ -29,6 +29,7 @@ private:
 
 public:
 	ATOSE_cpu_arm_imx6q() : ATOSE_cpu_arm() {}
+	virtual void initialise(void) {}
 	virtual void set_interrupt_handlers(void *address);
 	virtual void delay_us(uint32_t time_in_useconds) { clock.delay_us(time_in_useconds); }
 } ;

@@ -12,13 +12,17 @@
 #include "address_space.h"
 #include "ascii_str.h"
 
+void debug_print_string(const char *string);
+
 /*
-	ATOSE_MMU::INIT()
-	-----------------
+	ATOSE_MMU::INITIALISE()
+	-----------------------
 */
-void ATOSE_mmu::init(void)
+void ATOSE_mmu::initialise(void)
 {
 uint32_t current;
+
+debug_print_string("ATOSE_mmu::init() ");
 
 /*
 	Don't even ask what this does...  Just go read pages 2-47 to 2-48 of "ARM Cortex™-A9 processors r2 releases"
@@ -98,13 +102,13 @@ peripheral_page = (ARM_MMU_V5_PAGE_SECTION_USER_FORBIDDEN | ARM_MMU_V5_PAGE_DOMA
 	User DATA pages are set to cache, buffer, user read write, no-execute:
 		 (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V7_PAGE_SECTION_USER_NO_EXECUTE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION)
 */
-user_data_page = (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V7_PAGE_SECTION_USER_NO_EXECUTE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION);
+user_data_page = (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V7_PAGE_SECTION_USER_NO_EXECUTE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_NONCACHED_NONBUFFERED | ARM_MMU_V5_PAGE_TYPE_SECTION);
 
 /*
 	User CODE (probram) pages are set to cache, buffer, and user can read only:
 		(ARM_MMU_V5_PAGE_SECTION_USER_READONLY | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION)
 */
-user_code_page = (ARM_MMU_V5_PAGE_SECTION_USER_READONLY | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION);
+user_code_page = (ARM_MMU_V5_PAGE_SECTION_USER_READONLY | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_NONCACHED_NONBUFFERED | ARM_MMU_V5_PAGE_TYPE_SECTION);
 
 /*
 	A page table can now be set up with: each page is 1MB in size (ARM V5 Sections), full permission to do anything
@@ -144,8 +148,9 @@ asm volatile
 	: [cache_enable]"r"(ARM_MMU_V5_CP15_R1_C | ARM_MMU_V5_CP15_R1_I | ARM_MMU_V7_CP15_R1_Z | ARM_MMU_V5_CP15_R1_M)
 	: "r0"
 	);
-}
 
+initialised = true;
+}
 
 /*
 	ATOSE_MMU::INVALIDATE_DATA_CACHE()
@@ -396,6 +401,9 @@ assume(address_space->get_page_table());
 */
 void ATOSE_mmu::assume_identity(void)
 {
-flush_caches();
-assume(identity_page_table);
+if (initialised)
+	{
+	flush_caches();
+	assume(identity_page_table);
+	}
 }

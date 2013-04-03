@@ -1,4 +1,4 @@
-/*
+/*v
 	INTERRUPT_ARM_GIC.C
 	-------------------
 	Copyright (c) 2013 Andrew Trotman
@@ -20,7 +20,7 @@
 	class ATOSE_INTERRUPT_ARM_GIC::ATOSE_INTERRUPT_ARM_GIC()
    --------------------------------------------------------
 */
-ATOSE_interrupt_arm_gic::ATOSE_interrupt_arm_gic() : ATOSE_interrupt()
+void ATOSE_interrupt_arm_gic::initialise(void)
 {
 uint32_t base;
 

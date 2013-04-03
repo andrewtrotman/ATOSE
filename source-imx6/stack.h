@@ -41,7 +41,8 @@ private:
 	static void set_stack(void *address, uint32_t mode);
 
 public:
-	ATOSE_stack();
+	ATOSE_stack() {}
+	void initialise(void);
 } ;
 
 #endif /* STACK_H_ */

@@ -42,7 +42,8 @@ private:
 	void set_cpsr(uint32_t new_cpsr);
 
 public:
-	ATOSE_cpu_arm() {};
+	ATOSE_cpu_arm() {}
+
 	virtual void set_interrupt_handlers(void *address) = 0;
 	void enable_irq(void) 						{ asm volatile ("cpsie i":::); }
 	void disable_irq(void) 						{ asm volatile ("cpsid i":::); }

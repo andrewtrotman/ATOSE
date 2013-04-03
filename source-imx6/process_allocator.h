@@ -51,7 +51,9 @@ private:
 	ATOSE_pipe *free_pipe_head;
 
 public:
-	ATOSE_process_allocator(ATOSE_mmu *mmu);
+	ATOSE_process_allocator() {}
+	void initialise(ATOSE_mmu *mmu);
+
 
 	ATOSE_process *malloc(ATOSE_address_space *space = NULL);
 	void free(ATOSE_process *process);

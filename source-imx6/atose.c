@@ -19,9 +19,23 @@ void debug_print_string(const char *string);
 	ATOSE_ATOSE::ATOSE_ATOSE()
 	--------------------------
 */
-ATOSE_atose::ATOSE_atose() : imx6q_heap(), process_allocator(&imx6q_heap), scheduler(&imx6q_heap, &process_allocator), process_clock(imx6q_process_clock), heap(imx6q_heap), debug(imx6q_serial_port), cpu(imx6q_cpu), interrupt_controller(imx6q_gic) /*, usb(imx6q_usb) */
+ATOSE_atose::ATOSE_atose() :
+	process_clock(imx6q_process_clock),
+	heap(imx6q_heap),
+	debug(imx6q_serial_port),
+	cpu(imx6q_cpu),
+	interrupt_controller(imx6q_gic)
+	/*, usb(imx6q_usb) */
 {
 set_ATOSE();
+stack.initialise();
+imx6q_cpu.initialise();
+imx6q_gic.initialise();
+imx6q_serial_port.initialise();
+imx6q_heap.initialise();
+imx6q_process_clock.initialise();
+process_allocator.initialise(&imx6q_heap);
+scheduler.initialise(&imx6q_heap, &process_allocator);
 }
 
 /*
@@ -30,15 +44,42 @@ set_ATOSE();
 */
 uint32_t start_shell(void)
 {
+#ifdef NEVER
 while (ATOSE_atose::get_ATOSE()->file_system.isdead())
 	;	// do nothing
 
 ATOSE_api::writeline("\r\nStart SHELL\r\n");
 ATOSE_api::spawn("SHELL.ELF");
 ATOSE_api::writeline("BACK\r\n");
-
+#endif
 ATOSE_api::exit(0);
 
+return 0;
+}
+
+/*
+	ATOSE_BOOTSTRAP()
+	-----------------
+*/
+uint32_t ATOSE_bootstrap(void)
+{
+ATOSE_host_usb imx6q_host_usb;
+ATOSE_fat file_system;
+ATOSE_atose *os = ATOSE_atose::get_ATOSE();
+
+imx6q_host_usb.initialise();
+imx6q_host_usb.enable();
+os->interrupt_controller.enable(&imx6q_host_usb, imx6q_host_usb.get_interrup_id());
+
+imx6q_host_usb.device_manager();
+
+
+//scheduler.create_system_thread(start_shell);
+
+void pipe_test(void);
+pipe_test();
+
+ATOSE_api::exit(0);
 return 0;
 }
 
@@ -48,18 +89,20 @@ return 0;
 */
 void ATOSE_atose::reset(ATOSE_registers *registers)
 {
-ATOSE_api api;
-
 /*
 	No need to set up the stacks because that was done as part of the object creation
 	But we do need to set up the IRQ
 */
 cpu.set_interrupt_handlers(this);
-debug << "\033[1;1H\033[40;1;37m\033[2J";
-debug << "ATOSE version i" << ATOSE_debug::eoln;
+//debug << "\033[1;1H\033[40;1;37m\033[2J";
+debug << "\r\n\r\n";
+debug << "ATOSE Version i" << ATOSE_debug::eoln;
 //debug << "ATOSE SIZE:" << sizeof(ATOSE_atose) << "\r\n";
 
-heap.init();		// and turn on the MMU
+/*
+	this line below is now done as part of the constructor of the MMU object
+*/
+//heap.init();		// and turn on the MMU
 
 //usb.enable();
 //interrupt_controller.enable(&usb, usb.get_interrup_id());
@@ -67,17 +110,15 @@ heap.init();		// and turn on the MMU
 interrupt_controller.enable(&process_clock, process_clock.get_interrup_id());
 process_clock.enable();
 
-//debug  << "Start the IDLE process";
-scheduler.create_system_thread(idle, true);
-//debug << "done" << ATOSE_debug::eoln;
+/*
+	Start the first processes
+*/
+scheduler.create_system_thread(idle, "IDLE", true);
+debug << "DONE";
 
-interrupt_controller.enable(&imx6q_host_usb, imx6q_host_usb.get_interrup_id());
-imx6q_host_usb.enable();
+scheduler.create_system_thread(ATOSE_bootstrap, "BOOTSTRAP");
+debug << "DONE";
 
-//scheduler.create_system_thread(start_shell);
-
-void pipe_test(void);
-pipe_test();
 
 /*
 	Now we've bootstrapped ATIRE, we start processing
@@ -161,7 +202,10 @@ void ATOSE_putc(ATOSE_registers *registers);
 void ATOSE_getc(ATOSE_registers *registers);
 void ATOSE_peekc(ATOSE_registers *registers);
 void ATOSE_spawn(ATOSE_registers *registers);
+void ATOSE_begin_thread(ATOSE_registers *registers);
+void ATOSE_yield(ATOSE_registers *registers);
 void ATOSE_exit(ATOSE_registers *registers);
+void ATOSE_sbrk(ATOSE_registers *registers);
 void ATOSE_semaphore_create(ATOSE_registers *registers);
 void ATOSE_semaphore_clear(ATOSE_registers *registers);
 void ATOSE_semaphore_signal(ATOSE_registers *registers);
@@ -171,7 +215,9 @@ void ATOSE_pipe_bind(ATOSE_registers *registers);
 void ATOSE_pipe_connect(ATOSE_registers *registers);
 void ATOSE_pipe_close(ATOSE_registers *registers);
 void ATOSE_pipe_send(ATOSE_registers *registers);
+void ATOSE_pipe_post_event(ATOSE_registers *regusters);
 void ATOSE_pipe_receive(ATOSE_registers *registers);
+void ATOSE_pipe_memcpy(ATOSE_registers *registers);
 void ATOSE_pipe_reply(ATOSE_registers *registers);
 
 typedef void(*ATOSE_system_method)(ATOSE_registers *);
@@ -181,7 +227,10 @@ ATOSE_putc,
 ATOSE_getc,
 ATOSE_peekc,
 ATOSE_spawn,
+ATOSE_begin_thread,
+ATOSE_yield,
 ATOSE_exit,
+ATOSE_sbrk,
 ATOSE_semaphore_create,
 ATOSE_semaphore_clear,
 ATOSE_semaphore_signal,
@@ -191,7 +240,9 @@ ATOSE_pipe_bind,
 ATOSE_pipe_connect,
 ATOSE_pipe_close,
 ATOSE_pipe_send,
+ATOSE_pipe_post_event,
 ATOSE_pipe_receive,
+ATOSE_pipe_memcpy,
 ATOSE_pipe_reply
 };
 
@@ -262,9 +313,29 @@ registers->r0 = ATOSE_atose::get_ATOSE()->debug.peek();
 */
 void ATOSE_spawn(ATOSE_registers *registers)
 {
-ATOSE_atose::get_ATOSE()->heap.assume_identity();
-if (ATOSE_atose::get_ATOSE()->scheduler.create_process((uint8_t *)registers->r1) == ATOSE_process_manager::SUCCESS)
-	ATOSE_atose::get_ATOSE()->heap.assume(ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->address_space);
+ATOSE_atose::get_ATOSE()->scheduler.create_process((uint8_t *)registers->r1);
+}
+
+/*
+	ATOSE_BEGIN_THREAD()
+	--------------------
+	r1 = address to start in
+*/
+void ATOSE_begin_thread(ATOSE_registers *registers)
+{
+ATOSE_atose::get_ATOSE()->scheduler.create_thread((uint32_t (*)())registers->r1);
+}
+
+/*
+	ATOSE_YIELD()
+	-------------
+	Do nothing... other than pass control on to the next process
+*/
+void ATOSE_yield(ATOSE_registers *registers)
+{
+/*
+	We do nothing here...  the effect is a context switch from this process to the next and a rescheduling of the current process
+*/
 }
 
 /*
@@ -275,6 +346,15 @@ void ATOSE_exit(ATOSE_registers *registers)
 {
 ATOSE_atose::get_ATOSE()->debug << "EXIT()";
 ATOSE_atose::get_ATOSE()->scheduler.terminate_current_process();
+}
+
+/*
+	ATOSE_SBRK()
+	------------
+*/
+void ATOSE_sbrk(ATOSE_registers *registers)
+{
+//registers->r0 = ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->address_space->sbrk(registers->r1);
 }
 
 /*
@@ -369,12 +449,30 @@ void ATOSE_pipe_send(ATOSE_registers *registers)
 }
 
 /*
+	ATOSE_PIPE_POST_EVENT()
+	-----------------------
+*/
+void ATOSE_pipe_post_event(ATOSE_registers *registers)
+{
+((ATOSE_pipe *)registers->r1)->post_event(registers->r2);
+}
+
+/*
 	ATOSE_PIPE_RECEIVE()
 	--------------------
 */
 void ATOSE_pipe_receive(ATOSE_registers *registers)
 {
-((ATOSE_pipe *)registers->r1)->receive((void *)registers->r2, registers->r3);
+((ATOSE_pipe *)registers->r1)->receive((void *)registers->r2, registers->r3, (uint32_t *)registers->r4);
+}
+
+/*
+	ATOSE_PIPE_MEMCPY()
+	-------------------
+*/
+void ATOSE_pipe_memcpy(ATOSE_registers *registers)
+{
+((ATOSE_pipe_task*)registers->r1)->server->memcpy(registers->r1, registers->r2, (void *)registers->r3, registers->r4);
 }
 
 /*
@@ -383,5 +481,5 @@ void ATOSE_pipe_receive(ATOSE_registers *registers)
 */
 void ATOSE_pipe_reply(ATOSE_registers *registers)
 {
-((ATOSE_pipe_task*)registers->r1)->server->reply(registers->r1, (void *)registers->r2, registers->r3);
+((ATOSE_pipe_task*)registers->r1)->server->reply(registers->r1, (void *)registers->r2, registers->r3, registers->r4);
 }

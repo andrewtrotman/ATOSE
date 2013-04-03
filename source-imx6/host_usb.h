@@ -57,7 +57,8 @@ protected:
 	void hub_get_best_configuration(ATOSE_usb_standard_configuration_descriptor *configuration_descriptor, uint32_t *best_interface, uint32_t *best_alternate, uint32_t *best_endpoint);
 
 public:
-	ATOSE_host_usb();
+	ATOSE_host_usb() : ATOSE_device_driver() {}
+	virtual void initialise(void);
 
 	/*
 		Device driver methods

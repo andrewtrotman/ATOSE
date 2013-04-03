@@ -57,7 +57,7 @@ public:
 		set_configuration().  The exception to the rule is when a seup packet transferred.  Since the toggles are device specifi
 		they go here.
 	*/
-	uint32_t toggle;								// the maximum number of endpoints supported by the USB protocol is 32
+	uint32_t toggle;
 
 	/*
 		Each endpoint can have (and in the case of a USB Flash Drive, does have) and different max packet size.  This is because
@@ -80,6 +80,7 @@ public:
 	uint8_t device_class;
 	uint8_t device_subclass;
 	uint8_t device_protocol;
+
 	/*
 		Stuff about how to talk to it
 	*/

@@ -36,7 +36,8 @@ private:
 	ATOSE_device_driver *device[MAX_INTERRUPT_VECTOR];								// for each interrupt, this table points to the device driver object
 
 public:
-	ATOSE_interrupt_arm_gic();
+	ATOSE_interrupt_arm_gic() : ATOSE_interrupt() {}
+	virtual void initialise(void);
 
 	virtual void enable(ATOSE_device_driver *driver, uint32_t source);
 	virtual uint32_t get_interrup_id(void) { return 0; }

@@ -17,10 +17,10 @@
 #include "timer_imx6q.h"
 
 /*
-	ATOSE_TIMER_IMX6Q::ATOSE_TIMER_IMX6Q()
-   --------------------------------------
+	ATOSE_TIMER_IMX6Q::INITIALISE()
+   -------------------------------
 */
-ATOSE_timer_imx6q::ATOSE_timer_imx6q() : ATOSE_timer()
+void ATOSE_timer_imx6q::initialise(void)
 {
 disable();
 

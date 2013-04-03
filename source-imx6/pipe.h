@@ -52,10 +52,11 @@ public:
 	uint32_t bind(uint32_t pipe_id);
 	uint32_t connect(uint32_t pipe_id);
 	uint32_t close(void);
-	uint32_t send(void *message, uint32_t length, void *reply, uint32_t reply_length, uint32_t event_id = 0);
+	uint32_t send(void *reply, uint32_t reply_length, void *message, uint32_t length, uint32_t event_id = 0);
 	uint32_t post_event(uint32_t event) { return send(0, 0, 0, 0, event); }
-	uint32_t receive(void *data, uint32_t length);
-	uint32_t reply(uint32_t message_id, void *data, uint32_t length);
+	uint32_t receive(void *data, uint32_t length, uint32_t *client_id);
+	uint32_t memcpy(uint32_t message_id, uint32_t target_offset, void *source, uint32_t length);
+	uint32_t reply(uint32_t message_id, void *data, uint32_t length, uint32_t return_code);
 };
 
 #endif

@@ -12,6 +12,7 @@
 #include "usb_standard_interface_descriptor.h"
 #include "usb_standard_endpoint_descriptor.h"
 
+void debug_print_string(const char *string);
 
 /*
 	ATOSE_HOST_USB_DEVICE_HUB::ATOSE_HOST_USB_DEVICE_HUB()
@@ -24,6 +25,7 @@ uint32_t port;
 ATOSE_usb_standard_hub_descriptor hub_descriptor;
 ATOSE_usb_hub_port_status_and_change status;
 
+debug_print_string("[get_hub_descriptor]\r\n");
 if (get_hub_descriptor(&hub_descriptor) != 0)
 	return;
 
@@ -34,8 +36,10 @@ for (port = 1; port <= hub_ports; port++)
 	/*
 		Power up the port
 	*/
+	debug_print_string("[set_port_feature]\r\n");
 	if (set_port_feature(port, ATOSE_usb_hub::PORT_POWER) == 0)
 		{
+		debug_print_string("[get_port_status]\r\n");
 		if (get_port_status(port, &status) == 0)
 			{
 			if (status.status.port_connection)
@@ -43,8 +47,13 @@ for (port = 1; port <= hub_ports; port++)
 				/*
 					Reset the port
 				*/
+				debug_print_string("[PORT_RESET]\r\n");
 				set_port_feature(port, ATOSE_usb_hub::PORT_RESET);
+
+				debug_print_string("[C_PORT_CONNECTION]\r\n");
 				clear_port_feature(port, ATOSE_usb_hub::C_PORT_CONNECTION);
+
+				debug_print_string("[C_PORT_RESET]\r\n");
 				clear_port_feature(port, ATOSE_usb_hub::C_PORT_RESET);
 
 				/*
@@ -52,12 +61,15 @@ for (port = 1; port <= hub_ports; port++)
 					I have observed this happening, and we can't just ignore it because otherwise we end up using a transaction translator
 					when we shouldn't and it all goes to pot.
 				*/
+				debug_print_string("[get_port_status]\r\n");
 				if (get_port_status(port, &status) == 0)
 					{
 					/*
 						Do that recursive thing (enumerate my children)
 						If the child is USB 1.1 and I'm USB 2.0 then I'm the translator, else my translator is my child's translator
 					*/
+					debug_print_string("[recurse]\r\n");
+
 					child_velocity = status.status.port_low_speed ? ATOSE_host_usb_device::VELOCITY_LOW : status.status.port_high_speed ? ATOSE_host_usb_device::VELOCITY_HIGH : ATOSE_host_usb_device::VELOCITY_FULL;
 					if (port_velocity == ATOSE_host_usb_device::VELOCITY_HIGH && (child_velocity == ATOSE_host_usb_device::VELOCITY_LOW || child_velocity == ATOSE_host_usb_device::VELOCITY_FULL))
 						ehci->enumerate(address, address, port, child_velocity);

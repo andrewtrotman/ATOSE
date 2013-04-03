@@ -8,10 +8,10 @@
 #include "process_allocator.h"
 
 /*
-	ATOSE_PROCESS_ALLOCATOR::ATOSE_PROCESS_ALLOCATOR()
-	--------------------------------------------------
+	ATOSE_PROCESS_ALLOCATOR::INITIALISE()
+	-------------------------------------
 */
-ATOSE_process_allocator::ATOSE_process_allocator(ATOSE_mmu *mmu)
+void ATOSE_process_allocator::initialise(ATOSE_mmu *mmu)
 {
 uint32_t current;
 

@@ -39,9 +39,12 @@ private:
 	ATOSE_mmu_imx6q imx6q_heap;
 	ATOSE_timer_imx6q imx6q_process_clock;
 //	ATOSE_usb_imx6q imx6q_usb;
+
+#ifdef NEVER
 public:
 	ATOSE_host_usb imx6q_host_usb;
 	ATOSE_fat file_system;
+#endif
 
 public:
 	/*
@@ -49,6 +52,7 @@ public:
 	*/
 	ATOSE_process_allocator process_allocator;
 	ATOSE_process_manager scheduler;
+public:
 	ATOSE_timer &process_clock;
 	ATOSE_mmu &heap;
 	ATOSE_debug &debug;
@@ -63,6 +67,7 @@ public:
 	ATOSE_atose();
 
 	static ATOSE_atose *get_ATOSE(void) { extern ATOSE_atose *ATOSE_pointer; return ATOSE_pointer; }
+	static void *physical_address_of(void *user_space_address) { return ATOSE_atose::get_ATOSE()->scheduler.physical_address_of(user_space_address); }
 
 	virtual void reset(ATOSE_registers *registers = NULL);		// we can't normally have the registers on reset.
 	virtual void isr_firq(ATOSE_registers *registers);

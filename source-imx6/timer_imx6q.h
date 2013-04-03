@@ -22,7 +22,8 @@ private:
 	static const uint32_t TIME_SLICE_IN_MILLISECONDS = 20;		// 20ms per time slice (i.e. between forced context switches)
 
 public:
-	ATOSE_timer_imx6q();
+	ATOSE_timer_imx6q() : ATOSE_timer() {}
+	virtual void initialise(void);
 
 	virtual void enable(void);
 	virtual void disable(void);

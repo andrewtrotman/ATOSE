@@ -29,11 +29,14 @@ public:
 private:
 	ATOSE_mmu *mmu;
 	ATOSE_mmu_page_list page_list;
-	uint32_t *page_table;
+	uint32_t *page_table;			// the physical address of the page table
+	uint32_t *soft_page_table;		// the virtual address of the page table
 	uint32_t reference_count;
 
 public:
 	ATOSE_address_space *next;
+	uint8_t *the_heap_break;
+	uint8_t *the_stack_break;
 
 protected:
 	uint32_t add_page(void *virtual_address, ATOSE_mmu_page *page, uint32_t type);
@@ -43,16 +46,17 @@ public:
 	void initialise(ATOSE_mmu *mmu) { this->mmu = mmu; reference_count = 0; }
 
 	ATOSE_address_space *create(void);
-	ATOSE_address_space *create_identity(void);
+//	ATOSE_address_space *create_identity(void);
 	uint32_t destroy(void);
 
 	uint8_t *add(void *address, size_t size, uint32_t permissions);
-	ATOSE_mmu_page *add_to_identity(void);
-
 	uint32_t *get_page_table(void) { return page_table; }
 
 	uint32_t get_reference_count(void) { return reference_count; }
 	ATOSE_address_space *get_reference(void) { reference_count++; return this; }
+
+	void *sbrk(uint32_t bytes_to_add);
+	void *physical_address_of(void *user_address);
 } ;
 
 #endif

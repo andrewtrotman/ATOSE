@@ -15,28 +15,40 @@
 #include "mmu_page.h"
 #include "address_space.h"
 
+void debug_print_this(const char *start, uint32_t hex, const char *end = "");
+void debug_print_string(const char *string);
+
 /*
 	ATOSE_ADDRESS_SPACE::CREATE()
 	-----------------------------
 */
 ATOSE_address_space *ATOSE_address_space::create(void)
 {
+ATOSE_address_space *answer, *current_address_space;
 ATOSE_mmu_page *page, *stack_page;
 uint32_t current;
 
 if (reference_count != 0)
 	return this;
 
+debug_print_this("ATOSE_address_space::create() [mmu=", (uint32_t)mmu, "]");
 /*
 	Get a page from the MMU and use that page as the page table. In that
 	page table we put the OS at the bottom (because that's were the
-	interrupt vector table must be stored) the page table itself is not
+	interrupt vector table must be stored) the page table itself is later placed
 	in the address space.  Initialise  all other pages to cause faults
 	except the stack at top of memory, which requires the allocation of a
 	second page.
 */
 if ((page = mmu->pull()) == 0)
 	return NULL;			// fail as we're of out of physical pages to allocate
+
+debug_print_string("[passed checks]");
+
+/*
+	Move into the land of the identity address space (so we can access memory directly)
+*/
+mmu->assume_identity();
 
 page_table = ((uint32_t *)page->physical_address);
 page_list.push(page);		// mark the page as part of the process's list of pages
@@ -69,8 +81,18 @@ page_table[0] = (0 << 20) | mmu->os_page;
 page_table[9] = (9 << 20) | mmu->os_page;
 
 /*
-	Mark all other pages to cause faults (except for the last page)
+	Place the page table into the address space (because we're going to need it for hardware stuff)
 */
+page_table[current] = (uint32_t)(((uint32_t)page->physical_address & 0xFFF00000) | mmu->os_page);
+soft_page_table = (uint32_t *)(current << 20);
+current++;
+
+debug_print_string("[here]");
+
+/*
+	Set the break and mark all pages above it to cause faults (except for the last page, the stack)
+*/
+the_heap_break = (uint8_t *)(current  << 20);
 while (current < mmu->pages_in_address_space - 1)
 	{
 	page_table[current] =  mmu->bad_page;		// fault on access
@@ -81,13 +103,28 @@ while (current < mmu->pages_in_address_space - 1)
 	Allocate the stack at top of memory
 */
 if ((stack_page = mmu->pull()) == 0)
-	return 0;		// clean up will happen when the address_space object is deleted
+	answer = NULL;		// clean up will happen when the address_space object is deleted
+else
+	{
+	the_stack_break = (uint8_t *)(mmu->highest_address - mmu->page_size + 1);
+	add_page(the_stack_break, stack_page, mmu->user_data_page);
+	the_stack_break -= mmu->page_size;
+	answer = this;
+	}
 
-add_page((void *)(mmu->highest_address - mmu->page_size + 1), stack_page, mmu->user_data_page);
+debug_print_string("[go back to old address space]");
+debug_print_this("[current process id:", (uint32_t)ATOSE_atose::get_ATOSE()->scheduler.get_current_process(), "]");
 
-return this;
+if (ATOSE_atose::get_ATOSE()->scheduler.get_current_process() != NULL)
+	if ((current_address_space = ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->address_space) != NULL)
+		mmu->assume(current_address_space);
+
+debug_print_string("[done]");
+
+return answer;
 }
 
+#ifdef NEVER
 /*
 	ATOSE_ADDRESS_SPACE::CREATE_IDENTITY()
 	--------------------------------------
@@ -110,6 +147,7 @@ if (reference_count == 0)
 
 return this;
 }
+#endif
 
 /*
 	ATOSE_ADDRESS_SPACE::DESTROY()
@@ -175,19 +213,30 @@ return 0;
 /*
 	ATOSE_ADDRESS_SPACE::ADD()
 	--------------------------
+	returns 0 on failure
 */
 uint8_t *ATOSE_address_space::add(void *address, size_t size, uint32_t permissions)
 {
+ATOSE_address_space *current_address_space;
 ATOSE_mmu_page *page;
 size_t base_page, last_page, which;
 uint64_t end;
 uint32_t rights;
+
+debug_print_string("[ATOSE_address_space::add]");
 
 /*
 	Make sure we fit within the address space
 */
 if ((end = ((size_t)address + size)) > mmu->highest_address)
 	return NULL;					// we over-flow the address space
+
+/*
+	Get into the identity space
+*/
+debug_print_string("[assume identity]");
+mmu->assume_identity();
+debug_print_string("[assumed]");
 
 /*
 	Get the page number of the first page in the list and the number of pages needed
@@ -206,7 +255,10 @@ for (which = base_page; which <= last_page; which++)
 	if (page_table[which] == 0)
 		{
 		if ((page = mmu->pull()) == 0)
-			return NULL;		// We fail because there are no more pages to give
+			{
+			address = NULL;		// We fail because there are no more pages to give
+			break;
+			}
 
 		/*
 			Sort out the permissions
@@ -226,11 +278,21 @@ for (which = base_page; which <= last_page; which++)
 	}
 
 /*
+	get back into the caller's address space
+*/
+debug_print_string("[go back to old address space]");
+if (ATOSE_atose::get_ATOSE()->scheduler.get_current_process() != NULL)
+	if ((current_address_space = ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->address_space) != NULL)
+		mmu->assume(current_address_space);
+
+/*
 	return a pointer to the beginning of the address space allocated
 */
+debug_print_string("[done]");
 return (uint8_t *)address;
 }
 
+#ifdef NEVER
 /*
 	ATOSE_ADDRESS_SPACE::ADD_TO_IDENTITY()
 	--------------------------------------
@@ -239,7 +301,6 @@ ATOSE_mmu_page *ATOSE_address_space::add_to_identity(void)
 {
 ATOSE_mmu_page *page;
 
-
 if ((page = mmu->pull()) == 0)
 	return NULL;
 
@@ -247,4 +308,23 @@ page_list.push(page);
 
 return page;
 }
+#endif
 
+/*
+	ATOSE_ADDRESS_SPACE::PHYSICAL_ADDRESS_OF()
+	------------------------------------------
+*/
+void *ATOSE_address_space::physical_address_of(void *user_address)
+{
+uint32_t address = (uint32_t)user_address;
+void *answer;
+
+//debug_print_string("{}");
+//debug_print_this("[PAGE TABLE:", (uint32_t)page_table, "]");
+//debug_print_this("[SOFT PAGE TABLE:", (uint32_t)soft_page_table, "]");
+answer = (void *)((soft_page_table[address >> 20] & 0xFFF00000) | (address & 0xFFFFF));
+debug_print_this("[TRANSLATED from:", (uint32_t)address, "]");
+debug_print_this("[TRANSLATED to:", (uint32_t)answer, "]");
+
+return answer;
+}

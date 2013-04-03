@@ -16,10 +16,10 @@
 #include "uart_imx6q.h"
 
 /*
-	ATOSE_UART_IMX6Q::ATOSE_UART_IMX6Q()
-	------------------------------------
+	ATOSE_UART_IMX6Q::INITIALISE()
+	------------------------------
 */
-ATOSE_uart_imx6q::ATOSE_uart_imx6q() : ATOSE_debug()
+void ATOSE_uart_imx6q::initialise(void)
 {
 /*
 	Enable the clock to the UART

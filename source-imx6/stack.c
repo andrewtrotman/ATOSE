@@ -37,11 +37,11 @@ asm volatile
 }
 
 /*
-	ATOSE_STACK::ATOSE_STACK()
-	--------------------------
+	ATOSE_STACK::INITIALISE()
+	-------------------------
 	Go through each CPU mode and set the top of stack to a valid address hat we can use.
 */
-ATOSE_stack::ATOSE_stack()
+void ATOSE_stack::initialise(void)
 {
 uint32_t status_register, current_mode;
 

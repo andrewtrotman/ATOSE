@@ -51,7 +51,8 @@ protected:
 	static uint32_t exec(uint32_t parameter);
 
 public:
-	ATOSE_process_manager(ATOSE_mmu *mmu, ATOSE_process_allocator *process_allocator);
+	ATOSE_process_manager() {}
+	void initialise(ATOSE_mmu *mmu, ATOSE_process_allocator *process_allocator);
 
 	/*
 		Methods to add and remove from the scheduler's process queue
@@ -65,7 +66,8 @@ public:
 		Process Management Methods
 	*/
 	uint32_t create_process(const uint8_t *elf_filename);
-	uint32_t create_system_thread(uint32_t (*start)(void), uint32_t is_idle_process = false);
+	uint32_t create_thread(uint32_t (*start)(void));
+	uint32_t create_system_thread(uint32_t (*start)(void), const char *name, uint32_t is_idle_process = false);
 	uint32_t terminate_current_process(void);
 
 	uint32_t context_switch(ATOSE_registers *registers);
@@ -73,6 +75,8 @@ public:
 	ATOSE_process *get_current_process(void) { return current_process; }
 	void set_current_process(ATOSE_process *process) { current_process = process; }
 	ATOSE_process *get_next_process(void);
+
+	void *physical_address_of(void *user_address) { return current_process->address_space->physical_address_of(user_address); }
 } ;
 
 #endif /* PROCESS_MANAGER_H_ */
