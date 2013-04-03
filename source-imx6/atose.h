@@ -40,11 +40,9 @@ private:
 	ATOSE_timer_imx6q imx6q_process_clock;
 //	ATOSE_usb_imx6q imx6q_usb;
 
-#ifdef NEVER
 public:
 	ATOSE_host_usb imx6q_host_usb;
 	ATOSE_fat file_system;
-#endif
 
 public:
 	/*

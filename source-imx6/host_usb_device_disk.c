@@ -580,7 +580,7 @@ if ((error = scsi_read(buffer, block_size, 0, 1)) != 0)
 	return error;
 
 partition_table = buffer + 0x1BE;
-//ATOSE_atose::get_ATOSE()->file_system.initialise(this, (uint32_t)(*(ATOSE_lsb_uint32_t *)(partition_table + 0x08)));
+ATOSE_atose::get_ATOSE()->file_system.initialise(this, (uint32_t)(*(ATOSE_lsb_uint32_t *)(partition_table + 0x08)));
 
 return error;
 }

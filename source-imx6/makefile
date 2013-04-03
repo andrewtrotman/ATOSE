@@ -27,6 +27,7 @@ OBJECTS =						\
 	atose_api.o						\
 	address_space.o				\
 	atose.o						\
+	client_file.o				\
 	clock_imx6q.o				\
 	cpu_arm.o					\
 	cpu_arm_imx6q.o				\
@@ -44,6 +45,7 @@ OBJECTS =						\
 	kernel_malloc.o				\
 	kernel_memory_allocator.o	\
 	main.o						\
+	malloc.o						\
 	mmu.o						\
 	mmu_page_list.o				\
 	pipe.o						\

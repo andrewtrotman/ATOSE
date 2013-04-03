@@ -24,14 +24,18 @@ void debug_print_string(const char *string);
 */
 ATOSE_address_space *ATOSE_address_space::create(void)
 {
-ATOSE_address_space *answer, *current_address_space;
+ATOSE_address_space *answer = NULL, *current_address_space;
 ATOSE_mmu_page *page, *stack_page;
 uint32_t current;
 
 if (reference_count != 0)
 	return this;
 
-debug_print_this("ATOSE_address_space::create() [mmu=", (uint32_t)mmu, "]");
+/*
+	Move into the land of the identity address space (so we can access memory directly)
+*/
+mmu->assume_identity();
+
 /*
 	Get a page from the MMU and use that page as the page table. In that
 	page table we put the OS at the bottom (because that's were the
@@ -40,86 +44,75 @@ debug_print_this("ATOSE_address_space::create() [mmu=", (uint32_t)mmu, "]");
 	except the stack at top of memory, which requires the allocation of a
 	second page.
 */
-if ((page = mmu->pull()) == 0)
-	return NULL;			// fail as we're of out of physical pages to allocate
-
-debug_print_string("[passed checks]");
-
-/*
-	Move into the land of the identity address space (so we can access memory directly)
-*/
-mmu->assume_identity();
-
-page_table = ((uint32_t *)page->physical_address);
-page_list.push(page);		// mark the page as part of the process's list of pages
-
-/*
-	Place ATOSE at bottom of memory on the i.MX6Q
-	On the i.MX6Q the bottom 1MB of of the address space is:
-		0x00000000 - 0x00017FFF  96 KB Boot ROM (ROMCP)
-		0x00018000 - 0x000FFFFF 928 KB Reserved
-		0x00100000 - 0x00103FFF  16 KB CAAM (16K secure RAM)
-	Then there's the register map going up to 0x10000000 (the 256MB mark) including
-		0x00900000 - 0x0093FFFF 256KN OCRAM
-		0x00940000 - 0x009FFFFF 0.75 MB OCRAM aliased
-	Its this on-chip RAM where we'll fit the ATIRE (interesting how, including alias, its 1MB (Section size)).  We can mark these pages as user no-access
-
-	On the i.MX6Q the bottom 256 MB of RAM is registers and on-chip RAM so we slice that out of the address space.
-*/
-
-/*
-	The peripheral pages (register map) must be non-bufferable non-cachable
-*/
-for (current = 1; current < 256; current++)
-	page_table[current] = (current << 20) | mmu->peripheral_page;			// user access is forbidden
-
-/*
-	The ROM must be executable by the OS because otherwise an IRQ cannot be serviced, but no user read
-	The 1MB of OC-RAM including its alias can be cachable, buffereable, etc, but no user read
-*/
-page_table[0] = (0 << 20) | mmu->os_page;
-page_table[9] = (9 << 20) | mmu->os_page;
-
-/*
-	Place the page table into the address space (because we're going to need it for hardware stuff)
-*/
-page_table[current] = (uint32_t)(((uint32_t)page->physical_address & 0xFFF00000) | mmu->os_page);
-soft_page_table = (uint32_t *)(current << 20);
-current++;
-
-debug_print_string("[here]");
-
-/*
-	Set the break and mark all pages above it to cause faults (except for the last page, the stack)
-*/
-the_heap_break = (uint8_t *)(current  << 20);
-while (current < mmu->pages_in_address_space - 1)
+if ((page = mmu->pull()) != 0)
 	{
-	page_table[current] =  mmu->bad_page;		// fault on access
+	page_table = ((uint32_t *)page->physical_address);
+	page_list.push(page);		// mark the page as part of the process's list of pages
+
+	/*
+		Place ATOSE at bottom of memory on the i.MX6Q
+		On the i.MX6Q the bottom 1MB of of the address space is:
+			0x00000000 - 0x00017FFF  96 KB Boot ROM (ROMCP)
+			0x00018000 - 0x000FFFFF 928 KB Reserved
+			0x00100000 - 0x00103FFF  16 KB CAAM (16K secure RAM)
+		Then there's the register map going up to 0x10000000 (the 256MB mark) including
+			0x00900000 - 0x0093FFFF 256KN OCRAM
+			0x00940000 - 0x009FFFFF 0.75 MB OCRAM aliased
+		Its this on-chip RAM where we'll fit the ATIRE (interesting how, including alias, its 1MB (Section size)).  We can mark these pages as user no-access
+
+		On the i.MX6Q the bottom 256 MB of RAM is registers and on-chip RAM so we slice that out of the address space.
+	*/
+
+	/*
+		The peripheral pages (register map) must be non-bufferable non-cachable
+	*/
+	for (current = 1; current < 256; current++)
+		page_table[current] = (current << 20) | mmu->peripheral_page;			// user access is forbidden
+
+	/*
+		The ROM must be executable by the OS because otherwise an IRQ cannot be serviced, but no user read
+		The 1MB of OC-RAM including its alias can be cachable, buffereable, etc, but no user read
+	*/
+	page_table[0] = (0 << 20) | mmu->os_page;
+	page_table[9] = (9 << 20) | mmu->os_page;
+
+	/*
+		Place the page table into the address space (because we're going to need it for hardware stuff)
+	*/
+	page_table[current] = (uint32_t)(((uint32_t)page->physical_address & 0xFFF00000) | mmu->os_page);
+	soft_page_table = (uint32_t *)(current << 20);
 	current++;
+
+	/*
+		Set the break and mark all pages above it to cause faults (except for the last page, the stack)
+	*/
+	the_heap_break = (uint8_t *)(current  << 20);
+	while (current < mmu->pages_in_address_space - 1)
+		{
+		page_table[current] =  mmu->bad_page;		// fault on access
+		current++;
+		}
+
+	/*
+		Allocate the stack at top of memory
+	*/
+	if ((stack_page = mmu->pull()) == 0)
+		answer = NULL;		// clean up will happen when the address_space object is deleted
+	else
+		{
+		the_stack_break = (uint8_t *)(mmu->highest_address - mmu->page_size + 1);
+		add_page(the_stack_break, stack_page, mmu->user_data_page);
+		the_stack_break -= mmu->page_size;
+		answer = this;
+		}
 	}
 
 /*
-	Allocate the stack at top of memory
+	return to the caller's address space
 */
-if ((stack_page = mmu->pull()) == 0)
-	answer = NULL;		// clean up will happen when the address_space object is deleted
-else
-	{
-	the_stack_break = (uint8_t *)(mmu->highest_address - mmu->page_size + 1);
-	add_page(the_stack_break, stack_page, mmu->user_data_page);
-	the_stack_break -= mmu->page_size;
-	answer = this;
-	}
-
-debug_print_string("[go back to old address space]");
-debug_print_this("[current process id:", (uint32_t)ATOSE_atose::get_ATOSE()->scheduler.get_current_process(), "]");
-
 if (ATOSE_atose::get_ATOSE()->scheduler.get_current_process() != NULL)
 	if ((current_address_space = ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->address_space) != NULL)
 		mmu->assume(current_address_space);
-
-debug_print_string("[done]");
 
 return answer;
 }
@@ -165,7 +158,7 @@ ATOSE_mmu_page *page;
 reference_count--;
 
 /*
-	if other objectvs refer to this
+	if other objects refer to this
 */
 if (reference_count > 0)
 	return reference_count;
@@ -223,8 +216,6 @@ size_t base_page, last_page, which;
 uint64_t end;
 uint32_t rights;
 
-debug_print_string("[ATOSE_address_space::add]");
-
 /*
 	Make sure we fit within the address space
 */
@@ -234,9 +225,7 @@ if ((end = ((size_t)address + size)) > mmu->highest_address)
 /*
 	Get into the identity space
 */
-debug_print_string("[assume identity]");
 mmu->assume_identity();
-debug_print_string("[assumed]");
 
 /*
 	Get the page number of the first page in the list and the number of pages needed
@@ -280,7 +269,6 @@ for (which = base_page; which <= last_page; which++)
 /*
 	get back into the caller's address space
 */
-debug_print_string("[go back to old address space]");
 if (ATOSE_atose::get_ATOSE()->scheduler.get_current_process() != NULL)
 	if ((current_address_space = ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->address_space) != NULL)
 		mmu->assume(current_address_space);
@@ -288,7 +276,6 @@ if (ATOSE_atose::get_ATOSE()->scheduler.get_current_process() != NULL)
 /*
 	return a pointer to the beginning of the address space allocated
 */
-debug_print_string("[done]");
 return (uint8_t *)address;
 }
 
@@ -317,14 +304,17 @@ return page;
 void *ATOSE_address_space::physical_address_of(void *user_address)
 {
 uint32_t address = (uint32_t)user_address;
-void *answer;
 
-//debug_print_string("{}");
-//debug_print_this("[PAGE TABLE:", (uint32_t)page_table, "]");
-//debug_print_this("[SOFT PAGE TABLE:", (uint32_t)soft_page_table, "]");
-answer = (void *)((soft_page_table[address >> 20] & 0xFFF00000) | (address & 0xFFFFF));
-debug_print_this("[TRANSLATED from:", (uint32_t)address, "]");
-debug_print_this("[TRANSLATED to:", (uint32_t)answer, "]");
+return (void *)((soft_page_table[address >> 20] & 0xFFF00000) | (address & 0xFFFFF));
+}
 
-return answer;
+/*
+	ATOSE_ADDRESS_SPACE::SBRK()
+	---------------------------
+*/
+void *ATOSE_address_space::sbrk(uint32_t bytes_to_add)
+{
+add(the_heap_break, bytes_to_add, READ | WRITE);
+the_heap_break += bytes_to_add;
+return the_heap_break;
 }

@@ -12,8 +12,6 @@
 #include "address_space.h"
 #include "ascii_str.h"
 
-void debug_print_string(const char *string);
-
 /*
 	ATOSE_MMU::INITIALISE()
 	-----------------------
@@ -21,8 +19,6 @@ void debug_print_string(const char *string);
 void ATOSE_mmu::initialise(void)
 {
 uint32_t current;
-
-debug_print_string("ATOSE_mmu::init() ");
 
 /*
 	Don't even ask what this does...  Just go read pages 2-47 to 2-48 of "ARM Cortex™-A9 processors r2 releases"
@@ -303,8 +299,8 @@ for (page = (uint8_t *)location; page < end; page += page_size)
 		{
 		/*
 			First we need to slice the ATOSE "identity" page table out of this
-			The page table must be alligned on a 16KB boundary.  As we have 1MB
-			pages we can guarantee that the page table will be correctly alliged
+			The page table must be aligned on a 16KB boundary.  As we have 1MB
+			pages we can guarantee that the page table will be correctly aligned
 			if placed at the start of a page.
 
 			Note that we have not set up the page table yet
@@ -316,9 +312,16 @@ for (page = (uint8_t *)location; page < end; page += page_size)
 		*/
 		set_allocation_page(page + (pages_in_address_space * sizeof(uint32_t)), page_size - (pages_in_address_space * sizeof(uint32_t)));
 		}
+	else if (page_count == 1)
+		{
+		/*
+			Take a note of where the system's "break" should be.
+		*/
+		the_system_break = page;
+		}
 
 	/*
-		create a MMU page object
+		create an MMU page object
 	*/
 	current = (ATOSE_mmu_page *)malloc(sizeof(*current));
 	current->physical_address = page;

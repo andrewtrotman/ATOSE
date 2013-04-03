@@ -13,6 +13,7 @@
 #include "sleep_wake.h"
 
 class ATOSE_file_control_block;
+class ATOSE_FILE;
 
 /*
 	class ATOSE_PROCESS_MANAGER
@@ -36,7 +37,7 @@ protected:
 	/*
 		Method to create a process from and ELF file
 	*/
-	uint32_t elf_load(ATOSE_process *process, ATOSE_file_control_block *infile);
+	uint32_t elf_load(ATOSE_FILE *infile);
 
 	/*
 		Set up a process ready to run

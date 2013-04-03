@@ -34,7 +34,7 @@
 #include "usb_standard_configuration_descriptor.h"
 
 
-#define USB_DEBUG 1
+//#define USB_DEBUG 1
 #include "server_disk.h"
 /*
 	=====================================================
@@ -544,9 +544,9 @@ if (usb_status.B.URI)
 */
 if (usb_status.B.PCI)
 	{
-//#ifdef USB_DEBUG
+#ifdef USB_DEBUG
 	debug_print_string("[USBpci");
-//#endif
+#endif
 	/*
 		Wait for the connect to finish
 	*/
@@ -555,9 +555,9 @@ if (usb_status.B.PCI)
 
 	semaphore->signal();
 	HW_USBC_UH1_USBSTS.B.PCI = 1;
-//#ifdef USB_DEBUG
+#ifdef USB_DEBUG
 	debug_print_string("]");
-//#endif
+#endif
 	}
 }
 
@@ -577,9 +577,7 @@ while(HW_USBC_UH1_PORTSC1_RD() & BM_USBC_UH1_PORTSC1_PR)
 /*
 	Wait for the interrupt
 */
-debug_print_string("[SEM-WAIT(usb_bus_reset)...");
 ATOSE_api::semaphore_wait(semaphore_handle);
-debug_print_string("]");
 
 return 0;
 }
@@ -723,11 +721,7 @@ uint32_t ATOSE_host_usb::perform_transaction(ATOSE_usb_ehci_queue_head *queue)
 
 #endif
 
-for (volatile uint64_t x = 0; x < 1000000; x++);
-
-debug_print_string("[SEM-WAIT(perform_transaction)...");
 ATOSE_api::semaphore_wait(semaphore_handle);
-debug_print_string("DONE]");
 
 #ifdef NEVER
 	//empty_queue_head.queue_head_horizontal_link_pointer.all = (ATOSE_usb_ehci_queue_head *)((uint32_t)&empty_queue_head | ATOSE_usb_ehci_queue_head_horizontal_link_pointer::QUEUE_HEAD);
@@ -839,12 +833,7 @@ queue_head.next_qtd_pointer = &transfer_descriptor_1;
 /*
 	Yay, success!
 */
-debug_print_string("[SETUP-PACKET");
-uint32_t answer;
-answer = perform_transaction(&queue_head);
-debug_print_string("]");
-
-return answer;
+return perform_transaction(&queue_head);
 }
 
 /*
@@ -1052,9 +1041,7 @@ uint32_t ATOSE_host_usb::wait_for_connection(void)
 /*
 	Wait for a connect event
 */
-debug_print_string("[SEM-WAIT(wait_for_connection)...");
 ATOSE_api::semaphore_wait(semaphore_handle);
-debug_print_string("]");
 
 /*
 	Reset the USB bus
@@ -1215,7 +1202,6 @@ return device->dead ? NULL : device;
 */
 void ATOSE_host_usb::device_manager(void)
 {
-debug_print_string("[***   IN   ***]");
 char buffer[10];
 
 /*
@@ -1256,7 +1242,7 @@ for (uint32_t current = 1; current < device_list_length; current++)
 			/*
 				We're a disk so we're going to do some extra stuff
 			*/
-			ATOSE_api::writeline("[CREATE PROCESS]");
+			ATOSE_api::writeline("\r\n[CREATE PROCESS]");
 			ATOSE_api::spawn("SHELL.ELF");
 			ATOSE_server_disk disk;
 			disk.serve();

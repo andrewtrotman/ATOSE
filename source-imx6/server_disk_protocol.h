@@ -14,11 +14,17 @@
 class ATOSE_server_disk_protocol
 {
 public:
-	enum {COMMAND_OPEN, COMMAND_CLOSE, COMMAND_SEEK, COMMAND_TELL, COMMAND_READ, COMMAND_WRITE};
+	enum {COMMAND_SEEK, COMMAND_TELL, COMMAND_READ, COMMAND_WRITE, COMMAND_OPEN, COMMAND_CLOSE};
 
 public:
 	uint32_t command;
+	uint32_t fcb;
+	int64_t location;			// file offsets can be negative
+	uint64_t bytes;
+	uint64_t times;
+	uint8_t from;
 	uint8_t filename[255];
+	uint8_t mode[4];
 } ;
 
 #endif

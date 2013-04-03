@@ -63,16 +63,13 @@ return 0;
 */
 uint32_t ATOSE_bootstrap(void)
 {
-ATOSE_host_usb imx6q_host_usb;
-ATOSE_fat file_system;
 ATOSE_atose *os = ATOSE_atose::get_ATOSE();
 
-imx6q_host_usb.initialise();
-imx6q_host_usb.enable();
-os->interrupt_controller.enable(&imx6q_host_usb, imx6q_host_usb.get_interrup_id());
+os->imx6q_host_usb.initialise();
+os->imx6q_host_usb.enable();
+os->interrupt_controller.enable(&os->imx6q_host_usb, os->imx6q_host_usb.get_interrup_id());
 
-imx6q_host_usb.device_manager();
-
+os->imx6q_host_usb.device_manager();
 
 //scheduler.create_system_thread(start_shell);
 
@@ -114,11 +111,7 @@ process_clock.enable();
 	Start the first processes
 */
 scheduler.create_system_thread(idle, "IDLE", true);
-debug << "DONE";
-
 scheduler.create_system_thread(ATOSE_bootstrap, "BOOTSTRAP");
-debug << "DONE";
-
 
 /*
 	Now we've bootstrapped ATIRE, we start processing
@@ -354,7 +347,7 @@ ATOSE_atose::get_ATOSE()->scheduler.terminate_current_process();
 */
 void ATOSE_sbrk(ATOSE_registers *registers)
 {
-//registers->r0 = ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->address_space->sbrk(registers->r1);
+registers->r0 = (uint32_t)ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->address_space->sbrk(registers->r1);
 }
 
 /*

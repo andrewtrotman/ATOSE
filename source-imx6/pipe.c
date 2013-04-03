@@ -22,7 +22,6 @@ ATOSE_pipe *ATOSE_pipe::pipelist[MAX_PIPES] = {0};
 */
 uint32_t ATOSE_pipe::initialise(void)
 {
-ATOSE_atose::get_ATOSE()->debug.hex();
 other_end = NULL;
 send_queue = receive_queue = tail_of_receive_queue = 	tail_of_send_queue = NULL;
 

@@ -44,8 +44,9 @@ public:
 	uint32_t bad_page;											// flags to cuae a fault if used			(Fault in any space)
 	uint32_t user_data_page;									// flags for a data page of a user process  (ReadWriteExecute in user space)
 	uint32_t user_code_page;									// flags for a code page of a user process  (ReadOnly in User space)
-	uint32_t os_page;											// flags for ATOSE pages in the user space	(Fault in user space ReadWriteExecute in Kernel space)
+	uint32_t os_page;												// flags for ATOSE pages in the user space	(Fault in user space ReadWriteExecute in Kernel space)
 	uint32_t peripheral_page;									// flags for memory mapped device registers (fault in User Space, noncachable non-bufferable, etc)
+	uint8_t *the_system_break;									// points to the top of used memory, the kernel should set its break to this address
 
 protected:
 	void invalidate_data_cache(void);
