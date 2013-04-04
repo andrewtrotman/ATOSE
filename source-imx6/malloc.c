@@ -68,7 +68,7 @@ freep = p;
 */
 char *sbrk(int bytes)
 {
-return (char *)ATOSE_api::sbrk((uint32_t)bytes);
+return (char *)ATOSE_api::set_heap_break((uint32_t)bytes);
 }
 
 /*

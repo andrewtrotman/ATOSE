@@ -198,7 +198,8 @@ void ATOSE_spawn(ATOSE_registers *registers);
 void ATOSE_begin_thread(ATOSE_registers *registers);
 void ATOSE_yield(ATOSE_registers *registers);
 void ATOSE_exit(ATOSE_registers *registers);
-void ATOSE_sbrk(ATOSE_registers *registers);
+void ATOSE_set_heap_break(ATOSE_registers *registers);
+void ATOSE_get_heap_break(ATOSE_registers *registers);
 void ATOSE_semaphore_create(ATOSE_registers *registers);
 void ATOSE_semaphore_clear(ATOSE_registers *registers);
 void ATOSE_semaphore_signal(ATOSE_registers *registers);
@@ -223,7 +224,8 @@ ATOSE_spawn,
 ATOSE_begin_thread,
 ATOSE_yield,
 ATOSE_exit,
-ATOSE_sbrk,
+ATOSE_set_heap_break,
+ATOSE_get_heap_break,
 ATOSE_semaphore_create,
 ATOSE_semaphore_clear,
 ATOSE_semaphore_signal,
@@ -342,12 +344,21 @@ ATOSE_atose::get_ATOSE()->scheduler.terminate_current_process();
 }
 
 /*
-	ATOSE_SBRK()
-	------------
+	ATOSE_SET_HEAP_BREAK()
+	----------------------
 */
-void ATOSE_sbrk(ATOSE_registers *registers)
+void ATOSE_set_heap_break(ATOSE_registers *registers)
 {
-registers->r0 = (uint32_t)ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->address_space->sbrk(registers->r1);
+registers->r0 = (uint32_t)ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->address_space->set_heap_break(registers->r1, registers->r2);
+}
+
+/*
+	ATOSE_GET_HEAP_BREAK()
+	----------------------
+*/
+void ATOSE_get_heap_break(ATOSE_registers *registers)
+{
+registers->r0 = (uint32_t)ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->address_space->the_heap_break;
 }
 
 /*

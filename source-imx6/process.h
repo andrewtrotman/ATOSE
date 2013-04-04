@@ -24,7 +24,7 @@ public:
 	ATOSE_process *next;
 	ATOSE_address_space *address_space;
 	ATOSE_thread *execution_path;
-	uint8_t *entry_point;						// initial process entry point
+//	uint8_t *entry_point;						// initial process entry point
 	ATOSE_pipe_task *current_pipe_task;		// if not NULL then we are blocking waiting for this task
 	ATOSE_pipe *open_pipes;						// a list of pipes this process currently holds open (as the client)
 } ;

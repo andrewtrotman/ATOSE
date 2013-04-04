@@ -55,7 +55,7 @@ public:
 	uint32_t get_reference_count(void) { return reference_count; }
 	ATOSE_address_space *get_reference(void) { reference_count++; return this; }
 
-	void *sbrk(uint32_t bytes_to_add);
+	void *set_heap_break(uint32_t bytes_to_add, uint32_t permissions);
 	void *physical_address_of(void *user_address);
 } ;
 

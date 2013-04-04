@@ -37,12 +37,12 @@ protected:
 	/*
 		Method to create a process from and ELF file
 	*/
-	uint32_t elf_load(ATOSE_FILE *infile);
+	uint32_t elf_load(ATOSE_FILE *infile, void **entry_point);
 
 	/*
 		Set up a process ready to run
 	*/
-	uint32_t initialise_process(ATOSE_process *process, size_t entry_point, uint32_t mode, uint32_t top_of_stack);
+	uint32_t initialise_process(ATOSE_process *process, void *entry_point, uint32_t mode, uint32_t top_of_stack);
 
 	/*
 		set the idle process

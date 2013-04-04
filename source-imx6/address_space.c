@@ -309,12 +309,12 @@ return (void *)((soft_page_table[address >> 20] & 0xFFF00000) | (address & 0xFFF
 }
 
 /*
-	ATOSE_ADDRESS_SPACE::SBRK()
-	---------------------------
+	ATOSE_ADDRESS_SPACE::SET_HEAP_BREAK()
+	-------------------------------------
 */
-void *ATOSE_address_space::sbrk(uint32_t bytes_to_add)
+void *ATOSE_address_space::set_heap_break(uint32_t bytes_to_add, uint32_t permissions)
 {
-add(the_heap_break, bytes_to_add, READ | WRITE);
+add(the_heap_break, bytes_to_add, permissions);
 the_heap_break += bytes_to_add;
 return the_heap_break;
 }

@@ -48,8 +48,9 @@ system_address_space->the_heap_break = mmu->the_system_break;
 	to attack the kernel.
 
 	Return 0 on success all other codes are error codes
+	on success this method sets *entry_point to the start of the executable
 */
-uint32_t ATOSE_process_manager::elf_load(ATOSE_FILE *infile)
+uint32_t ATOSE_process_manager::elf_load(ATOSE_FILE *infile, void **entry_point)
 {
 ATOSE_elf32_ehdr header;          // the ELF file header
 uint32_t header_ok;               // used to check the ELf magic number is correct
@@ -59,10 +60,10 @@ uint32_t header_num;              // number of headers
 ATOSE_elf32_phdr current_header;  // the current header
 uint32_t which;                   // which header we're currently looking at
 uint32_t permissions;             // permissions on pages in the address space (READ / WRITE / EXECUTE / etc.)
-uint8_t *into;                    // pointer to a segment returned by the address space
 uint32_t error;                   // has an error occurred while processing a segment?
 uint64_t file_offset;             // the location of the next program header in the file
-uint32_t number;                  // used for arithmetic
+uint8_t *current_break;           // current of the break as it shifts as a consequence of loading the ELF file.
+uint32_t shift;                   // the amount we need to shift the break
 
 /*
 	We must be able to read from the ELF file.
@@ -151,13 +152,17 @@ if (header_size != sizeof(ATOSE_elf32_phdr))
 	/*
 		This code is removed because we can't check this without knowing how big the file is.
 	*/
-/*
-	Make sure the program header is located within the file itself
-	this is an obvious attach we can catch
-*/
-if ((header_offset + header_size * header_num) > length)
-	return ELF_BAD_PROGRAM_HEADER_LOCATION;
+	/*
+		Make sure the program header is located within the file itself
+		this is an obvious attach we can catch
+	*/
+	if ((header_offset + header_size * header_num) > length)
+		return ELF_BAD_PROGRAM_HEADER_LOCATION;
 #endif
+/*
+	Get the current break
+*/
+current_break = ATOSE_api::get_heap_break();
 
 /*
 	Verify and load the elf file.
@@ -169,7 +174,7 @@ for (which = 0; which < header_num; which++)
 	ATOSE_fseek(infile, file_offset, ATOSE_SEEK_SET);
 	if (ATOSE_fread(&current_header, sizeof(current_header), 1, infile) == 0)
 		error = ELF_BAD_PROGRAM_HEADER_LOCATION;
-	file_offset = ATOSE_ftell(infile);
+	file_offset += sizeof(current_header);
 
 	/*
 		At present we only allow loadable segments (program and data) and
@@ -213,11 +218,16 @@ for (which = 0; which < header_num; which++)
 		As we're in the address space of the new process we the add() method returns
 		a pointer that is also in our address space so we can simply copy into it.
 	*/
-#ifdef NEVER
 	if (error == SUCCESS)
-		if ((into = process->address_space->add((void *)(current_header.p_vaddr), current_header.p_memsz, permissions)) == NULL)
-			error = ELF_BAD_OUT_OF_PAGES;
-#endif
+		{
+		if ((uint8_t *)(current_header.p_vaddr + current_header.p_memsz) > current_break)
+			{
+			shift = ((uint8_t *)current_header.p_vaddr) + current_header.p_memsz - current_break;
+			ATOSE_api::set_heap_break(shift, permissions);
+			current_break = (uint8_t *)(current_header.p_vaddr + current_header.p_memsz);
+			}
+		}
+
 	/*
 		We might fail at this point for several reasons; for example, we
 		might be out of pages or we might be trying to change the
@@ -231,41 +241,23 @@ for (which = 0; which < header_num; which++)
 	*/
 	ATOSE_fseek(infile, current_header.p_offset, ATOSE_SEEK_SET);
 
-	void debug_print_cf_this(const char *start, uint32_t hex1, uint32_t hex2, const char *end = "");
-	debug_print_cf_this("[offset->", current_header.p_offset, current_header.p_filesz, "<-bytes]\r\n");
+//	void debug_print_cf_this(const char *start, uint32_t hex1, uint32_t hex2, const char *end = "");
+//	debug_print_cf_this("[offset->", current_header.p_offset, current_header.p_filesz, "<-bytes]\r\n");
 
-#ifdef NEVER
 	ATOSE_fread((void *)current_header.p_vaddr, current_header.p_filesz, 1, infile);
 
-	/*
-		And shift the break if necessary
-	*/
-	if (process->address_space->the_heap_break < (uint8_t *)(current_header.p_vaddr + current_header.p_filesz))
-		process->address_space->the_heap_break = (uint8_t *)(current_header.p_vaddr + current_header.p_filesz);
-#endif
-
-debug_print_string("\r\n");
-debug_dump_buffer((unsigned char *)current_header.p_vaddr, current_header.p_vaddr, 0x80);
+//	debug_dump_buffer((unsigned char *)current_header.p_vaddr, current_header.p_vaddr, 0x80);
 	}
-
-/*
-	Now... given that the page permissions are honoured, its necessary to shift the break to the start of the next page
-*/
-#ifdef NEVER
-number = (uint32_t)process->address_space->the_heap_break;
-number = ((number + mmu->page_size - 1) / mmu->page_size) * mmu->page_size ;
-process->address_space->the_heap_break = (uint8_t *)number;
 
 /*
 	Extract the process entry point (that is, the location we are to
 	branch to for the process to start
 */
 
-process->entry_point = (uint8_t *)header.e_entry;
-#endif
+*entry_point = (uint8_t *)header.e_entry;
 
-ATOSE_atose::get_ATOSE()->debug.hex();
-ATOSE_atose::get_ATOSE()->debug << "e_entry=" << header.e_entry << "\r\n";
+//ATOSE_atose::get_ATOSE()->debug.hex();
+//ATOSE_atose::get_ATOSE()->debug << "e_entry=" << header.e_entry << "\r\n";
 
 return error;
 }
@@ -336,7 +328,7 @@ return current_process = pull();
 	ATOSE_PROCESS_MANAGER::INITIALISE_PROCESS()
 	-------------------------------------------
 */
-uint32_t ATOSE_process_manager::initialise_process(ATOSE_process *process, size_t entry_point, uint32_t mode, uint32_t top_of_stack)
+uint32_t ATOSE_process_manager::initialise_process(ATOSE_process *process, void *entry_point, uint32_t mode, uint32_t top_of_stack)
 {
 /*
 	Set up the stack-pointer (ARM register R13)
@@ -366,6 +358,7 @@ uint32_t ATOSE_process_manager::exec(uint32_t parameter)
 {
 uint32_t pipe, got;
 ATOSE_FILE *fcb;
+void *entry_point;
 
 pipe = ATOSE_api::pipe_create();
 do
@@ -375,7 +368,7 @@ while (got != 0);
 
 if ((fcb = ATOSE_fopen((char *)parameter, "r+b")) != 0)
 	{
-	got = ATOSE_atose::get_ATOSE()->scheduler.elf_load(fcb);
+	got = ATOSE_atose::get_ATOSE()->scheduler.elf_load(fcb, &entry_point);
 	ATOSE_fclose(fcb);
 	if (got == SUCCESS)
 		{
@@ -392,63 +385,13 @@ if ((fcb = ATOSE_fopen((char *)parameter, "r+b")) != 0)
 			:
 			: "r0"
 			);
-		ATOSE_api::exit(0);
-//		(*((void (*)(void))new_process->entry_point))();
+
+		(*((void (*)(void))entry_point))();
 		}
 	}
 
 ATOSE_api::exit(0);
-
 return 0;
-
-#ifdef NEVER
-	uint32_t answer;
-	uint8_t *filename = (uint8_t *)"SHELL.ELF";
-	ATOSE_file_control_block *fcb, fcb_space;
-	ATOSE_process *new_process = ATOSE_atose::get_ATOSE()->scheduler.get_current_process();
-
-	for (volatile uint32_t x = 0; x < 100000000; x++);
-	ATOSE_api::writeline("[EXEC]");
-
-	filename = (uint8_t *)parameter;
-
-	/*
-		Load the ELF file into the current process space
-	*/
-	if ((fcb = ATOSE_atose::get_ATOSE()->file_system.open(&fcb_space, filename)) == NULL)
-		return ELF_BAD_FILE_NOT_FOUND;
-
-	for (;;);		// HANG
-
-	uint8_t fcb_buffer[fcb->block_size_in_bytes];
-	fcb->buffer = fcb_buffer;
-
-	answer = ATOSE_atose::get_ATOSE()->scheduler.elf_load(new_process, fcb);
-	fcb->close();
-
-	if (answer != SUCCESS)
-		ATOSE_api::exit(0);
-
-	/*
-		Drop into user mode and branch to the entry point
-	*/
-	asm volatile
-		(
-		"mrs r0, cpsr;"
-		"bic r0, #0x1F;"
-		"orr r0, r0, #0x10;"
-		"msr cpsr, r0;"
-		:
-		:
-		: "r0"
-		);
-
-	(*((void (*)(void))new_process->entry_point))();
-
-	ATOSE_api::exit(0);
-
-	return answer;
-#endif
 }
 
 /*
@@ -485,8 +428,7 @@ if (new_process->address_space->create() == 0)
 /*
 	Set up the register set
 */
-//answer = initialise_process(new_process, (size_t)my_exec, ATOSE_cpu_arm::MODE_USER, mmu->highest_address);
-answer = initialise_process(new_process, (size_t)exec, ATOSE_cpu_arm::MODE_SYSTEM, mmu->highest_address);
+answer = initialise_process(new_process, (void *)exec, ATOSE_cpu_arm::MODE_SYSTEM, mmu->highest_address);
 
 /*
 	Copy the command line onto the top of the stack
@@ -535,7 +477,7 @@ old_stack_break = address_space->the_stack_break;
 
 address_space->the_stack_break -= mmu->page_size;
 address_space->add(address_space->the_stack_break, mmu->page_size, ATOSE_address_space::WRITE | ATOSE_address_space::READ);
-answer = initialise_process(new_process, (size_t)start, ATOSE_cpu_arm::MODE_SYSTEM, (uint32_t)old_stack_break);
+answer = initialise_process(new_process, (void *)start, ATOSE_cpu_arm::MODE_SYSTEM, (uint32_t)old_stack_break);
 
 push(new_process);
 
@@ -563,15 +505,11 @@ system_address_space->get_reference();
 /*
 	Give it a local stack
 */
-//ATOSE_mmu_page *page;
-//page = system_address_space->add_to_identity();
-//answer = initialise_process(new_process, (size_t)start, ATOSE_cpu_arm::MODE_SYSTEM, (uint32_t)(page->physical_address + page->page_size));
 old_stack_break = system_address_space->the_stack_break;
-
 system_address_space->the_stack_break -= mmu->page_size;
 system_address_space->add(system_address_space->the_stack_break, mmu->page_size, ATOSE_address_space::WRITE | ATOSE_address_space::READ);
 
-answer = initialise_process(new_process, (size_t)start, ATOSE_cpu_arm::MODE_SYSTEM, (uint32_t)old_stack_break);
+answer = initialise_process(new_process, (void *)start, ATOSE_cpu_arm::MODE_SYSTEM, (uint32_t)old_stack_break);
 
 /*
 	Add to the process queues (for the scheduler to sort out)
