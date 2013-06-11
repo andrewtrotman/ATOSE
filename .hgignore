@@ -16,4 +16,6 @@
 \.elf$
 \.obj$
 \.exe$
+\.mac$
+\.DS_Store$
 \examples/hello.elf.c$
