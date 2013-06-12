@@ -1,7 +1,7 @@
 /*
 	HID.C
 	-----
-	List all the HID devices on Mac OS X
+	List all the HID devices attached to a Mac running Mac OS X
 */
 #include <IOKit/hid/IOHIDLib.h>
 
@@ -16,8 +16,8 @@ CFMutableArrayRef devArray;
 char string_buffer[1024];
 CFIndex number_of_devices;
 CFSetRef device_set;
-const IOHIDDeviceRef **device_array;
-const IOHIDDeviceRef **current;
+const IOHIDDeviceRef *device_array;
+const IOHIDDeviceRef *current;
 CFNumberRef vendor, product;
 long vendor_id, product_id;
 CFStringRef manufacturer, product_name;
@@ -43,7 +43,7 @@ printf("%lld HID devices found\n", (long long)number_of_devices);
 /*
 	Get the list into a C++ array
 */
-device_array = new const IOHIDDeviceRef *[number_of_devices];
+device_array = new IOHIDDeviceRef [number_of_devices];
 CFSetGetValues (device_set, (const void **)device_array);
 
 /*
@@ -51,25 +51,35 @@ CFSetGetValues (device_set, (const void **)device_array);
 */
 for (current = device_array; current < device_array + number_of_devices; current++)
 	{
-	IOHIDDeviceRef hidDev = (IOHIDDeviceRef)*current;
-
 	vendor_id = product_id = 0;
 
-	if ((vendor = (CFNumberRef)IOHIDDeviceGetProperty(hidDev, CFSTR(kIOHIDVendorIDKey))) != NULL)
+	/*
+		Get the vendor ID (which is a 32-bit integer)
+	*/
+	if ((vendor = (CFNumberRef)IOHIDDeviceGetProperty(*current, CFSTR(kIOHIDVendorIDKey))) != NULL)
 		CFNumberGetValue(vendor, kCFNumberSInt32Type, &vendor_id);
 	printf("VID:%04lX ", vendor_id);
 
-	if ((product = (CFNumberRef)IOHIDDeviceGetProperty(hidDev, CFSTR(kIOHIDProductIDKey))) != NULL)
+	/*
+		Get the product ID (which is a 32-bit integer)
+	*/
+	if ((product = (CFNumberRef)IOHIDDeviceGetProperty(*current, CFSTR(kIOHIDProductIDKey))) != NULL)
 		CFNumberGetValue((CFNumberRef)product, kCFNumberSInt32Type, &product_id);
 	printf("PID:%04lX ", product_id);
 
-	if ((manufacturer = (CFStringRef)IOHIDDeviceGetProperty(hidDev, CFSTR(kIOHIDManufacturerKey)))!= NULL)
+	/*
+		Get the manufacturer name (which is a string)
+	*/
+	if ((manufacturer = (CFStringRef)IOHIDDeviceGetProperty(*current, CFSTR(kIOHIDManufacturerKey)))!= NULL)
 		{
 		CFStringGetCString(manufacturer, string_buffer, sizeof(string_buffer), kCFStringEncodingUTF8);
 		printf("%s ", string_buffer);
 		}
 
-	if ((product_name = (CFStringRef)IOHIDDeviceGetProperty(hidDev, CFSTR(kIOHIDProductKey))) != NULL)
+	/*
+		Get the product name (which is a string)
+	*/
+	if ((product_name = (CFStringRef)IOHIDDeviceGetProperty(*current, CFSTR(kIOHIDProductKey))) != NULL)
 		{
 		CFStringGetCString(product_name, string_buffer, sizeof(string_buffer), kCFStringEncodingUTF8);
 		printf("(%s)", string_buffer);
