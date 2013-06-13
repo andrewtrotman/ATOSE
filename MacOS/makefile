@@ -1,4 +1,4 @@
-CFLAGS = -g -Wall
+CFLAGS = -Wall
 
 all : hid_list.mac imx.mac
 
