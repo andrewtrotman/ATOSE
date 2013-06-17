@@ -9,14 +9,20 @@
 	2. provide a moderate amount of debugging (see help) over the USB OTG port
 	3. load and run an ELF file in the USB OTG attached i.MX6Q
 */
-#include <Windows.h>
 
-extern "C"
-{
-#include <hidsdi.h>
-#include <hidpi.h>
-#include <SetupAPI.h>
-}
+#ifdef __APPLE__
+	#include <IOKit/hid/IOHIDLib.h>
+#else
+	#include <Windows.h>
+
+	extern "C"
+	{
+	#include <hidsdi.h>
+	#include <hidpi.h>
+	#include <SetupAPI.h>
+	}
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -250,6 +256,59 @@ public:
 	imx_image_dcd_write command;			// the first command in the DCD (should probably be a union based on the header's tag)
 } ;
 #pragma pack()
+
+
+#ifdef __APPLE__
+/*
+	Methods to mimic the Windows HID interface on the Mac
+*/
+
+typedef uint32_t DWORD;
+#define HANDLE IOHIDDeviceRef
+	/*
+		CALLBACK()
+		----------
+	*/
+	void callback(void *context, IOReturn result, void *sender, IOHIDReportType type, uint32_t reportID, uint8_t *report, CFIndex reportLength)
+	{
+	printf("Got a report of ID:%u\n", reportID);
+	hid_buffer_used = reportLength;
+
+	*(long *)context = reportLength;
+	}
+
+	template <class T> T min(T a, T b) { return a < b ? a : b; }
+
+	/*
+		READFILE()
+		----------
+	*/
+	long ReadFile(IOHIDDeviceRef hDevice, void *recieve_buffer, uint32_t to_read, uint32_t *did_read, void *ignore)
+	{
+	volatile long done;
+
+	done = 0;
+	IOHIDDeviceRegisterInputReportCallback(hDevice, (uint8_t *)recieve_buffer, to_read, callback, (void *)&done);
+
+	do
+		CFRunLoopRunInMode(kCFRunLoopDefaultMode, 1, true);
+	while (done == 0);
+
+	IOHIDDeviceRegisterInputReportCallback(hDevice, NULL, 0, NULL, NULL);
+
+	return 1;
+	}
+
+	/*
+		HIDD_SETOUTPUTREPORT()
+		----------------------
+	*/
+	long HidD_SetOutputReport(IOHIDDeviceRef hDevice, void *message, unsigned long message_length)
+	{
+	return IOHIDDeviceSetReport(hDevice, kIOHIDReportTypeOutput, *((uint8_t *)message), (uint8_t *)message, message_length) == kIOReturnSuccess;
+	}
+
+#endif
 
 /*
 	The recieve and transmit buffers are allocated at runtime based on the

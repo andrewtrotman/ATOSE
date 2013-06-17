@@ -2,6 +2,9 @@
 	HID_LIST.C
 	----------
 	List all the HID devices attached to a Mac running Mac OS X
+
+	Copyright (c) 2013 Andrew Trotman, University of Otago
+	Open Source under the BSD License.
 */
 #include <IOKit/hid/IOHIDLib.h>
 

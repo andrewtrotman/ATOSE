@@ -2,6 +2,9 @@
 	IMX.C
 	-----
 	List the HID destriptors from an i.MX6Q connected to a Mac running Mac OS X
+
+	Copyright (c) 2013 Andrew Trotman, University of Otago
+	Open Source under the BSD License.
 */
 #include <IOKit/hid/IOHIDLib.h>
 
@@ -129,30 +132,7 @@ uint32_t arm_to_intel(uint32_t value)
 return intel_to_arm(value);			// call intel_to_arm() as the result is the same (endian "swap");
 }
 
-/*
-	IMX_GET_SECURITY_DESCRIPTOR()
-	-----------------------------
-	return 0 on failure or closed system, 1 on success (open)
-*/
-uint32_t imx_get_security_descriptor(IOHIDDeviceRef hDevice)
-{
-unsigned char open_system[] = {0x03, 0x56, 0x78, 0x78, 0x56};
-CFIndex dwBytes = 0;
-IOReturn success;
-
-dwBytes = recieve_buffer_length;
-success = IOHIDDeviceGetReport(hDevice, kIOHIDReportTypeInput, 0x03, recieve_buffer, &dwBytes);
-
-if (success == kIOReturnSuccess)
-	if (memcmp(recieve_buffer, open_system, 5) == 0)
-		return 1;
-	else
-		printf("Secirity Descriptor Error:%02X%02X%02X%02X\n", recieve_buffer[1], recieve_buffer[2], recieve_buffer[3], recieve_buffer[4]);
-else
-	printf("Secirity Descriptor Error:Read failed\n");
-
-return 0;
-}
+typedef uint32_t DWORD;
 
 /*
 	CALLBACK()
@@ -161,17 +141,83 @@ return 0;
 void callback(void *context, IOReturn result, void *sender, IOHIDReportType type, uint32_t reportID, uint8_t *report, CFIndex reportLength)
 {
 printf("Got a report of ID:%u\n", reportID);
+hid_buffer_used = reportLength;
+
+*(long *)context = reportLength;
 }
+
+template <class T> T min(T a, T b) { return a < b ? a : b; }
+
+/*
+	READFILE()
+	----------
+*/
+long ReadFile(IOHIDDeviceRef hDevice, void *recieve_buffer, uint32_t to_read, uint32_t *did_read, void *ignore)
+{
+volatile long done;
+
+done = 0;
+IOHIDDeviceRegisterInputReportCallback(hDevice, (uint8_t *)recieve_buffer, to_read, callback, (void *)&done);
+
+do
+	CFRunLoopRunInMode(kCFRunLoopDefaultMode, 1, true);
+while (done == 0);
+
+IOHIDDeviceRegisterInputReportCallback(hDevice, NULL, 0, NULL, NULL);
+
+return 1;
+}
+
+/*
+	HIDD_SETOUTPUTREPORT()
+	----------------------
+*/
+long HidD_SetOutputReport(IOHIDDeviceRef hDevice, void *message, unsigned long message_length)
+{
+return IOHIDDeviceSetReport(hDevice, kIOHIDReportTypeOutput, *((uint8_t *)message), (uint8_t *)message, message_length) == kIOReturnSuccess;
+}
+
+/*
+	IMX_GET_SECURITY_DESCRIPTOR()
+	-----------------------------
+	Read a Report 3 from the i.MX6 and make sure the decice is open. The report 3 is
+	5 bytes long and will be either 0x0312343412 on a "closed" system or 0x0356787856
+	on an open system.  We consider a closed system as failure,
+
+	return 0 on failure or closed system, 1 on success (open)
+*/
+uint32_t imx_get_security_descriptor(IOHIDDeviceRef hDevice)
+{
+unsigned char open_system[] = {0x03, 0x56, 0x78, 0x78, 0x56};
+DWORD dwBytes = 0;
+
+if (!ReadFile(hDevice, recieve_buffer, recieve_buffer_length, &dwBytes, NULL))
+	return 0;
+
+if (memcmp(recieve_buffer, open_system, 5) == 0)
+	return 1;
+
+printf("Secirity Descriptor Error:%02X%02X%02X%02X\n", recieve_buffer[1], recieve_buffer[2], recieve_buffer[3], recieve_buffer[4]);
+
+return 0;
+}
+
 
 /*
 	IMX_READ_REGISTER()
 	-------------------
+	See Page 452 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012"
+	I send a Report 1
+	i.MX6Q sends a Report 3 (security descriptor: 0x12343412 in closed mode or 0x56787856 in open mode)
+	i.MX6Q sends a number of Report 4 (data in response)
+
 	This method returns the number of bytes read or 0 on failure
 */
-uint32_t imx_read_register(IOHIDDeviceRef hDevice, uint32_t address, uint32_t bytes, uint8_t *into)
+uint32_t imx_read_register(IOHIDDeviceRef hDevice, uint32_t address, uint32_t bytes, unsigned char *into)
 {
 imx_serial_message message;
-CFIndex dwBytes = 0;
+DWORD dwBytes = 0;
+long long remaining;
 
 /*
 	Set up the message block (Report 1)
@@ -184,42 +230,42 @@ message.format = BITS_8;
 message.data_count = intel_to_arm(bytes);
 
 /*
-	Set up a Mac Callback for the reply
-*/
-dwBytes = recieve_buffer_length;
-
-
-IOHIDDeviceRegisterInputReportCallback(hDevice, recieve_buffer, dwBytes, callback, NULL);
-#ifdef NEVER
-	if ((IOReturn tIOReturn = IOHIDDeviceGetReportWithCallback(hDevice, kIOHIDReportTypeInput, 0x03, recieve_buffer, recieve_buffer, 1, callback, NULL)) == kIOReturnSuccess)
-		printf("successfully registered the callback\n");
-	else
-		printf( "\n%s: Calling IOHIDDeviceGetReportWithCallback FAILED tIOReturn = %lX.\n", __PRETTY_FUNCTION__, (unsigned long)tIOReturn);
-#endif
-/*
 	Transmit to the board and get the response back
 */
-if (IOHIDDeviceSetReport(hDevice, kIOHIDReportTypeOutput, 0x01, (uint8_t *)&message, sizeof(message)) == kIOReturnSuccess)
+puts("Send output report");
+if (HidD_SetOutputReport(hDevice, &message, sizeof(message)))
 	{
+	puts("get security descriptor");
 	/*
-		Start the Run Loop
+		Recieve a security report (Report 3)
 	*/
-	puts("Start Run Loop");
-	int32_t got = CFRunLoopRunInMode(kCFRunLoopDefaultMode, 1, true);
-	printf("Run Loop Finished with:%d\n", got);
-#ifdef NEVER
 	if (imx_get_security_descriptor(hDevice))
-		printf("Success!\n");
-	else
-		printf("Failed to get security descriptor\n");
-#endif
+		{
+		/*
+			Recieve as many bytes as this method was asked to retrieve, but in 65-byte packets (on the i.MX6Q).
+			We consequently need to joint all these together to build the answer
+		*/
+		remaining = bytes;
+		puts("READ");
+		while (remaining > 0)
+			{
+			puts("READ part");
+			if (!ReadFile(hDevice, recieve_buffer, recieve_buffer_length, &dwBytes, NULL))
+				return 0;
+
+			dwBytes -= 1;	// skip over the report ID
+			memcpy(into, recieve_buffer + 1, (size_t)(dwBytes > remaining ? remaining : dwBytes));
+
+			into += dwBytes > remaining ? remaining : dwBytes;
+			remaining -= dwBytes;
+			}
+		puts("DONE");
+		}
+	return bytes;		// success
 	}
-else
-	printf("Transmit failed\n");
 
 return 0;
 }
-
 
 /*
 	MAIN()
@@ -287,7 +333,6 @@ if (IOHIDDeviceOpen(device, kIOHIDOptionsTypeSeizeDevice) == kIOReturnSuccess)
 
 	printf("kIOHIDMaxInputReportSizeKey:%d bytes\n", get_uint32_from_device(device, CFSTR(kIOHIDMaxInputReportSizeKey)));
 	printf("kIOHIDMaxOutputReportSizeKey:%d bytes\n", get_uint32_from_device(device, CFSTR(kIOHIDMaxOutputReportSizeKey)));
-
 
 	imx_read_register(device, 0, 4, into);
 	printf("0000:%d %d %d %d\n", into[0], into[1], into[2], into[3]);
