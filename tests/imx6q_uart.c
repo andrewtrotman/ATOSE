@@ -1,6 +1,8 @@
 /*
 	IMX6Q_UART.C
 	------------
+	Copyright (c) 2012-2013 Andrew Trotman
+	Licensed BSD
 */
 #include <stdint.h>
 #include <string.h>

@@ -2,6 +2,8 @@
 	IMX6Q_CLOCK.C
 	-------------
 	Code to generate a simple u-second timer
+	Copyright (c) 2012-2013 Andrew Trotman
+	Licensed BSD
 */
 #include <stdint.h>
 #include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsuart.h"
