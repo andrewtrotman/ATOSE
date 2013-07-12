@@ -12,6 +12,10 @@
 
 #ifdef __APPLE__
 	#include <IOKit/hid/IOHIDLib.h>
+	#include <sys/types.h>
+	#include <sys/stat.h>
+	#include <unistd.h>
+	#include <queue>
 #else
 	#include <Windows.h>
 
@@ -30,17 +34,18 @@
 	Standard types
 	Its necessary to declare these here because they are not provided by Visual C/C++ 9  (Visual Studio 2008)
 */
-typedef unsigned char uint8_t;
-typedef unsigned short uint16_t;
-typedef unsigned long uint32_t;
-typedef long int32_t;
-typedef unsigned long long uint64_t;
-typedef long long int64_t;
-
+#ifdef _MSC_VER_
+	typedef unsigned char uint8_t;
+	typedef unsigned short uint16_t;
+	typedef unsigned long uint32_t;
+	typedef long int32_t;
+	typedef unsigned long long uint64_t;
+	typedef long long int64_t;
+#endif
 /*
 	These are the USB VID and PID of the i.MX6Q
 */
-#define IMX_VID 5538		// 0x15A2:Freescale
+#define IMX_VID 5538			// 0x15A2:Freescale
 #define IMX_PID 84			// 0x0054 i.MX6Q
 
 /*
@@ -239,7 +244,9 @@ class imx_image_dcd_write
 {
 public:
 	imx_image_dcd_header header;			// header
-#pragma warning(disable:4200)
+#ifdef _MSC_VER
+	#pragma warning(disable:4200)
+#endif
 	imx_image_dcd_write_tuple action[];		// and the list of actions
 } ;
 #pragma pack()
@@ -257,24 +264,78 @@ public:
 } ;
 #pragma pack()
 
+/*
+	Verbose mode is more explicit about the communications thats going on
+*/
+long verbose;
 
 #ifdef __APPLE__
-/*
-	Methods to mimic the Windows HID interface on the Mac
-*/
+	/*
+		Methods to mimic the Windows HID interface on the Mac
+	*/
 
-typedef uint32_t DWORD;
-#define HANDLE IOHIDDeviceRef
+	typedef uint32_t DWORD;
+	#define HANDLE IOHIDDeviceRef
+	#define _strtoui64 strtoull
+
+	typedef union _LARGE_INTEGER
+	{
+	struct
+		{
+		uint32_t LowPart;
+		int32_t  HighPart;
+		};
+	struct
+		{
+		uint32_t LowPart;
+		int32_t  HighPart;
+		} u;
+	int64_t QuadPart;
+	} LARGE_INTEGER, *PLARGE_INTEGER;
+
+	uint8_t mac_hid_buffer[1024 * 1024];
+
+	class mac_hid_message_object
+	{
+	public:
+		IOReturn result;
+		IOHIDReportType type;
+		uint32_t reportID;
+		uint8_t *report;
+		CFIndex reportLength;
+	} ;
+
+	std::queue<mac_hid_message_object *> message_queue;
+
 	/*
 		CALLBACK()
 		----------
 	*/
 	void callback(void *context, IOReturn result, void *sender, IOHIDReportType type, uint32_t reportID, uint8_t *report, CFIndex reportLength)
 	{
-	printf("Got a report of ID:%u\n", reportID);
-	hid_buffer_used = reportLength;
+	mac_hid_message_object *object;
 
-	*(long *)context = reportLength;
+	if (verbose)
+		printf("Got a report of ID:%u (len:%ld)\n", reportID, ((long)reportLength));
+
+	object = new mac_hid_message_object;
+	object->result = result;
+	object->type = type;
+	object->reportID = reportID;
+	object->reportLength =reportLength;
+	object->report = new uint8_t [reportLength];
+	memcpy(object->report, report, reportLength);
+
+	message_queue.push(object);
+	}
+
+	/*
+		HID_INIT()
+		----------
+	*/
+	void hid_init(IOHIDDeviceRef hDevice)
+	{
+	IOHIDDeviceRegisterInputReportCallback(hDevice, mac_hid_buffer, sizeof(mac_hid_buffer), callback, NULL);
 	}
 
 	template <class T> T min(T a, T b) { return a < b ? a : b; }
@@ -285,16 +346,30 @@ typedef uint32_t DWORD;
 	*/
 	long ReadFile(IOHIDDeviceRef hDevice, void *recieve_buffer, uint32_t to_read, uint32_t *did_read, void *ignore)
 	{
-	volatile long done;
-
-	done = 0;
-	IOHIDDeviceRegisterInputReportCallback(hDevice, (uint8_t *)recieve_buffer, to_read, callback, (void *)&done);
+	mac_hid_message_object *object;
 
 	do
-		CFRunLoopRunInMode(kCFRunLoopDefaultMode, 1, true);
-	while (done == 0);
+		CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.1, true);
+	while (message_queue.empty());
 
-	IOHIDDeviceRegisterInputReportCallback(hDevice, NULL, 0, NULL, NULL);
+	object = message_queue.front();
+	message_queue.pop();
+	memcpy(recieve_buffer, object->report, *did_read = min(to_read, (uint32_t)object->reportLength));
+
+	delete [] object->report;
+	delete object;
+
+	return 1;
+	}
+
+	/*
+		WRITE_FILE()
+		------------
+	*/
+	long WriteFile(IOHIDDeviceRef hDevice, void *transmit_buffer, uint32_t transmit_buffer_length, uint32_t *dwBytes, void *ignore)
+	{
+	IOHIDDeviceSetReport(hDevice, kIOHIDReportTypeOutput, *(uint8_t *)transmit_buffer, ((uint8_t *)transmit_buffer), transmit_buffer_length);
+	*dwBytes = transmit_buffer_length;
 
 	return 1;
 	}
@@ -306,6 +381,37 @@ typedef uint32_t DWORD;
 	long HidD_SetOutputReport(IOHIDDeviceRef hDevice, void *message, unsigned long message_length)
 	{
 	return IOHIDDeviceSetReport(hDevice, kIOHIDReportTypeOutput, *((uint8_t *)message), (uint8_t *)message, message_length) == kIOReturnSuccess;
+	}
+
+	/*
+		CREATE_DICTIONARY()
+		-------------------
+		Create a dictionary matching VID and PID
+	*/
+	static CFMutableDictionaryRef create_dictionary(UInt32 product_id, UInt32 vendor_id)
+	{
+	CFMutableDictionaryRef result;
+	CFNumberRef number;
+	/*
+		Create a dictionary
+	*/
+	result = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+
+	/*
+		Match the product ID
+	*/
+	number = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &vendor_id);
+	CFDictionarySetValue(result, CFSTR(kIOHIDVendorIDKey), number);
+	CFRelease(number);
+
+	/*
+		Match the vendor ID
+	*/
+	number = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &product_id);
+	CFDictionarySetValue(result, CFSTR(kIOHIDProductIDKey), number);
+	CFRelease(number);
+
+	return result;
 	}
 
 #endif
@@ -331,11 +437,6 @@ unsigned char *transmit_double_buffer;
 char *elf_file = NULL;
 char *elf_filename = NULL;
 long long elf_file_length = 0;
-
-/*
-	Verbose mode is more explicit about the communications thats going on
-*/
-long verbose;
 
 /*
 	In Windows there are two ways to communicate with a HID device, one is using HidD_SetOutputReport() and HidD_GetInputReport()
@@ -467,7 +568,7 @@ if (!ReadFile(hDevice, recieve_buffer, recieve_buffer_length, &dwBytes, NULL))
 if (memcmp(recieve_buffer, open_system, 5) == 0)
 	return 1;
 
-printf("Secirity Descriptor Error:%02X%02X%02X%02X\n", recieve_buffer[1], recieve_buffer[2], recieve_buffer[3], recieve_buffer[4]);
+printf("Security Descriptor Error:%02X%02X%02X%02X\n", recieve_buffer[1], recieve_buffer[2], recieve_buffer[3], recieve_buffer[4]);
 
 return 0;
 }
@@ -617,11 +718,15 @@ message.data_count = intel_to_arm(bytes);
 	Due to a bug in the i.MX6Q ROM we need to read the last kilobyte from the i.MX6Q into the transmit
 	buffer, then write our final packet over it and send that packet back.
 */
+if (verbose)
+	puts("READ FINAL BLOCK");
 imx_read_register(hDevice, address + (bytes - (bytes % transmit_buffer_length)), (transmit_buffer_length - 1), transmit_double_buffer);
 
 /*
 	Transmit to the board and get the response back
 */
+if (verbose)
+	puts("SEND BLOCK WRITE REPORT");
 if (HidD_SetOutputReport(hDevice, &message, sizeof(message)))								// transmit Report 1
 	{
 	/*
@@ -644,6 +749,9 @@ if (HidD_SetOutputReport(hDevice, &message, sizeof(message)))								// transmit
 		/*
 			Always transmit a full buffer worth of data (even if it is short)
 		*/
+		if (verbose)
+			puts("SEND BLOCK DATA");
+
 		if (!WriteFile(hDevice, transmit_buffer, transmit_buffer_length, &dwBytes, NULL))
 			return 0;
 
@@ -654,12 +762,19 @@ if (HidD_SetOutputReport(hDevice, &message, sizeof(message)))								// transmit
 	/*
 		Get descriptors back
 	*/
+	if (verbose)
+		puts("GET SECRITY DESCRIPTOR");
 	if (imx_get_security_descriptor(hDevice))												// recieve Report 3 (security descriptor)
+		{
+		if (verbose)
+			puts("GET REPORT OF TYPE 4");
+
 		if (ReadFile(hDevice, recieve_buffer, recieve_buffer_length, &dwBytes, NULL))		// recieve Report 4
 			if (memcmp(recieve_buffer, success, 5) == 0)									// check the status code
 				return 1;
 			else
 				printf("Load File Error:%02X%02X%02X%02X\n", recieve_buffer[1], recieve_buffer[2], recieve_buffer[3], recieve_buffer[4]);
+		}
 	}
 
 return 0;
@@ -718,7 +833,6 @@ return imx_block_write(hDevice, address, bytes, data, DCD_WRITE, success);
 uint32_t imx_jump_address(HANDLE hDevice, uint32_t address)
 {
 imx_serial_message message;
-DWORD dwBytes = 0;
 
 /*
 	Set up the message block (Report 1)
@@ -738,6 +852,7 @@ if (HidD_SetOutputReport(hDevice, &message, sizeof(message)))								// transmit
 			At present this isn't returning (because the board is running) so we ignore the possible Report 4
 		*/
 #ifdef NEVER
+		DWORD dwBytes = 0;
 		/*
 			We expect this to time out if the device is functioning correctly.  If we get a reply
 			then the result is a 4-byte HAB code.
@@ -842,7 +957,15 @@ for (which = 0; which < header_num; which++)
 	*/
 	buffer = (char *)malloc(current_header->p_memsz);
 	memset(buffer, 0, current_header->p_memsz);
+
+	if (verbose)
+		puts("CLEAR RAM");
+
 	imx_write_file(hDevice, current_header->p_vaddr, current_header->p_memsz, (unsigned char *)buffer);
+
+	if (verbose)
+		puts("TRANSMIT FILE");
+
 	imx_write_file(hDevice, current_header->p_vaddr, current_header->p_filesz, (unsigned char *)(file + current_header->p_offset));
 	free(buffer);
 	current_header++;
@@ -862,7 +985,7 @@ uint32_t imximage_load(HANDLE hDevice, char *raw_file, uint32_t raw_file_length)
 {
 imx_image_ivt *file;
 imx_image_dcd *dcd;
-char *command_end, *command_start, *dcd_end, *raw_file_end = raw_file + raw_file_length;
+char *command_end, *command_start, *dcd_end;
 imx_image_boot_data *boot_data;
 
 /*
@@ -981,31 +1104,62 @@ while ((end >= source) && (isspace(*end)))
 return source;
 }
 
+
 /*
+
 	READ_FILE_64()
 	--------------
 */
-int read_file_64(HANDLE fp, void *destination, long long bytes_to_read)
-{
-unsigned char *from;
-const DWORD chunk_size = ((long long) 1 << (8 * sizeof(DWORD))) - 1;		// the compiler should convert this into a constant
-DWORD got_in_one_read;
-
-from = (unsigned char *)destination;
-while (bytes_to_read > chunk_size)
+#ifdef _MSC_VER
+	int read_file_64(HANDLE fp, void *destination, long long bytes_to_read)
 	{
-	if (ReadFile(fp, from, chunk_size, &got_in_one_read, NULL) == 0)
-		return 0;
-	bytes_to_read -= chunk_size;
-	from += chunk_size;
+	unsigned char *from;
+	const DWORD chunk_size = ((long long) 1 << (8 * sizeof(DWORD))) - 1;		// the compiler should convert this into a constant
+	DWORD got_in_one_read;
+
+	from = (unsigned char *)destination;
+	while (bytes_to_read > chunk_size)
+		{
+		if (ReadFile(fp, from, chunk_size, &got_in_one_read, NULL) == 0)
+			return 0;
+		bytes_to_read -= chunk_size;
+		from += chunk_size;
+		}
+	if (bytes_to_read > 0)			// catches a call to read 0 bytes 
+		if (ReadFile(fp, from, (DWORD)bytes_to_read, &got_in_one_read, NULL) == 0)
+			{
+			DWORD error_code = GetLastError();			// put a break point on this in the debugger to work out what went wrong.
+
+			return 0;
+			}
+
+	return 1;
+	}
+#else
+	int read_file_64(FILE *fp, void *destination, long long bytes_to_read)
+	{
+	static long long chunk_size = 1 * 1024 * 1024 * 1024;
+	long long in_one_go = chunk_size < bytes_to_read ? chunk_size : bytes_to_read;
+	long long bytes_read = 0;
+	long long bytes_left_to_read = bytes_to_read;
+	char *dest = (char *)destination;
+
+	while (bytes_read < bytes_to_read)
+		{
+		if (bytes_left_to_read < in_one_go)
+			in_one_go = bytes_left_to_read;
+
+		bytes_read += fread(dest + bytes_read, 1, in_one_go, fp);
+		bytes_left_to_read = bytes_to_read - bytes_read;
+
+		if (ferror(fp))
+			return 0;
+		}
+	return bytes_read == bytes_to_read; // will return 0 (fail) or 1 (success)
 	}
 
-if (bytes_to_read > 0)			// catches a call to read 0 bytes
-	if (ReadFile(fp, from, (DWORD)bytes_to_read, &got_in_one_read, NULL) == 0)
-		return 0;
+#endif
 
-return 1;
-}
 
 /*
 	READ_ENTIRE_FILE()
@@ -1015,9 +1169,18 @@ char *read_entire_file(char *filename, long long *file_length)
 {
 long long unused;
 char *block = NULL;
-HANDLE fp;
-LARGE_INTEGER details;
-char *true_filename = filename;									// else we're in ASCII land and so the filename is a c-string
+#ifdef _MSC_VER
+	HANDLE fp;
+	LARGE_INTEGER details;
+	#if defined(UNICODE) || defined(_UNICODE)
+		LPCWSTR true_filename = (LPCWSTR)filename;					// If we're in UNICODE land then the filename is actually a wide-string
+	#else
+		char *true_filename = filename;									// else we're in ASCII land and so the filename is a c-string
+	#endif
+#else
+	FILE *fp;
+	struct stat details;
+#endif
 
 if (filename == NULL)
 	return NULL;
@@ -1025,23 +1188,44 @@ if (filename == NULL)
 if (file_length == NULL)
 	file_length = &unused;
 
-*file_length = 0;
+#ifdef _MSC_VER
+	fp = CreateFile(true_filename, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+	if (fp == INVALID_HANDLE_VALUE)
+		{
+		DWORD error_code = GetLastError();			// put a break point on this in the debugger to work out what went wrong.
+		return NULL;
+		}
 
-if ((fp = CreateFile(true_filename, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN, NULL)) == INVALID_HANDLE_VALUE)
-	return NULL;
-
-if (GetFileSizeEx(fp, &details) != 0)
-	if ((*file_length = details.QuadPart) != 0)
-		if ((block = (char *)malloc((size_t)(details.QuadPart + 1))) != NULL)		// +1 for the '\0' on the end
-			if (read_file_64(fp, block, details.QuadPart) != 0)
-				block[details.QuadPart] = '\0';
-			else
+	if (GetFileSizeEx(fp, &details) != 0)
+		if ((*file_length = details.QuadPart) != 0)
+			if ((block = (char *)malloc((size_t)(details.QuadPart + 1))) != NULL)		// +1 for the '\0' on the end
 				{
-				free(block);
-				block = NULL;
+				if (read_file_64(fp, block, details.QuadPart) != 0)
+					block[details.QuadPart] = '\0';
+				else
+					{
+					free(bloc);
+					block = NULL;
+					}
 				}
 
-CloseHandle(fp);
+	CloseHandle(fp);
+#else
+	if ((fp = fopen(filename, "rb")) == NULL)
+		return NULL;
+
+	if (fstat(fileno(fp), &details) == 0)
+		if ((*file_length = details.st_size) != 0)
+			if ((block = (char *)malloc((size_t)(details.st_size + 1))) != NULL)		// +1 for the '\0' on the end
+				if (read_file_64(fp, block, details.st_size) != 0)
+					block[details.st_size] = '\0';
+				else
+					{
+					free(block);
+					block = NULL;
+					}
+	fclose(fp);
+#endif
 
 return block;
 }
@@ -1150,7 +1334,7 @@ do
 		if (verbose)
 			puts("Get Status");
 		status = imx_error_status(hDevice);
-		printf("%08lX\n", status);
+		printf("%08X\n", status);
 		}
 	else if (strncmp(command, "load ", 5) == 0)
 		{
@@ -1209,13 +1393,35 @@ while (*command != 'q');
 */
 void hid_manage_imx6(HANDLE hDevice)
 {
-struct _HIDP_PREPARSED_DATA  *preparsed;
-HIDP_CAPS capabilities;
 uint32_t start_address;
 imx_image_ivt fake;
+uint32_t InputReportByteLength, OutputReportByteLength;
 
-HidD_GetPreparsedData(hDevice, &preparsed);
-HidP_GetCaps(preparsed, &capabilities);
+#ifdef _MSC_VER
+	struct _HIDP_PREPARSED_DATA *preparsed;
+	HIDP_CAPS capabilities;
+
+	HidD_GetPreparsedData(hDevice, &preparsed);
+	HidP_GetCaps(preparsed, &capabilities);
+	InputReportByteLength = capabilities.InputReportByteLength;
+	OutputReportByteLength = capabilities.OutputReportByteLength;
+
+	HidD_FlushQueue(hDevice);
+
+	HidD_FreePreparsedData(preparsed);
+#elif defined(__APPLE__)
+	CFNumberRef number;
+	if ((number = (CFNumberRef)IOHIDDeviceGetProperty(hDevice, CFSTR(kIOHIDMaxInputReportSizeKey))) != NULL)
+		CFNumberGetValue((CFNumberRef)number, kCFNumberSInt32Type, &InputReportByteLength);
+	if ((number = (CFNumberRef)IOHIDDeviceGetProperty(hDevice, CFSTR(kIOHIDMaxOutputReportSizeKey))) != NULL)
+		CFNumberGetValue((CFNumberRef)number, kCFNumberSInt32Type, &OutputReportByteLength);
+
+	if (verbose)
+		{
+		printf("InputReportByteLength :%d\n", InputReportByteLength);
+		printf("OutputReportByteLength:%d\n", OutputReportByteLength);
+		}
+#endif
 
 /*
 	Create the recieve and transmit buffers.  Unfortunately we don't know how large this is at
@@ -1225,14 +1431,9 @@ HidP_GetCaps(preparsed, &capabilities);
 	transmit_double_buffer is needed for loading and storing the last "block" of RAM to avoid trashing
 	the contents of the i.MX6Q RAM (due to a bug in its ROM)
 */
-recieve_buffer = (unsigned char *)malloc(recieve_buffer_length = capabilities.InputReportByteLength);
-transmit_buffer = (unsigned char *)malloc(transmit_buffer_length = capabilities.OutputReportByteLength);
-transmit_double_buffer = (unsigned char *)malloc(capabilities.OutputReportByteLength);
-
-/*
-	Flush the internal buffers
-*/
-HidD_FlushQueue(hDevice);
+recieve_buffer = (unsigned char *)malloc(recieve_buffer_length = InputReportByteLength);
+transmit_buffer = (unsigned char *)malloc(transmit_buffer_length = OutputReportByteLength);
+transmit_double_buffer = (unsigned char *)malloc(OutputReportByteLength);
 
 /*
 	Here we expect the Usage Page to be 0xFF00 (Vendor-defined, see "Universal Serial Bus (USB) HID Usage
@@ -1300,19 +1501,19 @@ if (elf_file != NULL)
 	}
 else
 	go_be_a_monitor(hDevice);
-
-HidD_FreePreparsedData(preparsed);
 }
 
-/*
-	HID_PRINT_GUID()
-	----------------
-	Print a Windows GUID to stdout
-*/
-void HID_print_guid(GUID *guid)
-{
-printf("%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X", guid->Data1, guid->Data2, guid->Data3, guid->Data4[0], guid->Data4[1], guid->Data4[2], guid->Data4[3], guid->Data4[4], guid->Data4[5], guid->Data4[6], guid->Data4[7]);
-}
+#ifdef _MSC_VER
+	/*
+		HID_PRINT_GUID()
+		----------------
+		Print a Windows GUID to stdout
+	*/
+	void HID_print_guid(GUID *guid)
+	{
+	printf("%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X", guid->Data1, guid->Data2, guid->Data3, guid->Data4[0], guid->Data4[1], guid->Data4[2], guid->Data4[3], guid->Data4[4], guid->Data4[5], guid->Data4[6], guid->Data4[7]);
+	}
+#endif
 
 /*
 	MAIN()
@@ -1320,14 +1521,6 @@ printf("%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X", guid->Data1, guid->Da
 */
 int main(int argc, char *argv[])
 {
-GUID guid;
-HDEVINFO hDevInfo;
-SP_DEVICE_INTERFACE_DATA devInfoData;
-long MemberIndex;
-DWORD Required;
-SP_DEVICE_INTERFACE_DETAIL_DATA *detailData;
-HANDLE hDevice;
-HIDD_ATTRIBUTES Attributes;
 long parameter, found = false;
 
 verbose = false;
@@ -1346,86 +1539,164 @@ for (parameter = 1; parameter < argc; parameter++)
 
 	}
 
-/*
-	get the GUID of the Windows HID class so that we can identify HID devices
-*/
-HidD_GetHidGuid(&guid);
-
-if (verbose)
-	{
-	printf("The USB GUID is:");
-	HID_print_guid(&guid);
-	puts("");
-	}
-
-/*
-	Get the list of HID devices
-*/
-if ((hDevInfo = SetupDiGetClassDevs(&guid, NULL, NULL, DIGCF_PRESENT | DIGCF_INTERFACEDEVICE)) == INVALID_HANDLE_VALUE)
-	puts("SetupDiGetClassDevs() failue");
-
-/*
-	Iterate through the list of HID devices
-*/
-devInfoData.cbSize = sizeof(devInfoData);
-for (MemberIndex = 0; SetupDiEnumDeviceInterfaces(hDevInfo, 0, &guid, MemberIndex, &devInfoData); MemberIndex++)
-	{
-	Required = 0;
-	/*
-		Call SetupDiGetDeviceInterfaceDetail() to get the length of the device name then call it again to get the name itself
-	*/
-	SetupDiGetDeviceInterfaceDetail(hDevInfo, &devInfoData, NULL, 0, &Required, NULL);
+#ifdef _MSC_VER
+	GUID guid;
+	HDEVINFO hDevInfo;
+	SP_DEVICE_INTERFACE_DATA devInfoData;
+	long MemberIndex;
+	DWORD Required;
+	SP_DEVICE_INTERFACE_DETAIL_DATA *detailData;
+	HANDLE hDevice;
+	HIDD_ATTRIBUTES Attributes;
 
 	/*
-		Allocate space for the name of the HID device
+		Get the GUID of the Windows HID class so that we can identify HID devices
 	*/
-	detailData = (PSP_DEVICE_INTERFACE_DETAIL_DATA)malloc(Required);
-	detailData->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);	// should be 5
+	HidD_GetHidGuid(&guid);
 
-	/*
-		Get the name and details of the HID device
-	*/
-	if (SetupDiGetDeviceInterfaceDetail(hDevInfo, &devInfoData, detailData, Required, NULL, NULL))
+	if (verbose)
 		{
-		if ((hDevice = CreateFile(detailData->DevicePath, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL)) != INVALID_HANDLE_VALUE)
-			{
-			char buffer[1024];
-			COMMTIMEOUTS timeout = {1000, 0, 1000, 0, 1000};		// reads and writes timeout in one second
-			if (verbose)
-				printf("Found USB HID Device: %s\n", detailData->DevicePath);
-
-			SetCommTimeouts(hDevice, &timeout);
-			Attributes.Size = sizeof(Attributes);
-			HidD_GetAttributes(hDevice, &Attributes);
-			if (verbose)
-				{
-				printf("      VID:%04llx PID:%04llx Version:%lld (", (long long)Attributes.VendorID, (long long)Attributes.ProductID, (long long)Attributes.VersionNumber);
-				HidD_GetManufacturerString(hDevice, buffer, sizeof(buffer));
-				wprintf(L"%s", buffer);
-				HidD_GetProductString(hDevice, buffer, sizeof(buffer));
-				wprintf(L"%s)", buffer);
-				puts("");
-				}
-			if (Attributes.VendorID == IMX_VID && Attributes.ProductID == IMX_PID)
-				{
-				found = true;
-				if (verbose)
-					puts("i.MX6Q device identified");
-				hid_manage_imx6(hDevice);
-				}
-			CloseHandle(hDevice);
-			}
+		printf("The USB GUID is:");
+		HID_print_guid(&guid);
+		puts("");
 		}
-	/*
-		Clean up the memory allocated to get the HID device name
-	*/
-	free(detailData);
-	}
 
-/*
-	Clean up the memory allocated when we got the device list
-*/
-SetupDiDestroyDeviceInfoList(hDevInfo);
+	/*
+		Get the list of HID devices
+	*/
+	if ((hDevInfo = SetupDiGetClassDevs(&guid, NULL, NULL, DIGCF_PRESENT | DIGCF_INTERFACEDEVICE)) == INVALID_HANDLE_VALUE)
+		puts("SetupDiGetClassDevs() failue");
+
+	/*
+		Iterate through the list of HID devices
+	*/
+	devInfoData.cbSize = sizeof(devInfoData);
+	for (MemberIndex = 0; SetupDiEnumDeviceInterfaces(hDevInfo, 0, &guid, MemberIndex, &devInfoData); MemberIndex++)
+		{
+		Required = 0;
+		/*
+			Call SetupDiGetDeviceInterfaceDetail() to get the length of the device name then call it again to get the name itself
+		*/
+		SetupDiGetDeviceInterfaceDetail(hDevInfo, &devInfoData, NULL, 0, &Required, NULL);
+
+		/*
+			Allocate space for the name of the HID device
+		*/
+		detailData = (PSP_DEVICE_INTERFACE_DETAIL_DATA)malloc(Required);
+		detailData->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);	// should be 5
+
+		/*
+			Get the name and details of the HID device
+		*/
+		if (SetupDiGetDeviceInterfaceDetail(hDevInfo, &devInfoData, detailData, Required, NULL, NULL))
+			{
+			if ((hDevice = CreateFile(detailData->DevicePath, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL)) != INVALID_HANDLE_VALUE)
+				{
+				char buffer[1024];
+				COMMTIMEOUTS timeout = {1000, 0, 1000, 0, 1000};		// reads and writes timeout in one second
+				if (verbose)
+					printf("Found USB HID Device: %s\n", detailData->DevicePath);
+
+				SetCommTimeouts(hDevice, &timeout);
+				Attributes.Size = sizeof(Attributes);
+				HidD_GetAttributes(hDevice, &Attributes);
+				if (verbose)
+					{
+					printf("      VID:%04llx PID:%04llx Version:%lld (", (long long)Attributes.VendorID, (long long)Attributes.ProductID, (long long)Attributes.VersionNumber);
+					HidD_GetManufacturerString(hDevice, buffer, sizeof(buffer));
+					wprintf(L"%s", buffer);
+					HidD_GetProductString(hDevice, buffer, sizeof(buffer));
+					wprintf(L"%s)", buffer);
+					puts("");
+					}
+				if (Attributes.VendorID == IMX_VID && Attributes.ProductID == IMX_PID)
+					{
+					found = true;
+					if (verbose)
+						puts("i.MX6Q device identified");
+					hid_manage_imx6(hDevice);
+					}
+				CloseHandle(hDevice);
+				}
+			}
+		/*
+			Clean up the memory allocated to get the HID device name
+		*/
+		free(detailData);
+		}
+
+	/*
+		Clean up the memory allocated when we got the device list
+	*/
+	SetupDiDestroyDeviceInfoList(hDevInfo);
+#elif defined(__APPLE__)
+	IOHIDManagerRef hid_manager;
+	CFIndex number_of_devices;
+	CFSetRef device_set;
+	const IOHIDDeviceRef *device_array;
+	IOHIDDeviceRef device;
+
+	/*
+		Get a handle to the HID manager
+	*/
+	hid_manager = IOHIDManagerCreate(kCFAllocatorDefault, kIOHIDOptionsTypeNone);
+
+	/*
+		Schedule the HID Manager into a MacOS X Main Run Loop.
+	*/
+	IOHIDManagerScheduleWithRunLoop(hid_manager, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
+
+	/*
+		Open the manager
+	*/
+	IOHIDManagerOpen(hid_manager, kIOHIDOptionsTypeNone);
+
+	/*
+		Create a set of matching criteria
+	*/
+	CFDictionaryRef matchingCFDictRef = create_dictionary(IMX_PID, IMX_VID);
+
+	/*
+		Enumerate all HID devices that match the criteria and make sure we have only 1.
+	*/
+	IOHIDManagerSetDeviceMatching(hid_manager, matchingCFDictRef);
+
+	device_set = IOHIDManagerCopyDevices(hid_manager);
+	if (device_set == NULL)
+		exit(printf("Cannot find any attached devices\n"));
+
+	if ((number_of_devices = CFSetGetCount(device_set)) != 1)
+		exit(printf("Device is not unique\n"));
+
+	if (verbose)
+		puts("i.MX6Q device identified");
+
+	/*
+		Get the list into a C++ array
+	*/
+	device_array = new IOHIDDeviceRef [number_of_devices];
+	CFSetGetValues(device_set, (const void **)device_array);
+	CFRelease(device_set);
+
+	/*
+		Get some stats about the device
+	*/
+	device = (IOHIDDeviceRef)*device_array;
+
+	if (IOHIDDeviceOpen(device, kIOHIDOptionsTypeSeizeDevice) == kIOReturnSuccess)
+		{
+		found = true;
+		hid_init(device);
+		hid_manage_imx6(device);
+		IOHIDDeviceClose(device, kIOHIDOptionsTypeNone);
+		}
+	else
+		printf("Cannot open HID device\n");
+	/*
+		We're finished with the device set and device list so free them.
+	*/
+	delete [] device_array;
+#endif
 
 if (!found)
 	puts("Cannot find an i.MX6Q attached");

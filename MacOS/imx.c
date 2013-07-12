@@ -141,8 +141,6 @@ typedef uint32_t DWORD;
 void callback(void *context, IOReturn result, void *sender, IOHIDReportType type, uint32_t reportID, uint8_t *report, CFIndex reportLength)
 {
 printf("Got a report of ID:%u\n", reportID);
-hid_buffer_used = reportLength;
-
 *(long *)context = reportLength;
 }
 
