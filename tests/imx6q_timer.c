@@ -1,6 +1,8 @@
 /*
 	IMX6Q_TIMER.C
 	-------------
+	Copyright (c) 2012-2013 Andrew Trotman
+	Licensed BSD
 */
 #include <stdint.h>
 

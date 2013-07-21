@@ -2,6 +2,8 @@
 	IMX6Q_USB.C
 	-----------
 	Experiments with the I.MX6Q USB controller
+	Copyright (c) 2012-2013 Andrew Trotman
+	Licensed BSD
 */
 #include <stdint.h>
 #include <stdlib.h>
