@@ -1,21 +1,22 @@
 
 CC = @arm-none-eabi-g++
-CFLAGS = -fno-exceptions -fno-rtti $(CCCFLAGS) -ffreestanding -nostdlib -nodefaultlibs -nostartfiles
+CFLAGS = -fno-exceptions -fno-rtti -ffreestanding -nostdlib -nodefaultlibs -nostartfiles
 CLINKFLAGS = -l gcc
 
 AS = @arm-none-eabi-as
 ASFLAGS = -mcpu=arm926ej-s
 
+EXT = mac
 
 all : hello1.elf hello2.elf
 
 hello1.elf : hello.c atose_process.ld atose_process_entry_point.o
-	$(CC) $(CFLAGS) -DCHARACTER='B' -ffunction-sections -fdata-sections -g0 -fno-exceptions -fno-rtti -ffreestanding -Xlinker -z -Xlinker max-page-size=0x0100 -o hello1.elf hello.c -T atose_process.ld $(CLINKFLAGS)
-	@..\..\bin\bin_to_c hello1.elf hello1.elf.c hello1_elf
+	$(CC) $(CFLAGS) -DCHARACTER="'B'" -ffunction-sections -fdata-sections -g0 -fno-exceptions -fno-rtti -ffreestanding -Xlinker -z -Xlinker max-page-size=0x0100 -o hello1.elf hello.c -T atose_process.ld $(CLINKFLAGS)
+	@../../bin/bin_to_c.$(EXT) hello1.elf hello1.elf.c hello1_elf
 
 hello2.elf : hello.c atose_process.ld atose_process_entry_point.o
-	$(CC) $(CFLAGS) -DCHARACTER='C' -ffunction-sections -fdata-sections -g0 -fno-exceptions -fno-rtti -ffreestanding -Xlinker -z -Xlinker max-page-size=0x0100 -o hello2.elf hello.c -T atose_process.ld $(CLINKFLAGS)
-	@..\..\bin\bin_to_c hello2.elf hello2.elf.c hello2_elf
+	$(CC) $(CFLAGS) -DCHARACTER="'C'" -ffunction-sections -fdata-sections -g0 -fno-exceptions -fno-rtti -ffreestanding -Xlinker -z -Xlinker max-page-size=0x0100 -o hello2.elf hello.c -T atose_process.ld $(CLINKFLAGS)
+	@../../bin/bin_to_c.$(EXT) hello2.elf hello2.elf.c hello2_elf
 
 atose_process_entry_point.o : atose_process_entry_point.asm
 	@echo $@
@@ -23,4 +24,4 @@ atose_process_entry_point.o : atose_process_entry_point.asm
 
 
 clean :
-	@del hello.elf hello.elf.c hello.o atose_process_entry_point.o
+	rm hello1.elf hello1.elf.c hello.o atose_process_entry_point.o hello2.elf hello2.elf.c

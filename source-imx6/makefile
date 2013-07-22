@@ -1,8 +1,11 @@
 #
+#	Makefile for ATOSE on the i.MXQ
+#
 #	Copyright (c) 2013 Andrew Trotman
 #	Licensed BSD
 #
 
+.SUFFIXES: .asm
 #
 # Possible values for TARGET are:
 #	SABRE_LITE: The boundaryDevice's SABRE Lite board
@@ -20,7 +23,7 @@ ASFLAGS = -mcpu=cortex-a9
 
 
 #
-# WARNING-> atose_startup.o *must* be the first object in the list so that imx_run.exe can load and run the program
+# WARNING -> atose_startup.o *must* be the first object in the list so that imx_run.exe can load and run the program
 #
 OBJECTS =						\
 	atose_startup.o				\
@@ -65,21 +68,21 @@ OBJECTS =						\
 
 all : atose.elf
 
-atose.elf : $(OBJECTS) imx6q.ld examples\hello.elf.c
+atose.elf : $(OBJECTS) imx6q.ld examples/hello.elf.c
 	@echo $@
 	$(CC) $(CFLAGS) -o atose.elf $(OBJECTS) -T imx6q.ld $(CLINKFLAGS)
 
-examples\hello.elf.c : examples\hello.c
+examples/hello.elf.c : examples/hello.c
 	@cd examples
-	@make /nologo
+	@make
 	@cd ..
 
-atose.o : examples\hello.elf.c
+atose.o : examples/hello.elf.c
 
 clean :
 	@del $(OBJECTS) atose.elf
 	@cd examples
-	@make /nologo clean
+	@make clean
 	@cd ..
 
 .c.o:

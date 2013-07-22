@@ -1,5 +1,5 @@
 #
-# Makefile for ATOSE and the associated tools
+# Makefile for ATOSE and the associated tools that run on the i.MX6Q
 # Copyright (c) 2013 Andrew Trotman
 #
 # Assumes GNU make
@@ -10,7 +10,6 @@
 #
 TARGET = PINNULE
 CPU = IMX6Q
-
 
 #
 #	Now the compilers, etc.

@@ -7,7 +7,7 @@
 #include "../atose_api.h"
 
 #ifndef CHARACTER
-#define CHARACTER 'B'
+	#define CHARACTER 'B'
 #endif
 
 /*
