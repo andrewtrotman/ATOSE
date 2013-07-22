@@ -9,15 +9,18 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#ifdef _MSC_VER
+	#define fileno _fileno
+#endif
 /*
 	Standard types
 */
 typedef unsigned char uint8_t;
-typedef char int8_t;
+typedef signed char int8_t;
 typedef unsigned short uint16_t;
 typedef short int16_t;
 typedef unsigned long uint32_t;
-typedef long int32_t;
+typedef int int32_t;
 typedef unsigned long long uint64_t;
 typedef long long int64_t;
 
@@ -192,7 +195,7 @@ uint64_t remaining, width, column;
 remaining = bytes;
 while (remaining > 0)
 	{
-	printf("%04X: ", (uint32_t)address);
+	printf("%04lX: ", (uint32_t)address);
 
 	width = remaining > 0x10 ? 0x10 : remaining;
 
@@ -233,11 +236,11 @@ if (file->header.tag != IMX_IMAGE_TAG_FILE_HEADER || file->header.length != IMX_
 
 puts("HEADER");
 puts("------");
-printf("Entry Point            : 0x%08X\n", file->entry);
-printf("Self                   : 0x%08X\n", file->self);
-printf("Boot Data Pointer      : 0x%08X\n", file->boot_data);
-printf("DCD Pointer            : 0x%08X\n", file->dcd);
-printf("CSF Pointer            : 0x%08X\n", file->csf);
+printf("Entry Point            : 0x%08lX\n", file->entry);
+printf("Self                   : 0x%08lX\n", file->self);
+printf("Boot Data Pointer      : 0x%08lX\n", file->boot_data);
+printf("DCD Pointer            : 0x%08lX\n", file->dcd);
+printf("CSF Pointer            : 0x%08lX\n", file->csf);
 puts("");
 
 /*
@@ -248,9 +251,9 @@ if (file->boot_data != 0)
 	boot_data = (imx_image_boot_data *)(raw_file + file->boot_data - file->self);
 	puts("BOOT DATA");
 	puts("---------");
-	printf("Start                  : 0x%08X\n", boot_data->start);
-	printf("Length                 : 0x%08X\n", boot_data->length);
-	printf("Plugin                 : 0x%08X\n", boot_data->plugin);
+	printf("Start                  : 0x%08lX\n", boot_data->start);
+	printf("Length                 : 0x%08lX\n", boot_data->length);
+	printf("Plugin                 : 0x%08lX\n", boot_data->plugin);
 	puts("");
 	}
 
@@ -281,7 +284,7 @@ if (file->dcd != 0)
 				command_start += sizeof(imx_image_dcd_header);
 				command_end += arm_to_intel(dcd->command.header.length);
 				for (current = (imx_image_dcd_write_tuple *)command_start; (char *)current < command_end; current++)
-					printf("   *((uint32_t *)0x%08X) = 0x%08X;\n", arm_to_intel(current->address), arm_to_intel(current->value));
+					printf("   *((uint32_t *)0x%08lX) = 0x%08lX;\n", arm_to_intel(current->address), arm_to_intel(current->value));
 				break;
 				}
 			case IMX_IMAGE_DCD_COMMAND_CHECK_DATA: puts("Check Data"); break;
@@ -328,7 +331,7 @@ if (file_length == NULL)
 if ((fp = fopen(filename, "rb")) == NULL)
 	return NULL;
 
-if (fstat(_fileno(fp), &details) == 0)
+if (fstat(fileno(fp), &details) == 0)
 	if ((*file_length = details.st_size) != 0)
 		if ((block = (char *)malloc((size_t)(details.st_size + 1))) != NULL)		// +1 for the '\0' on the end
 			if (fread(block, details.st_size, 1, fp) == 1)

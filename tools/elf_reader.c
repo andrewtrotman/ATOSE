@@ -172,7 +172,7 @@ for (which_range = 0; which_range < range_current; which_range++)
 	if (address >= range[which_range].start && address <= range[which_range].finish)
 		return;
 
-printf("NOT IN RANGE: %X\n", address);
+printf("NOT IN RANGE: %llX\n", address);
 }
 
 
