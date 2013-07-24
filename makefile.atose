@@ -1,0 +1,17 @@
+default:
+	make --no-print-directory -f makefile.atose Darwin
+
+Darwin:
+	export EXT=mac; make --no-print-directory -f makefile.atose all
+
+Windows_NT:
+	set EXT=exe
+	make -f makefile.atose all
+
+linux:
+	export EXT=elf; make --no-print-directory -f makefile.atose all
+
+
+all :
+	echo $(EXT)
+

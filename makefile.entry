@@ -1,0 +1,2 @@
+all :
+	make -f makefile.atose $(OS) $(ARCH)
