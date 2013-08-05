@@ -58,8 +58,6 @@ if ((number = (CFNumberRef)IOHIDDeviceGetProperty(device, parameter)) != NULL)
 return result;
 }
 
-
-
 /*
 	class IMX_SERIAL_MESSAGE
 	------------------------

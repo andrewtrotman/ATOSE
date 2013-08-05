@@ -15,13 +15,19 @@ UNAME := $(shell uname)
 DEL = rm
 
 #
-# Host specific stuff
+# Host specific parameters
 #
 
 EXT = mac
 
 #
-# Include the generic stuff
+# We have some Host specific tools that don't run elsewhere
+#
+
+HOST_TOOLS = bin/mac_hid_list.$(EXT)
+
+#
+# Include the generic ATOSE build
 #
 
 include makefile.mak
