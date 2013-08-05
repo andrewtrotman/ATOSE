@@ -44,15 +44,15 @@ DDK_LIB = c:\WinDDK\7600.16385.1\lib\wxp\i386\setupapi.lib c:\WinDDK\7600.16385.
 	@$(CC) $(CCFLAGS) -o $@ $(TESTS_DIR)/imx6q.s $< $(CLINKFLAGS) -T $(TESTS_DIR)/imx6q.ld
 
 {$(TOOLS_DIR)}.c{$(BIN_DIR)}.$(EXT):
-	@$(CXX) $(CXXFLAGS) -Fe$@ /Tp $<
+	@$(CXX) $(CXXFLAGS) -Fe$@ /Tp $< -Fo$(OBJ_DIR)\$(@B).obj
 
 #
 # Host specific explicit rules
 #
 
 $(BIN_DIR)\imx_run.$(EXT) : $(TOOLS_DIR)\imx_run.c
-	@$(CXX) $(CXXFLAGS) -Fe$@ /Tp $(TOOLS_DIR)\imx_run.c /X -I$(DDK_INCLUDE) $(DDK_LIB) 
-
+	@$(CXX) $(CXXFLAGS) -Fe$@ /Tp $(TOOLS_DIR)\imx_run.c /X -I$(DDK_INCLUDE) $(DDK_LIB) -Fo$(OBJ_DIR)\$(@B).obj
+ 
 #
 # Host specific build rules
 #
