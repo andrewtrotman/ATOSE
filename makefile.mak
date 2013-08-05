@@ -52,7 +52,7 @@ IMX6Q_TOOLS =						     \
 #
 #	Tool that help with the host PC, Mac, etc.  This includes debugging tools and uploaders
 #
-HOST_TOOLS = $(HOST_TOOLS)            \
+HOST_TOOLS = $(HOST_TOOLS_EXTRAS)            \
 	$(BIN_DIR)/bin_to_c.$(EXT)        \
 	$(BIN_DIR)/elf_reader.$(EXT)      \
 	$(BIN_DIR)/imx_run.$(EXT)         \
