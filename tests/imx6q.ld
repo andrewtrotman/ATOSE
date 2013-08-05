@@ -9,7 +9,7 @@ SECTIONS
 .data : { *(.data) } 
 .bss : { *(.bss) } 
 
- __exidx_start = .;
+__exidx_start = .;
 .ARM.exidx   : { *(.ARM.exidx* .gnu.linkonce.armexidx.*) } 
 __exidx_end = .;
 

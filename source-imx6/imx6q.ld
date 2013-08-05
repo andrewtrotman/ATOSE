@@ -50,6 +50,10 @@ SECTIONS
 .bss : { *(.bss) } > internal_ram
 .rodata : { *(.rodata*) } > internal_ram
 
+__exidx_start = .;
+.ARM.exidx   : { *(.ARM.exidx* .gnu.linkonce.armexidx.*) }  > internal_ram
+__exidx_end = .;
+
 . = ALIGN(4);
 . = . + 16K; /* 16kB of stack memory (the ATOSE_atose object takes 4K of that!) */
 ATOSE_stack_top = .;
