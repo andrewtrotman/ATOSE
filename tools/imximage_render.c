@@ -11,6 +11,8 @@
 
 #ifdef _MSC_VER
 	#define fileno _fileno
+	#define fstat _fstat
+	#define stat _stat
 #endif
 /*
 	Standard types

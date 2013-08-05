@@ -34,7 +34,7 @@
 	Standard types
 	Its necessary to declare these here because they are not provided by Visual C/C++ 9  (Visual Studio 2008)
 */
-#ifdef _MSC_VER_
+#ifdef _MSC_VER
 	typedef unsigned char uint8_t;
 	typedef unsigned short uint16_t;
 	typedef unsigned long uint32_t;
@@ -1204,7 +1204,7 @@ if (file_length == NULL)
 					block[details.QuadPart] = '\0';
 				else
 					{
-					free(bloc);
+					free(block);
 					block = NULL;
 					}
 				}

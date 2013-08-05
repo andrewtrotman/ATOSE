@@ -1,5 +1,5 @@
 #
-# Linux / MacOS entry point for the make of ATOSE and tools
+# Linux / MacOS specific makefile for ATOSE
 #
 # Copyright (c) 2013 Andrew Trotman
 #
@@ -10,18 +10,37 @@
 UNAME := $(shell uname)
 
 #
-#	Set up operating specific tools.  Because they are exported they are passed
-# 	along to any instances of make called from here.
+#	Set up operating specific tools.
 #
-
-export DEL=rm
+DEL = rm
 
 #
-#	Go ahead and 4tart the build process
+# Host specific stuff
 #
 
-all :
-	make -f makefile.os $(UNAME)
+EXT = mac
 
-clean :
-	make -f makefile.os clean
+#
+# Include the generic stuff
+#
+
+include makefile.mak
+
+#
+# Host specific implic rules
+#
+
+$(BIN_DIR)/%.elf : $(TESTS_DIR)/%.c
+	@echo $@
+	$(CC) $(CCFLAGS) -o $@ $(TESTS_DIR)/imx6q.s $< $(CLINKFLAGS) -T $(TESTS_DIR)/imx6q.ld
+
+$(BIN_DIR)%.$(EXT) : $(TOOLS_DIR)/%.c
+        @echo $@
+        $(CXX) $(CXXFLAGS) -x c++ -Wno-dangling-else -o $@ $< -framework CoreFoundation -framework IOKit
+#
+# Host specific build rules
+#
+
+clean:
+	$(DEL) $(CLEANABLE)
+
