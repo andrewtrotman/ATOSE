@@ -28,6 +28,8 @@ CCFLAGS = -mcpu=cortex-a9 -D$(CPU) -D$(TARGET) -g3 -Wall -Os -l gcc -ffreestandi
 CCXX = arm-none-eabi-g++
 CCXXFLAGS = -std=c++0x $(CCFLAGS) -fno-exceptions -fno-rtti
 
+#CCXXFLAGS = -std=c++0x $(CCFLAGS) -fno-exceptions -fno-rtti -nostdlib -nodefaultlibs
+
 #
 #	Directories
 #
@@ -106,7 +108,7 @@ all : $(BIN_DIR) $(OBJ_DIR) $(IMX6Q_TOOLS) $(HOST_TOOLS) $(BIN_DIR)/atose.elf
 
 $(BIN_DIR)/atose.elf : $(ATOSE_OBJECTS) $(SOURCE_DIR)/imx6q.ld
 	@echo $@
-	@$(CC) $(CFLAGS) -o $(BIN_DIR)/atose.elf $(ATOSE_OBJECTS) -T $(SOURCE_DIR)/imx6q.ld
+	@$(CCXX) $(CCXXFLAGS) -o $(BIN_DIR)/atose.elf $(ATOSE_OBJECTS) -T $(SOURCE_DIR)/imx6q.ld
 
 $(BIN_DIR) :
 	@mkdir $(BIN_DIR)
