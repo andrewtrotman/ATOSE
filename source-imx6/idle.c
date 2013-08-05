@@ -8,8 +8,6 @@
 */
 #include "idle.h"
 #include "atose_api.h"
-#include "examples/hello1.elf.c"
-#include "examples/hello2.elf.c"
 
 /*
 	IDLE()

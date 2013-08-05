@@ -1,0 +1,987 @@
+# DO NOT DELETE
+
+source-imx6/address_space.o: source-imx6/atose.h source-imx6/fat.h
+source-imx6/address_space.o: source-imx6/host_usb_device_disk.h
+source-imx6/address_space.o: source-imx6/host_usb_device_generic.h
+source-imx6/address_space.o: source-imx6/host_usb_device.h source-imx6/usb.h
+source-imx6/address_space.o: source-imx6/device_driver.h
+source-imx6/address_space.o: source-imx6/usb_standard_hub_descriptor.h
+source-imx6/address_space.o: source-imx6/usb_standard_device_descriptor.h
+source-imx6/address_space.o: source-imx6/usb_standard_configuration_descriptor.h
+source-imx6/address_space.o: source-imx6/file_system.h
+source-imx6/address_space.o: source-imx6/file_control_block.h
+source-imx6/address_space.o: source-imx6/fat_directory_entry.h
+source-imx6/address_space.o: source-imx6/stack.h source-imx6/debug.h
+source-imx6/address_space.o: source-imx6/ascii_str.h source-imx6/ctypes.h
+source-imx6/address_space.o: source-imx6/cpu_arm.h source-imx6/host_usb.h
+source-imx6/address_space.o: source-imx6/usb_ehci_queue_head.h
+source-imx6/address_space.o: source-imx6/usb_ehci_queue_head_endpoint_capabilities.h
+source-imx6/address_space.o: source-imx6/usb_ehci_queue_element_transfer_descriptor.h
+source-imx6/address_space.o: source-imx6/usb_ehci_queue_element_transfer_descriptor_token.h
+source-imx6/address_space.o: source-imx6/usb_ehci_queue_head_horizontal_link_pointer.h
+source-imx6/address_space.o: source-imx6/usb_ehci_queue_head_endpoint_characteristics.h
+source-imx6/address_space.o: source-imx6/usb_imx6q.h
+source-imx6/address_space.o: source-imx6/usb_imx6q_endpoint_queuehead.h
+source-imx6/address_space.o: source-imx6/usb_imx6q_endpoint_queuehead_capabilities.h
+source-imx6/address_space.o: source-imx6/usb_imx6q_endpoint_transfer_descriptor.h
+source-imx6/address_space.o: source-imx6/usb_imx6q_endpoint_transfer_descriptor_dtd_token.h
+source-imx6/address_space.o: source-imx6/usb_setup_data.h
+source-imx6/address_space.o: source-imx6/usb_setup_data_request_type.h
+source-imx6/address_space.o: source-imx6/mmu_imx6q.h source-imx6/mmu.h
+source-imx6/address_space.o: source-imx6/mmu_page_list.h
+source-imx6/address_space.o: source-imx6/kernel_memory_allocator.h
+source-imx6/address_space.o: source-imx6/uart_imx6q.h
+source-imx6/address_space.o: source-imx6/timer_imx6q.h source-imx6/timer.h
+source-imx6/address_space.o: source-imx6/cpu_arm_imx6q.h
+source-imx6/address_space.o: source-imx6/clock_imx6q.h
+source-imx6/address_space.o: source-imx6/interrupt_arm.h
+source-imx6/address_space.o: source-imx6/process_manager.h
+source-imx6/address_space.o: source-imx6/process.h
+source-imx6/address_space.o: source-imx6/process_allocator.h
+source-imx6/address_space.o: source-imx6/semaphore.h source-imx6/registers.h
+source-imx6/address_space.o: source-imx6/pipe_task.h source-imx6/pipe.h
+source-imx6/address_space.o: source-imx6/address_space.h source-imx6/thread.h
+source-imx6/address_space.o: source-imx6/sleep_wake.h
+source-imx6/address_space.o: source-imx6/interrupt_arm_gic.h
+source-imx6/address_space.o: source-imx6/interrupt.h
+source-imx6/address_space.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/irq_numbers.h
+source-imx6/address_space.o: source-imx6/mmu_page.h
+source-imx6/atose.o: source-imx6/idle.h source-imx6/pipe.h
+source-imx6/atose.o: source-imx6/semaphore.h source-imx6/process.h
+source-imx6/atose.o: source-imx6/registers.h source-imx6/atose.h
+source-imx6/atose.o: source-imx6/fat.h source-imx6/host_usb_device_disk.h
+source-imx6/atose.o: source-imx6/host_usb_device_generic.h
+source-imx6/atose.o: source-imx6/host_usb_device.h source-imx6/usb.h
+source-imx6/atose.o: source-imx6/device_driver.h
+source-imx6/atose.o: source-imx6/usb_standard_hub_descriptor.h
+source-imx6/atose.o: source-imx6/usb_standard_device_descriptor.h
+source-imx6/atose.o: source-imx6/usb_standard_configuration_descriptor.h
+source-imx6/atose.o: source-imx6/file_system.h
+source-imx6/atose.o: source-imx6/file_control_block.h
+source-imx6/atose.o: source-imx6/fat_directory_entry.h source-imx6/stack.h
+source-imx6/atose.o: source-imx6/debug.h source-imx6/ascii_str.h
+source-imx6/atose.o: source-imx6/ctypes.h source-imx6/cpu_arm.h
+source-imx6/atose.o: source-imx6/host_usb.h source-imx6/usb_ehci_queue_head.h
+source-imx6/atose.o: source-imx6/usb_ehci_queue_head_endpoint_capabilities.h
+source-imx6/atose.o: source-imx6/usb_ehci_queue_element_transfer_descriptor.h
+source-imx6/atose.o: source-imx6/usb_ehci_queue_element_transfer_descriptor_token.h
+source-imx6/atose.o: source-imx6/usb_ehci_queue_head_horizontal_link_pointer.h
+source-imx6/atose.o: source-imx6/usb_ehci_queue_head_endpoint_characteristics.h
+source-imx6/atose.o: source-imx6/usb_imx6q.h
+source-imx6/atose.o: source-imx6/usb_imx6q_endpoint_queuehead.h
+source-imx6/atose.o: source-imx6/usb_imx6q_endpoint_queuehead_capabilities.h
+source-imx6/atose.o: source-imx6/usb_imx6q_endpoint_transfer_descriptor.h
+source-imx6/atose.o: source-imx6/usb_imx6q_endpoint_transfer_descriptor_dtd_token.h
+source-imx6/atose.o: source-imx6/usb_setup_data.h
+source-imx6/atose.o: source-imx6/usb_setup_data_request_type.h
+source-imx6/atose.o: source-imx6/mmu_imx6q.h source-imx6/mmu.h
+source-imx6/atose.o: source-imx6/mmu_page_list.h
+source-imx6/atose.o: source-imx6/kernel_memory_allocator.h
+source-imx6/atose.o: source-imx6/uart_imx6q.h source-imx6/timer_imx6q.h
+source-imx6/atose.o: source-imx6/timer.h source-imx6/cpu_arm_imx6q.h
+source-imx6/atose.o: source-imx6/clock_imx6q.h source-imx6/interrupt_arm.h
+source-imx6/atose.o: source-imx6/process_manager.h
+source-imx6/atose.o: source-imx6/process_allocator.h source-imx6/pipe_task.h
+source-imx6/atose.o: source-imx6/address_space.h source-imx6/thread.h
+source-imx6/atose.o: source-imx6/sleep_wake.h source-imx6/interrupt_arm_gic.h
+source-imx6/atose.o: source-imx6/interrupt.h
+source-imx6/atose.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/irq_numbers.h
+source-imx6/atose.o: source-imx6/atose_api.h
+source-imx6/atose_api.o: source-imx6/atose_api.h source-imx6/address_space.h
+source-imx6/atose_api.o: source-imx6/mmu_page_list.h source-imx6/ascii_str.h
+source-imx6/atose_api.o: source-imx6/ctypes.h
+source-imx6/client_file.o: source-imx6/ascii_str.h source-imx6/ctypes.h
+source-imx6/client_file.o: source-imx6/atose_api.h
+source-imx6/client_file.o: source-imx6/address_space.h
+source-imx6/client_file.o: source-imx6/mmu_page_list.h source-imx6/pipe.h
+source-imx6/client_file.o: source-imx6/semaphore.h source-imx6/process.h
+source-imx6/client_file.o: source-imx6/registers.h source-imx6/client_file.h
+source-imx6/client_file.o: source-imx6/server_disk.h source-imx6/stdpipe.h
+source-imx6/client_file.o: source-imx6/server_disk_protocol.h
+source-imx6/clock_imx6q.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsccm.h
+source-imx6/clock_imx6q.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regs.h
+source-imx6/clock_imx6q.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsepit.h
+source-imx6/clock_imx6q.o: source-imx6/clock_imx6q.h
+source-imx6/cpu_arm.o: source-imx6/cpu_arm.h
+source-imx6/cpu_arm_imx6q.o: source-imx6/ascii_str.h source-imx6/ctypes.h
+source-imx6/cpu_arm_imx6q.o: source-imx6/cpu_arm_imx6q.h
+source-imx6/cpu_arm_imx6q.o: source-imx6/cpu_arm.h source-imx6/clock_imx6q.h
+source-imx6/cpu_arm_imx6q.o: source-imx6/interrupt_arm.h
+source-imx6/ctypes.o: source-imx6/ctypes.h
+source-imx6/debug.o: source-imx6/debug.h source-imx6/ascii_str.h
+source-imx6/debug.o: source-imx6/ctypes.h
+source-imx6/fat.o: source-imx6/fat.h source-imx6/host_usb_device_disk.h
+source-imx6/fat.o: source-imx6/host_usb_device_generic.h
+source-imx6/fat.o: source-imx6/host_usb_device.h source-imx6/usb.h
+source-imx6/fat.o: source-imx6/device_driver.h
+source-imx6/fat.o: source-imx6/usb_standard_hub_descriptor.h
+source-imx6/fat.o: source-imx6/usb_standard_device_descriptor.h
+source-imx6/fat.o: source-imx6/usb_standard_configuration_descriptor.h
+source-imx6/fat.o: source-imx6/file_system.h source-imx6/file_control_block.h
+source-imx6/fat.o: source-imx6/fat_directory_entry.h
+source-imx6/fat.o: source-imx6/fat_boot_sector.h source-imx6/msb_lsb.h
+source-imx6/fat.o: source-imx6/msb_uint64_t.h source-imx6/msb_uint32_t.h
+source-imx6/fat.o: source-imx6/msb_uint16_t.h source-imx6/lsb_uint32_t.h
+source-imx6/fat.o: source-imx6/lsb_uint16_t.h source-imx6/fat_fsinfo.h
+source-imx6/fat.o: source-imx6/ascii_str.h source-imx6/ctypes.h
+source-imx6/fat.o: source-imx6/usc2_str.h source-imx6/utf8_str.h
+source-imx6/file_system.o: source-imx6/ascii_str.h source-imx6/ctypes.h
+source-imx6/file_system.o: source-imx6/file_system.h
+source-imx6/file_system.o: source-imx6/file_control_block.h
+source-imx6/host_usb.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsccm.h
+source-imx6/host_usb.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regs.h
+source-imx6/host_usb.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsccmanalog.h
+source-imx6/host_usb.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsiomuxc.h
+source-imx6/host_usb.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsusbcore.h
+source-imx6/host_usb.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsusbphy.h
+source-imx6/host_usb.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsusbanalog.h
+source-imx6/host_usb.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsgpio.h
+source-imx6/host_usb.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/irq_numbers.h
+source-imx6/host_usb.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsepit.h
+source-imx6/host_usb.o: source-imx6/atose.h source-imx6/fat.h
+source-imx6/host_usb.o: source-imx6/host_usb_device_disk.h
+source-imx6/host_usb.o: source-imx6/host_usb_device_generic.h
+source-imx6/host_usb.o: source-imx6/host_usb_device.h source-imx6/usb.h
+source-imx6/host_usb.o: source-imx6/device_driver.h
+source-imx6/host_usb.o: source-imx6/usb_standard_hub_descriptor.h
+source-imx6/host_usb.o: source-imx6/usb_standard_device_descriptor.h
+source-imx6/host_usb.o: source-imx6/usb_standard_configuration_descriptor.h
+source-imx6/host_usb.o: source-imx6/file_system.h
+source-imx6/host_usb.o: source-imx6/file_control_block.h
+source-imx6/host_usb.o: source-imx6/fat_directory_entry.h source-imx6/stack.h
+source-imx6/host_usb.o: source-imx6/debug.h source-imx6/ascii_str.h
+source-imx6/host_usb.o: source-imx6/ctypes.h source-imx6/cpu_arm.h
+source-imx6/host_usb.o: source-imx6/host_usb.h
+source-imx6/host_usb.o: source-imx6/usb_ehci_queue_head.h
+source-imx6/host_usb.o: source-imx6/usb_ehci_queue_head_endpoint_capabilities.h
+source-imx6/host_usb.o: source-imx6/usb_ehci_queue_element_transfer_descriptor.h
+source-imx6/host_usb.o: source-imx6/usb_ehci_queue_element_transfer_descriptor_token.h
+source-imx6/host_usb.o: source-imx6/usb_ehci_queue_head_horizontal_link_pointer.h
+source-imx6/host_usb.o: source-imx6/usb_ehci_queue_head_endpoint_characteristics.h
+source-imx6/host_usb.o: source-imx6/usb_imx6q.h
+source-imx6/host_usb.o: source-imx6/usb_imx6q_endpoint_queuehead.h
+source-imx6/host_usb.o: source-imx6/usb_imx6q_endpoint_queuehead_capabilities.h
+source-imx6/host_usb.o: source-imx6/usb_imx6q_endpoint_transfer_descriptor.h
+source-imx6/host_usb.o: source-imx6/usb_imx6q_endpoint_transfer_descriptor_dtd_token.h
+source-imx6/host_usb.o: source-imx6/usb_setup_data.h
+source-imx6/host_usb.o: source-imx6/usb_setup_data_request_type.h
+source-imx6/host_usb.o: source-imx6/mmu_imx6q.h source-imx6/mmu.h
+source-imx6/host_usb.o: source-imx6/mmu_page_list.h
+source-imx6/host_usb.o: source-imx6/kernel_memory_allocator.h
+source-imx6/host_usb.o: source-imx6/uart_imx6q.h source-imx6/timer_imx6q.h
+source-imx6/host_usb.o: source-imx6/timer.h source-imx6/cpu_arm_imx6q.h
+source-imx6/host_usb.o: source-imx6/clock_imx6q.h source-imx6/interrupt_arm.h
+source-imx6/host_usb.o: source-imx6/process_manager.h source-imx6/process.h
+source-imx6/host_usb.o: source-imx6/process_allocator.h
+source-imx6/host_usb.o: source-imx6/semaphore.h source-imx6/registers.h
+source-imx6/host_usb.o: source-imx6/pipe_task.h source-imx6/pipe.h
+source-imx6/host_usb.o: source-imx6/address_space.h source-imx6/thread.h
+source-imx6/host_usb.o: source-imx6/sleep_wake.h
+source-imx6/host_usb.o: source-imx6/interrupt_arm_gic.h
+source-imx6/host_usb.o: source-imx6/interrupt.h source-imx6/usb_hub.h
+source-imx6/host_usb.o: source-imx6/atose_api.h
+source-imx6/host_usb.o: source-imx6/host_usb_device_hub.h
+source-imx6/host_usb.o: source-imx6/usb_standard_interface_descriptor.h
+source-imx6/host_usb.o: source-imx6/server_disk.h source-imx6/stdpipe.h
+source-imx6/host_usb.o: systems/iMX6_Platform_SDK/sdk/drivers/gpio/gpio.h
+source-imx6/host_usb.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/iomux_register.h
+source-imx6/host_usb.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/iomux_define.h
+source-imx6/host_usb.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsuart.h
+source-imx6/host_usb.o: source-imx6/usb_standard_endpoint_descriptor.h
+source-imx6/host_usb_device.o: source-imx6/usb.h source-imx6/device_driver.h
+source-imx6/host_usb_device.o: source-imx6/host_usb.h
+source-imx6/host_usb_device.o: source-imx6/usb_ehci_queue_head.h
+source-imx6/host_usb_device.o: source-imx6/usb_ehci_queue_head_endpoint_capabilities.h
+source-imx6/host_usb_device.o: source-imx6/usb_ehci_queue_element_transfer_descriptor.h
+source-imx6/host_usb_device.o: source-imx6/usb_ehci_queue_element_transfer_descriptor_token.h
+source-imx6/host_usb_device.o: source-imx6/usb_ehci_queue_head_horizontal_link_pointer.h
+source-imx6/host_usb_device.o: source-imx6/usb_ehci_queue_head_endpoint_characteristics.h
+source-imx6/host_usb_device.o: source-imx6/host_usb_device_generic.h
+source-imx6/host_usb_device.o: source-imx6/host_usb_device.h
+source-imx6/host_usb_device.o: source-imx6/usb_standard_hub_descriptor.h
+source-imx6/host_usb_device.o: source-imx6/usb_standard_device_descriptor.h
+source-imx6/host_usb_device.o: source-imx6/usb_standard_configuration_descriptor.h
+source-imx6/host_usb_device.o: source-imx6/ascii_str.h source-imx6/ctypes.h
+source-imx6/host_usb_device.o: source-imx6/usb_setup_data.h
+source-imx6/host_usb_device.o: source-imx6/usb_setup_data_request_type.h
+source-imx6/host_usb_device.o: source-imx6/usb_standard_interface_descriptor.h
+source-imx6/host_usb_device_disk.o: source-imx6/fat.h
+source-imx6/host_usb_device_disk.o: source-imx6/host_usb_device_disk.h
+source-imx6/host_usb_device_disk.o: source-imx6/host_usb_device_generic.h
+source-imx6/host_usb_device_disk.o: source-imx6/host_usb_device.h
+source-imx6/host_usb_device_disk.o: source-imx6/usb.h
+source-imx6/host_usb_device_disk.o: source-imx6/device_driver.h
+source-imx6/host_usb_device_disk.o: source-imx6/usb_standard_hub_descriptor.h
+source-imx6/host_usb_device_disk.o: source-imx6/usb_standard_device_descriptor.h
+source-imx6/host_usb_device_disk.o: source-imx6/usb_standard_configuration_descriptor.h
+source-imx6/host_usb_device_disk.o: source-imx6/file_system.h
+source-imx6/host_usb_device_disk.o: source-imx6/file_control_block.h
+source-imx6/host_usb_device_disk.o: source-imx6/fat_directory_entry.h
+source-imx6/host_usb_device_disk.o: source-imx6/atose.h source-imx6/stack.h
+source-imx6/host_usb_device_disk.o: source-imx6/debug.h
+source-imx6/host_usb_device_disk.o: source-imx6/ascii_str.h
+source-imx6/host_usb_device_disk.o: source-imx6/ctypes.h
+source-imx6/host_usb_device_disk.o: source-imx6/cpu_arm.h
+source-imx6/host_usb_device_disk.o: source-imx6/host_usb.h
+source-imx6/host_usb_device_disk.o: source-imx6/usb_ehci_queue_head.h
+source-imx6/host_usb_device_disk.o: source-imx6/usb_ehci_queue_head_endpoint_capabilities.h
+source-imx6/host_usb_device_disk.o: source-imx6/usb_ehci_queue_element_transfer_descriptor.h
+source-imx6/host_usb_device_disk.o: source-imx6/usb_ehci_queue_element_transfer_descriptor_token.h
+source-imx6/host_usb_device_disk.o: source-imx6/usb_ehci_queue_head_horizontal_link_pointer.h
+source-imx6/host_usb_device_disk.o: source-imx6/usb_ehci_queue_head_endpoint_characteristics.h
+source-imx6/host_usb_device_disk.o: source-imx6/usb_imx6q.h
+source-imx6/host_usb_device_disk.o: source-imx6/usb_imx6q_endpoint_queuehead.h
+source-imx6/host_usb_device_disk.o: source-imx6/usb_imx6q_endpoint_queuehead_capabilities.h
+source-imx6/host_usb_device_disk.o: source-imx6/usb_imx6q_endpoint_transfer_descriptor.h
+source-imx6/host_usb_device_disk.o: source-imx6/usb_imx6q_endpoint_transfer_descriptor_dtd_token.h
+source-imx6/host_usb_device_disk.o: source-imx6/usb_setup_data.h
+source-imx6/host_usb_device_disk.o: source-imx6/usb_setup_data_request_type.h
+source-imx6/host_usb_device_disk.o: source-imx6/mmu_imx6q.h source-imx6/mmu.h
+source-imx6/host_usb_device_disk.o: source-imx6/mmu_page_list.h
+source-imx6/host_usb_device_disk.o: source-imx6/kernel_memory_allocator.h
+source-imx6/host_usb_device_disk.o: source-imx6/uart_imx6q.h
+source-imx6/host_usb_device_disk.o: source-imx6/timer_imx6q.h
+source-imx6/host_usb_device_disk.o: source-imx6/timer.h
+source-imx6/host_usb_device_disk.o: source-imx6/cpu_arm_imx6q.h
+source-imx6/host_usb_device_disk.o: source-imx6/clock_imx6q.h
+source-imx6/host_usb_device_disk.o: source-imx6/interrupt_arm.h
+source-imx6/host_usb_device_disk.o: source-imx6/process_manager.h
+source-imx6/host_usb_device_disk.o: source-imx6/process.h
+source-imx6/host_usb_device_disk.o: source-imx6/process_allocator.h
+source-imx6/host_usb_device_disk.o: source-imx6/semaphore.h
+source-imx6/host_usb_device_disk.o: source-imx6/registers.h
+source-imx6/host_usb_device_disk.o: source-imx6/pipe_task.h
+source-imx6/host_usb_device_disk.o: source-imx6/pipe.h
+source-imx6/host_usb_device_disk.o: source-imx6/address_space.h
+source-imx6/host_usb_device_disk.o: source-imx6/thread.h
+source-imx6/host_usb_device_disk.o: source-imx6/sleep_wake.h
+source-imx6/host_usb_device_disk.o: source-imx6/interrupt_arm_gic.h
+source-imx6/host_usb_device_disk.o: source-imx6/interrupt.h
+source-imx6/host_usb_device_disk.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/irq_numbers.h
+source-imx6/host_usb_device_disk.o: source-imx6/usb_disk_command_status_wrapper.h
+source-imx6/host_usb_device_disk.o: source-imx6/usb_standard_interface_descriptor.h
+source-imx6/host_usb_device_disk.o: source-imx6/usb_standard_endpoint_descriptor.h
+source-imx6/host_usb_device_disk.o: source-imx6/scsi_read_capacity_10_parameter_data.h
+source-imx6/host_usb_device_disk.o: source-imx6/msb_lsb.h
+source-imx6/host_usb_device_disk.o: source-imx6/msb_uint64_t.h
+source-imx6/host_usb_device_disk.o: source-imx6/msb_uint32_t.h
+source-imx6/host_usb_device_disk.o: source-imx6/msb_uint16_t.h
+source-imx6/host_usb_device_disk.o: source-imx6/lsb_uint32_t.h
+source-imx6/host_usb_device_disk.o: source-imx6/lsb_uint16_t.h
+source-imx6/host_usb_device_disk.o: source-imx6/scsi_read_capacity_16_parameter_data.h
+source-imx6/host_usb_device_disk.o: source-imx6/usb_disk_command_block_wrapper.h
+source-imx6/host_usb_device_hub.o: source-imx6/usb_hub.h
+source-imx6/host_usb_device_hub.o: source-imx6/host_usb_device_hub.h
+source-imx6/host_usb_device_hub.o: source-imx6/host_usb_device.h
+source-imx6/host_usb_device_hub.o: source-imx6/usb.h
+source-imx6/host_usb_device_hub.o: source-imx6/device_driver.h
+source-imx6/host_usb_device_hub.o: source-imx6/usb_standard_hub_descriptor.h
+source-imx6/host_usb_device_hub.o: source-imx6/usb_standard_device_descriptor.h
+source-imx6/host_usb_device_hub.o: source-imx6/usb_standard_configuration_descriptor.h
+source-imx6/host_usb_device_hub.o: source-imx6/host_usb_device_generic.h
+source-imx6/host_usb_device_hub.o: source-imx6/usb_hub_port_status_and_change.h
+source-imx6/host_usb_device_hub.o: source-imx6/usb_hub_port_status.h
+source-imx6/host_usb_device_hub.o: source-imx6/usb_hub_port_change_field.h
+source-imx6/host_usb_device_hub.o: source-imx6/host_usb.h
+source-imx6/host_usb_device_hub.o: source-imx6/usb_ehci_queue_head.h
+source-imx6/host_usb_device_hub.o: source-imx6/usb_ehci_queue_head_endpoint_capabilities.h
+source-imx6/host_usb_device_hub.o: source-imx6/usb_ehci_queue_element_transfer_descriptor.h
+source-imx6/host_usb_device_hub.o: source-imx6/usb_ehci_queue_element_transfer_descriptor_token.h
+source-imx6/host_usb_device_hub.o: source-imx6/usb_ehci_queue_head_horizontal_link_pointer.h
+source-imx6/host_usb_device_hub.o: source-imx6/usb_ehci_queue_head_endpoint_characteristics.h
+source-imx6/host_usb_device_hub.o: source-imx6/usb_standard_interface_descriptor.h
+source-imx6/host_usb_device_hub.o: source-imx6/usb_standard_endpoint_descriptor.h
+source-imx6/idle.o: source-imx6/idle.h source-imx6/atose_api.h
+source-imx6/idle.o: source-imx6/address_space.h source-imx6/mmu_page_list.h
+source-imx6/interrupt.o: source-imx6/atose.h source-imx6/fat.h
+source-imx6/interrupt.o: source-imx6/host_usb_device_disk.h
+source-imx6/interrupt.o: source-imx6/host_usb_device_generic.h
+source-imx6/interrupt.o: source-imx6/host_usb_device.h source-imx6/usb.h
+source-imx6/interrupt.o: source-imx6/device_driver.h
+source-imx6/interrupt.o: source-imx6/usb_standard_hub_descriptor.h
+source-imx6/interrupt.o: source-imx6/usb_standard_device_descriptor.h
+source-imx6/interrupt.o: source-imx6/usb_standard_configuration_descriptor.h
+source-imx6/interrupt.o: source-imx6/file_system.h
+source-imx6/interrupt.o: source-imx6/file_control_block.h
+source-imx6/interrupt.o: source-imx6/fat_directory_entry.h
+source-imx6/interrupt.o: source-imx6/stack.h source-imx6/debug.h
+source-imx6/interrupt.o: source-imx6/ascii_str.h source-imx6/ctypes.h
+source-imx6/interrupt.o: source-imx6/cpu_arm.h source-imx6/host_usb.h
+source-imx6/interrupt.o: source-imx6/usb_ehci_queue_head.h
+source-imx6/interrupt.o: source-imx6/usb_ehci_queue_head_endpoint_capabilities.h
+source-imx6/interrupt.o: source-imx6/usb_ehci_queue_element_transfer_descriptor.h
+source-imx6/interrupt.o: source-imx6/usb_ehci_queue_element_transfer_descriptor_token.h
+source-imx6/interrupt.o: source-imx6/usb_ehci_queue_head_horizontal_link_pointer.h
+source-imx6/interrupt.o: source-imx6/usb_ehci_queue_head_endpoint_characteristics.h
+source-imx6/interrupt.o: source-imx6/usb_imx6q.h
+source-imx6/interrupt.o: source-imx6/usb_imx6q_endpoint_queuehead.h
+source-imx6/interrupt.o: source-imx6/usb_imx6q_endpoint_queuehead_capabilities.h
+source-imx6/interrupt.o: source-imx6/usb_imx6q_endpoint_transfer_descriptor.h
+source-imx6/interrupt.o: source-imx6/usb_imx6q_endpoint_transfer_descriptor_dtd_token.h
+source-imx6/interrupt.o: source-imx6/usb_setup_data.h
+source-imx6/interrupt.o: source-imx6/usb_setup_data_request_type.h
+source-imx6/interrupt.o: source-imx6/mmu_imx6q.h source-imx6/mmu.h
+source-imx6/interrupt.o: source-imx6/mmu_page_list.h
+source-imx6/interrupt.o: source-imx6/kernel_memory_allocator.h
+source-imx6/interrupt.o: source-imx6/uart_imx6q.h source-imx6/timer_imx6q.h
+source-imx6/interrupt.o: source-imx6/timer.h source-imx6/cpu_arm_imx6q.h
+source-imx6/interrupt.o: source-imx6/clock_imx6q.h
+source-imx6/interrupt.o: source-imx6/interrupt_arm.h
+source-imx6/interrupt.o: source-imx6/process_manager.h source-imx6/process.h
+source-imx6/interrupt.o: source-imx6/process_allocator.h
+source-imx6/interrupt.o: source-imx6/semaphore.h source-imx6/registers.h
+source-imx6/interrupt.o: source-imx6/pipe_task.h source-imx6/pipe.h
+source-imx6/interrupt.o: source-imx6/address_space.h source-imx6/thread.h
+source-imx6/interrupt.o: source-imx6/sleep_wake.h
+source-imx6/interrupt.o: source-imx6/interrupt_arm_gic.h
+source-imx6/interrupt.o: source-imx6/interrupt.h
+source-imx6/interrupt.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/irq_numbers.h
+source-imx6/interrupt_arm_gic.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/irq_numbers.h
+source-imx6/interrupt_arm_gic.o: source-imx6/atose.h source-imx6/fat.h
+source-imx6/interrupt_arm_gic.o: source-imx6/host_usb_device_disk.h
+source-imx6/interrupt_arm_gic.o: source-imx6/host_usb_device_generic.h
+source-imx6/interrupt_arm_gic.o: source-imx6/host_usb_device.h
+source-imx6/interrupt_arm_gic.o: source-imx6/usb.h
+source-imx6/interrupt_arm_gic.o: source-imx6/device_driver.h
+source-imx6/interrupt_arm_gic.o: source-imx6/usb_standard_hub_descriptor.h
+source-imx6/interrupt_arm_gic.o: source-imx6/usb_standard_device_descriptor.h
+source-imx6/interrupt_arm_gic.o: source-imx6/usb_standard_configuration_descriptor.h
+source-imx6/interrupt_arm_gic.o: source-imx6/file_system.h
+source-imx6/interrupt_arm_gic.o: source-imx6/file_control_block.h
+source-imx6/interrupt_arm_gic.o: source-imx6/fat_directory_entry.h
+source-imx6/interrupt_arm_gic.o: source-imx6/stack.h source-imx6/debug.h
+source-imx6/interrupt_arm_gic.o: source-imx6/ascii_str.h source-imx6/ctypes.h
+source-imx6/interrupt_arm_gic.o: source-imx6/cpu_arm.h source-imx6/host_usb.h
+source-imx6/interrupt_arm_gic.o: source-imx6/usb_ehci_queue_head.h
+source-imx6/interrupt_arm_gic.o: source-imx6/usb_ehci_queue_head_endpoint_capabilities.h
+source-imx6/interrupt_arm_gic.o: source-imx6/usb_ehci_queue_element_transfer_descriptor.h
+source-imx6/interrupt_arm_gic.o: source-imx6/usb_ehci_queue_element_transfer_descriptor_token.h
+source-imx6/interrupt_arm_gic.o: source-imx6/usb_ehci_queue_head_horizontal_link_pointer.h
+source-imx6/interrupt_arm_gic.o: source-imx6/usb_ehci_queue_head_endpoint_characteristics.h
+source-imx6/interrupt_arm_gic.o: source-imx6/usb_imx6q.h
+source-imx6/interrupt_arm_gic.o: source-imx6/usb_imx6q_endpoint_queuehead.h
+source-imx6/interrupt_arm_gic.o: source-imx6/usb_imx6q_endpoint_queuehead_capabilities.h
+source-imx6/interrupt_arm_gic.o: source-imx6/usb_imx6q_endpoint_transfer_descriptor.h
+source-imx6/interrupt_arm_gic.o: source-imx6/usb_imx6q_endpoint_transfer_descriptor_dtd_token.h
+source-imx6/interrupt_arm_gic.o: source-imx6/usb_setup_data.h
+source-imx6/interrupt_arm_gic.o: source-imx6/usb_setup_data_request_type.h
+source-imx6/interrupt_arm_gic.o: source-imx6/mmu_imx6q.h source-imx6/mmu.h
+source-imx6/interrupt_arm_gic.o: source-imx6/mmu_page_list.h
+source-imx6/interrupt_arm_gic.o: source-imx6/kernel_memory_allocator.h
+source-imx6/interrupt_arm_gic.o: source-imx6/uart_imx6q.h
+source-imx6/interrupt_arm_gic.o: source-imx6/timer_imx6q.h
+source-imx6/interrupt_arm_gic.o: source-imx6/timer.h
+source-imx6/interrupt_arm_gic.o: source-imx6/cpu_arm_imx6q.h
+source-imx6/interrupt_arm_gic.o: source-imx6/clock_imx6q.h
+source-imx6/interrupt_arm_gic.o: source-imx6/interrupt_arm.h
+source-imx6/interrupt_arm_gic.o: source-imx6/process_manager.h
+source-imx6/interrupt_arm_gic.o: source-imx6/process.h
+source-imx6/interrupt_arm_gic.o: source-imx6/process_allocator.h
+source-imx6/interrupt_arm_gic.o: source-imx6/semaphore.h
+source-imx6/interrupt_arm_gic.o: source-imx6/registers.h
+source-imx6/interrupt_arm_gic.o: source-imx6/pipe_task.h source-imx6/pipe.h
+source-imx6/interrupt_arm_gic.o: source-imx6/address_space.h
+source-imx6/interrupt_arm_gic.o: source-imx6/thread.h
+source-imx6/interrupt_arm_gic.o: source-imx6/sleep_wake.h
+source-imx6/interrupt_arm_gic.o: source-imx6/interrupt_arm_gic.h
+source-imx6/interrupt_arm_gic.o: source-imx6/interrupt.h
+source-imx6/interrupt_arm_gic.o: source-imx6/interrupt_arm_gic_cpu.h
+source-imx6/interrupt_arm_gic.o: source-imx6/interrupt_arm_gic_distributor.h
+source-imx6/kernel_memory_allocator.o: source-imx6/kernel_memory_allocator.h
+source-imx6/main.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsccm.h
+source-imx6/main.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regs.h
+source-imx6/main.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsepit.h
+source-imx6/main.o: source-imx6/atose.h source-imx6/fat.h
+source-imx6/main.o: source-imx6/host_usb_device_disk.h
+source-imx6/main.o: source-imx6/host_usb_device_generic.h
+source-imx6/main.o: source-imx6/host_usb_device.h source-imx6/usb.h
+source-imx6/main.o: source-imx6/device_driver.h
+source-imx6/main.o: source-imx6/usb_standard_hub_descriptor.h
+source-imx6/main.o: source-imx6/usb_standard_device_descriptor.h
+source-imx6/main.o: source-imx6/usb_standard_configuration_descriptor.h
+source-imx6/main.o: source-imx6/file_system.h
+source-imx6/main.o: source-imx6/file_control_block.h
+source-imx6/main.o: source-imx6/fat_directory_entry.h source-imx6/stack.h
+source-imx6/main.o: source-imx6/debug.h source-imx6/ascii_str.h
+source-imx6/main.o: source-imx6/ctypes.h source-imx6/cpu_arm.h
+source-imx6/main.o: source-imx6/host_usb.h source-imx6/usb_ehci_queue_head.h
+source-imx6/main.o: source-imx6/usb_ehci_queue_head_endpoint_capabilities.h
+source-imx6/main.o: source-imx6/usb_ehci_queue_element_transfer_descriptor.h
+source-imx6/main.o: source-imx6/usb_ehci_queue_element_transfer_descriptor_token.h
+source-imx6/main.o: source-imx6/usb_ehci_queue_head_horizontal_link_pointer.h
+source-imx6/main.o: source-imx6/usb_ehci_queue_head_endpoint_characteristics.h
+source-imx6/main.o: source-imx6/usb_imx6q.h
+source-imx6/main.o: source-imx6/usb_imx6q_endpoint_queuehead.h
+source-imx6/main.o: source-imx6/usb_imx6q_endpoint_queuehead_capabilities.h
+source-imx6/main.o: source-imx6/usb_imx6q_endpoint_transfer_descriptor.h
+source-imx6/main.o: source-imx6/usb_imx6q_endpoint_transfer_descriptor_dtd_token.h
+source-imx6/main.o: source-imx6/usb_setup_data.h
+source-imx6/main.o: source-imx6/usb_setup_data_request_type.h
+source-imx6/main.o: source-imx6/mmu_imx6q.h source-imx6/mmu.h
+source-imx6/main.o: source-imx6/mmu_page_list.h
+source-imx6/main.o: source-imx6/kernel_memory_allocator.h
+source-imx6/main.o: source-imx6/uart_imx6q.h source-imx6/timer_imx6q.h
+source-imx6/main.o: source-imx6/timer.h source-imx6/cpu_arm_imx6q.h
+source-imx6/main.o: source-imx6/clock_imx6q.h source-imx6/interrupt_arm.h
+source-imx6/main.o: source-imx6/process_manager.h source-imx6/process.h
+source-imx6/main.o: source-imx6/process_allocator.h source-imx6/semaphore.h
+source-imx6/main.o: source-imx6/registers.h source-imx6/pipe_task.h
+source-imx6/main.o: source-imx6/pipe.h source-imx6/address_space.h
+source-imx6/main.o: source-imx6/thread.h source-imx6/sleep_wake.h
+source-imx6/main.o: source-imx6/interrupt_arm_gic.h source-imx6/interrupt.h
+source-imx6/main.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/irq_numbers.h
+source-imx6/malloc.o: source-imx6/atose_api.h source-imx6/address_space.h
+source-imx6/malloc.o: source-imx6/mmu_page_list.h source-imx6/malloc.h
+source-imx6/mmu.o: source-imx6/atose.h source-imx6/fat.h
+source-imx6/mmu.o: source-imx6/host_usb_device_disk.h
+source-imx6/mmu.o: source-imx6/host_usb_device_generic.h
+source-imx6/mmu.o: source-imx6/host_usb_device.h source-imx6/usb.h
+source-imx6/mmu.o: source-imx6/device_driver.h
+source-imx6/mmu.o: source-imx6/usb_standard_hub_descriptor.h
+source-imx6/mmu.o: source-imx6/usb_standard_device_descriptor.h
+source-imx6/mmu.o: source-imx6/usb_standard_configuration_descriptor.h
+source-imx6/mmu.o: source-imx6/file_system.h source-imx6/file_control_block.h
+source-imx6/mmu.o: source-imx6/fat_directory_entry.h source-imx6/stack.h
+source-imx6/mmu.o: source-imx6/debug.h source-imx6/ascii_str.h
+source-imx6/mmu.o: source-imx6/ctypes.h source-imx6/cpu_arm.h
+source-imx6/mmu.o: source-imx6/host_usb.h source-imx6/usb_ehci_queue_head.h
+source-imx6/mmu.o: source-imx6/usb_ehci_queue_head_endpoint_capabilities.h
+source-imx6/mmu.o: source-imx6/usb_ehci_queue_element_transfer_descriptor.h
+source-imx6/mmu.o: source-imx6/usb_ehci_queue_element_transfer_descriptor_token.h
+source-imx6/mmu.o: source-imx6/usb_ehci_queue_head_horizontal_link_pointer.h
+source-imx6/mmu.o: source-imx6/usb_ehci_queue_head_endpoint_characteristics.h
+source-imx6/mmu.o: source-imx6/usb_imx6q.h
+source-imx6/mmu.o: source-imx6/usb_imx6q_endpoint_queuehead.h
+source-imx6/mmu.o: source-imx6/usb_imx6q_endpoint_queuehead_capabilities.h
+source-imx6/mmu.o: source-imx6/usb_imx6q_endpoint_transfer_descriptor.h
+source-imx6/mmu.o: source-imx6/usb_imx6q_endpoint_transfer_descriptor_dtd_token.h
+source-imx6/mmu.o: source-imx6/usb_setup_data.h
+source-imx6/mmu.o: source-imx6/usb_setup_data_request_type.h
+source-imx6/mmu.o: source-imx6/mmu_imx6q.h source-imx6/mmu.h
+source-imx6/mmu.o: source-imx6/mmu_page_list.h
+source-imx6/mmu.o: source-imx6/kernel_memory_allocator.h
+source-imx6/mmu.o: source-imx6/uart_imx6q.h source-imx6/timer_imx6q.h
+source-imx6/mmu.o: source-imx6/timer.h source-imx6/cpu_arm_imx6q.h
+source-imx6/mmu.o: source-imx6/clock_imx6q.h source-imx6/interrupt_arm.h
+source-imx6/mmu.o: source-imx6/process_manager.h source-imx6/process.h
+source-imx6/mmu.o: source-imx6/process_allocator.h source-imx6/semaphore.h
+source-imx6/mmu.o: source-imx6/registers.h source-imx6/pipe_task.h
+source-imx6/mmu.o: source-imx6/pipe.h source-imx6/address_space.h
+source-imx6/mmu.o: source-imx6/thread.h source-imx6/sleep_wake.h
+source-imx6/mmu.o: source-imx6/interrupt_arm_gic.h source-imx6/interrupt.h
+source-imx6/mmu.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/irq_numbers.h
+source-imx6/mmu.o: source-imx6/mmu_v5_constants.h source-imx6/mmu_page.h
+source-imx6/mmu_page_list.o: source-imx6/mmu_page.h
+source-imx6/mmu_page_list.o: source-imx6/mmu_page_list.h
+source-imx6/pipe.o: source-imx6/atose.h source-imx6/fat.h
+source-imx6/pipe.o: source-imx6/host_usb_device_disk.h
+source-imx6/pipe.o: source-imx6/host_usb_device_generic.h
+source-imx6/pipe.o: source-imx6/host_usb_device.h source-imx6/usb.h
+source-imx6/pipe.o: source-imx6/device_driver.h
+source-imx6/pipe.o: source-imx6/usb_standard_hub_descriptor.h
+source-imx6/pipe.o: source-imx6/usb_standard_device_descriptor.h
+source-imx6/pipe.o: source-imx6/usb_standard_configuration_descriptor.h
+source-imx6/pipe.o: source-imx6/file_system.h
+source-imx6/pipe.o: source-imx6/file_control_block.h
+source-imx6/pipe.o: source-imx6/fat_directory_entry.h source-imx6/stack.h
+source-imx6/pipe.o: source-imx6/debug.h source-imx6/ascii_str.h
+source-imx6/pipe.o: source-imx6/ctypes.h source-imx6/cpu_arm.h
+source-imx6/pipe.o: source-imx6/host_usb.h source-imx6/usb_ehci_queue_head.h
+source-imx6/pipe.o: source-imx6/usb_ehci_queue_head_endpoint_capabilities.h
+source-imx6/pipe.o: source-imx6/usb_ehci_queue_element_transfer_descriptor.h
+source-imx6/pipe.o: source-imx6/usb_ehci_queue_element_transfer_descriptor_token.h
+source-imx6/pipe.o: source-imx6/usb_ehci_queue_head_horizontal_link_pointer.h
+source-imx6/pipe.o: source-imx6/usb_ehci_queue_head_endpoint_characteristics.h
+source-imx6/pipe.o: source-imx6/usb_imx6q.h
+source-imx6/pipe.o: source-imx6/usb_imx6q_endpoint_queuehead.h
+source-imx6/pipe.o: source-imx6/usb_imx6q_endpoint_queuehead_capabilities.h
+source-imx6/pipe.o: source-imx6/usb_imx6q_endpoint_transfer_descriptor.h
+source-imx6/pipe.o: source-imx6/usb_imx6q_endpoint_transfer_descriptor_dtd_token.h
+source-imx6/pipe.o: source-imx6/usb_setup_data.h
+source-imx6/pipe.o: source-imx6/usb_setup_data_request_type.h
+source-imx6/pipe.o: source-imx6/mmu_imx6q.h source-imx6/mmu.h
+source-imx6/pipe.o: source-imx6/mmu_page_list.h
+source-imx6/pipe.o: source-imx6/kernel_memory_allocator.h
+source-imx6/pipe.o: source-imx6/uart_imx6q.h source-imx6/timer_imx6q.h
+source-imx6/pipe.o: source-imx6/timer.h source-imx6/cpu_arm_imx6q.h
+source-imx6/pipe.o: source-imx6/clock_imx6q.h source-imx6/interrupt_arm.h
+source-imx6/pipe.o: source-imx6/process_manager.h source-imx6/process.h
+source-imx6/pipe.o: source-imx6/process_allocator.h source-imx6/semaphore.h
+source-imx6/pipe.o: source-imx6/registers.h source-imx6/pipe_task.h
+source-imx6/pipe.o: source-imx6/pipe.h source-imx6/address_space.h
+source-imx6/pipe.o: source-imx6/thread.h source-imx6/sleep_wake.h
+source-imx6/pipe.o: source-imx6/interrupt_arm_gic.h source-imx6/interrupt.h
+source-imx6/pipe.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/irq_numbers.h
+source-imx6/pipe_test.o: source-imx6/atose_api.h source-imx6/address_space.h
+source-imx6/pipe_test.o: source-imx6/mmu_page_list.h source-imx6/atose.h
+source-imx6/pipe_test.o: source-imx6/fat.h source-imx6/host_usb_device_disk.h
+source-imx6/pipe_test.o: source-imx6/host_usb_device_generic.h
+source-imx6/pipe_test.o: source-imx6/host_usb_device.h source-imx6/usb.h
+source-imx6/pipe_test.o: source-imx6/device_driver.h
+source-imx6/pipe_test.o: source-imx6/usb_standard_hub_descriptor.h
+source-imx6/pipe_test.o: source-imx6/usb_standard_device_descriptor.h
+source-imx6/pipe_test.o: source-imx6/usb_standard_configuration_descriptor.h
+source-imx6/pipe_test.o: source-imx6/file_system.h
+source-imx6/pipe_test.o: source-imx6/file_control_block.h
+source-imx6/pipe_test.o: source-imx6/fat_directory_entry.h
+source-imx6/pipe_test.o: source-imx6/stack.h source-imx6/debug.h
+source-imx6/pipe_test.o: source-imx6/ascii_str.h source-imx6/ctypes.h
+source-imx6/pipe_test.o: source-imx6/cpu_arm.h source-imx6/host_usb.h
+source-imx6/pipe_test.o: source-imx6/usb_ehci_queue_head.h
+source-imx6/pipe_test.o: source-imx6/usb_ehci_queue_head_endpoint_capabilities.h
+source-imx6/pipe_test.o: source-imx6/usb_ehci_queue_element_transfer_descriptor.h
+source-imx6/pipe_test.o: source-imx6/usb_ehci_queue_element_transfer_descriptor_token.h
+source-imx6/pipe_test.o: source-imx6/usb_ehci_queue_head_horizontal_link_pointer.h
+source-imx6/pipe_test.o: source-imx6/usb_ehci_queue_head_endpoint_characteristics.h
+source-imx6/pipe_test.o: source-imx6/usb_imx6q.h
+source-imx6/pipe_test.o: source-imx6/usb_imx6q_endpoint_queuehead.h
+source-imx6/pipe_test.o: source-imx6/usb_imx6q_endpoint_queuehead_capabilities.h
+source-imx6/pipe_test.o: source-imx6/usb_imx6q_endpoint_transfer_descriptor.h
+source-imx6/pipe_test.o: source-imx6/usb_imx6q_endpoint_transfer_descriptor_dtd_token.h
+source-imx6/pipe_test.o: source-imx6/usb_setup_data.h
+source-imx6/pipe_test.o: source-imx6/usb_setup_data_request_type.h
+source-imx6/pipe_test.o: source-imx6/mmu_imx6q.h source-imx6/mmu.h
+source-imx6/pipe_test.o: source-imx6/kernel_memory_allocator.h
+source-imx6/pipe_test.o: source-imx6/uart_imx6q.h source-imx6/timer_imx6q.h
+source-imx6/pipe_test.o: source-imx6/timer.h source-imx6/cpu_arm_imx6q.h
+source-imx6/pipe_test.o: source-imx6/clock_imx6q.h
+source-imx6/pipe_test.o: source-imx6/interrupt_arm.h
+source-imx6/pipe_test.o: source-imx6/process_manager.h source-imx6/process.h
+source-imx6/pipe_test.o: source-imx6/process_allocator.h
+source-imx6/pipe_test.o: source-imx6/semaphore.h source-imx6/registers.h
+source-imx6/pipe_test.o: source-imx6/pipe_task.h source-imx6/pipe.h
+source-imx6/pipe_test.o: source-imx6/thread.h source-imx6/sleep_wake.h
+source-imx6/pipe_test.o: source-imx6/interrupt_arm_gic.h
+source-imx6/pipe_test.o: source-imx6/interrupt.h
+source-imx6/pipe_test.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/irq_numbers.h
+source-imx6/pipe_test.o: source-imx6/stdpipe.h source-imx6/server_disk.h
+source-imx6/process_allocator.o: source-imx6/process_allocator.h
+source-imx6/process_allocator.o: source-imx6/process.h
+source-imx6/process_allocator.o: source-imx6/semaphore.h
+source-imx6/process_allocator.o: source-imx6/registers.h
+source-imx6/process_allocator.o: source-imx6/pipe_task.h source-imx6/pipe.h
+source-imx6/process_allocator.o: source-imx6/address_space.h
+source-imx6/process_allocator.o: source-imx6/mmu_page_list.h
+source-imx6/process_allocator.o: source-imx6/thread.h
+source-imx6/process_manager.o: source-imx6/atose.h source-imx6/fat.h
+source-imx6/process_manager.o: source-imx6/host_usb_device_disk.h
+source-imx6/process_manager.o: source-imx6/host_usb_device_generic.h
+source-imx6/process_manager.o: source-imx6/host_usb_device.h
+source-imx6/process_manager.o: source-imx6/usb.h source-imx6/device_driver.h
+source-imx6/process_manager.o: source-imx6/usb_standard_hub_descriptor.h
+source-imx6/process_manager.o: source-imx6/usb_standard_device_descriptor.h
+source-imx6/process_manager.o: source-imx6/usb_standard_configuration_descriptor.h
+source-imx6/process_manager.o: source-imx6/file_system.h
+source-imx6/process_manager.o: source-imx6/file_control_block.h
+source-imx6/process_manager.o: source-imx6/fat_directory_entry.h
+source-imx6/process_manager.o: source-imx6/stack.h source-imx6/debug.h
+source-imx6/process_manager.o: source-imx6/ascii_str.h source-imx6/ctypes.h
+source-imx6/process_manager.o: source-imx6/cpu_arm.h source-imx6/host_usb.h
+source-imx6/process_manager.o: source-imx6/usb_ehci_queue_head.h
+source-imx6/process_manager.o: source-imx6/usb_ehci_queue_head_endpoint_capabilities.h
+source-imx6/process_manager.o: source-imx6/usb_ehci_queue_element_transfer_descriptor.h
+source-imx6/process_manager.o: source-imx6/usb_ehci_queue_element_transfer_descriptor_token.h
+source-imx6/process_manager.o: source-imx6/usb_ehci_queue_head_horizontal_link_pointer.h
+source-imx6/process_manager.o: source-imx6/usb_ehci_queue_head_endpoint_characteristics.h
+source-imx6/process_manager.o: source-imx6/usb_imx6q.h
+source-imx6/process_manager.o: source-imx6/usb_imx6q_endpoint_queuehead.h
+source-imx6/process_manager.o: source-imx6/usb_imx6q_endpoint_queuehead_capabilities.h
+source-imx6/process_manager.o: source-imx6/usb_imx6q_endpoint_transfer_descriptor.h
+source-imx6/process_manager.o: source-imx6/usb_imx6q_endpoint_transfer_descriptor_dtd_token.h
+source-imx6/process_manager.o: source-imx6/usb_setup_data.h
+source-imx6/process_manager.o: source-imx6/usb_setup_data_request_type.h
+source-imx6/process_manager.o: source-imx6/mmu_imx6q.h source-imx6/mmu.h
+source-imx6/process_manager.o: source-imx6/mmu_page_list.h
+source-imx6/process_manager.o: source-imx6/kernel_memory_allocator.h
+source-imx6/process_manager.o: source-imx6/uart_imx6q.h
+source-imx6/process_manager.o: source-imx6/timer_imx6q.h source-imx6/timer.h
+source-imx6/process_manager.o: source-imx6/cpu_arm_imx6q.h
+source-imx6/process_manager.o: source-imx6/clock_imx6q.h
+source-imx6/process_manager.o: source-imx6/interrupt_arm.h
+source-imx6/process_manager.o: source-imx6/process_manager.h
+source-imx6/process_manager.o: source-imx6/process.h
+source-imx6/process_manager.o: source-imx6/process_allocator.h
+source-imx6/process_manager.o: source-imx6/semaphore.h
+source-imx6/process_manager.o: source-imx6/registers.h
+source-imx6/process_manager.o: source-imx6/pipe_task.h source-imx6/pipe.h
+source-imx6/process_manager.o: source-imx6/address_space.h
+source-imx6/process_manager.o: source-imx6/thread.h source-imx6/sleep_wake.h
+source-imx6/process_manager.o: source-imx6/interrupt_arm_gic.h
+source-imx6/process_manager.o: source-imx6/interrupt.h
+source-imx6/process_manager.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/irq_numbers.h
+source-imx6/process_manager.o: source-imx6/mmu_page.h source-imx6/atose_api.h
+source-imx6/process_manager.o: source-imx6/elf32_ehdr.h
+source-imx6/process_manager.o: source-imx6/elf32_phdr.h
+source-imx6/process_manager.o: source-imx6/server_disk.h
+source-imx6/process_manager.o: source-imx6/stdpipe.h
+source-imx6/process_manager.o: source-imx6/server_disk_protocol.h
+source-imx6/process_manager.o: source-imx6/client_file.h
+source-imx6/semaphore.o: source-imx6/atose.h source-imx6/fat.h
+source-imx6/semaphore.o: source-imx6/host_usb_device_disk.h
+source-imx6/semaphore.o: source-imx6/host_usb_device_generic.h
+source-imx6/semaphore.o: source-imx6/host_usb_device.h source-imx6/usb.h
+source-imx6/semaphore.o: source-imx6/device_driver.h
+source-imx6/semaphore.o: source-imx6/usb_standard_hub_descriptor.h
+source-imx6/semaphore.o: source-imx6/usb_standard_device_descriptor.h
+source-imx6/semaphore.o: source-imx6/usb_standard_configuration_descriptor.h
+source-imx6/semaphore.o: source-imx6/file_system.h
+source-imx6/semaphore.o: source-imx6/file_control_block.h
+source-imx6/semaphore.o: source-imx6/fat_directory_entry.h
+source-imx6/semaphore.o: source-imx6/stack.h source-imx6/debug.h
+source-imx6/semaphore.o: source-imx6/ascii_str.h source-imx6/ctypes.h
+source-imx6/semaphore.o: source-imx6/cpu_arm.h source-imx6/host_usb.h
+source-imx6/semaphore.o: source-imx6/usb_ehci_queue_head.h
+source-imx6/semaphore.o: source-imx6/usb_ehci_queue_head_endpoint_capabilities.h
+source-imx6/semaphore.o: source-imx6/usb_ehci_queue_element_transfer_descriptor.h
+source-imx6/semaphore.o: source-imx6/usb_ehci_queue_element_transfer_descriptor_token.h
+source-imx6/semaphore.o: source-imx6/usb_ehci_queue_head_horizontal_link_pointer.h
+source-imx6/semaphore.o: source-imx6/usb_ehci_queue_head_endpoint_characteristics.h
+source-imx6/semaphore.o: source-imx6/usb_imx6q.h
+source-imx6/semaphore.o: source-imx6/usb_imx6q_endpoint_queuehead.h
+source-imx6/semaphore.o: source-imx6/usb_imx6q_endpoint_queuehead_capabilities.h
+source-imx6/semaphore.o: source-imx6/usb_imx6q_endpoint_transfer_descriptor.h
+source-imx6/semaphore.o: source-imx6/usb_imx6q_endpoint_transfer_descriptor_dtd_token.h
+source-imx6/semaphore.o: source-imx6/usb_setup_data.h
+source-imx6/semaphore.o: source-imx6/usb_setup_data_request_type.h
+source-imx6/semaphore.o: source-imx6/mmu_imx6q.h source-imx6/mmu.h
+source-imx6/semaphore.o: source-imx6/mmu_page_list.h
+source-imx6/semaphore.o: source-imx6/kernel_memory_allocator.h
+source-imx6/semaphore.o: source-imx6/uart_imx6q.h source-imx6/timer_imx6q.h
+source-imx6/semaphore.o: source-imx6/timer.h source-imx6/cpu_arm_imx6q.h
+source-imx6/semaphore.o: source-imx6/clock_imx6q.h
+source-imx6/semaphore.o: source-imx6/interrupt_arm.h
+source-imx6/semaphore.o: source-imx6/process_manager.h source-imx6/process.h
+source-imx6/semaphore.o: source-imx6/process_allocator.h
+source-imx6/semaphore.o: source-imx6/semaphore.h source-imx6/registers.h
+source-imx6/semaphore.o: source-imx6/pipe_task.h source-imx6/pipe.h
+source-imx6/semaphore.o: source-imx6/address_space.h source-imx6/thread.h
+source-imx6/semaphore.o: source-imx6/sleep_wake.h
+source-imx6/semaphore.o: source-imx6/interrupt_arm_gic.h
+source-imx6/semaphore.o: source-imx6/interrupt.h
+source-imx6/semaphore.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/irq_numbers.h
+source-imx6/server_disk.o: source-imx6/atose.h source-imx6/fat.h
+source-imx6/server_disk.o: source-imx6/host_usb_device_disk.h
+source-imx6/server_disk.o: source-imx6/host_usb_device_generic.h
+source-imx6/server_disk.o: source-imx6/host_usb_device.h source-imx6/usb.h
+source-imx6/server_disk.o: source-imx6/device_driver.h
+source-imx6/server_disk.o: source-imx6/usb_standard_hub_descriptor.h
+source-imx6/server_disk.o: source-imx6/usb_standard_device_descriptor.h
+source-imx6/server_disk.o: source-imx6/usb_standard_configuration_descriptor.h
+source-imx6/server_disk.o: source-imx6/file_system.h
+source-imx6/server_disk.o: source-imx6/file_control_block.h
+source-imx6/server_disk.o: source-imx6/fat_directory_entry.h
+source-imx6/server_disk.o: source-imx6/stack.h source-imx6/debug.h
+source-imx6/server_disk.o: source-imx6/ascii_str.h source-imx6/ctypes.h
+source-imx6/server_disk.o: source-imx6/cpu_arm.h source-imx6/host_usb.h
+source-imx6/server_disk.o: source-imx6/usb_ehci_queue_head.h
+source-imx6/server_disk.o: source-imx6/usb_ehci_queue_head_endpoint_capabilities.h
+source-imx6/server_disk.o: source-imx6/usb_ehci_queue_element_transfer_descriptor.h
+source-imx6/server_disk.o: source-imx6/usb_ehci_queue_element_transfer_descriptor_token.h
+source-imx6/server_disk.o: source-imx6/usb_ehci_queue_head_horizontal_link_pointer.h
+source-imx6/server_disk.o: source-imx6/usb_ehci_queue_head_endpoint_characteristics.h
+source-imx6/server_disk.o: source-imx6/usb_imx6q.h
+source-imx6/server_disk.o: source-imx6/usb_imx6q_endpoint_queuehead.h
+source-imx6/server_disk.o: source-imx6/usb_imx6q_endpoint_queuehead_capabilities.h
+source-imx6/server_disk.o: source-imx6/usb_imx6q_endpoint_transfer_descriptor.h
+source-imx6/server_disk.o: source-imx6/usb_imx6q_endpoint_transfer_descriptor_dtd_token.h
+source-imx6/server_disk.o: source-imx6/usb_setup_data.h
+source-imx6/server_disk.o: source-imx6/usb_setup_data_request_type.h
+source-imx6/server_disk.o: source-imx6/mmu_imx6q.h source-imx6/mmu.h
+source-imx6/server_disk.o: source-imx6/mmu_page_list.h
+source-imx6/server_disk.o: source-imx6/kernel_memory_allocator.h
+source-imx6/server_disk.o: source-imx6/uart_imx6q.h source-imx6/timer_imx6q.h
+source-imx6/server_disk.o: source-imx6/timer.h source-imx6/cpu_arm_imx6q.h
+source-imx6/server_disk.o: source-imx6/clock_imx6q.h
+source-imx6/server_disk.o: source-imx6/interrupt_arm.h
+source-imx6/server_disk.o: source-imx6/process_manager.h
+source-imx6/server_disk.o: source-imx6/process.h
+source-imx6/server_disk.o: source-imx6/process_allocator.h
+source-imx6/server_disk.o: source-imx6/semaphore.h source-imx6/registers.h
+source-imx6/server_disk.o: source-imx6/pipe_task.h source-imx6/pipe.h
+source-imx6/server_disk.o: source-imx6/address_space.h source-imx6/thread.h
+source-imx6/server_disk.o: source-imx6/sleep_wake.h
+source-imx6/server_disk.o: source-imx6/interrupt_arm_gic.h
+source-imx6/server_disk.o: source-imx6/interrupt.h
+source-imx6/server_disk.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/irq_numbers.h
+source-imx6/server_disk.o: source-imx6/server_disk.h source-imx6/stdpipe.h
+source-imx6/server_disk.o: source-imx6/atose_api.h
+source-imx6/server_disk.o: source-imx6/server_disk_protocol.h
+source-imx6/server_disk.o: source-imx6/malloc.h source-imx6/client_file.h
+source-imx6/sleep_wake.o: source-imx6/atose.h source-imx6/fat.h
+source-imx6/sleep_wake.o: source-imx6/host_usb_device_disk.h
+source-imx6/sleep_wake.o: source-imx6/host_usb_device_generic.h
+source-imx6/sleep_wake.o: source-imx6/host_usb_device.h source-imx6/usb.h
+source-imx6/sleep_wake.o: source-imx6/device_driver.h
+source-imx6/sleep_wake.o: source-imx6/usb_standard_hub_descriptor.h
+source-imx6/sleep_wake.o: source-imx6/usb_standard_device_descriptor.h
+source-imx6/sleep_wake.o: source-imx6/usb_standard_configuration_descriptor.h
+source-imx6/sleep_wake.o: source-imx6/file_system.h
+source-imx6/sleep_wake.o: source-imx6/file_control_block.h
+source-imx6/sleep_wake.o: source-imx6/fat_directory_entry.h
+source-imx6/sleep_wake.o: source-imx6/stack.h source-imx6/debug.h
+source-imx6/sleep_wake.o: source-imx6/ascii_str.h source-imx6/ctypes.h
+source-imx6/sleep_wake.o: source-imx6/cpu_arm.h source-imx6/host_usb.h
+source-imx6/sleep_wake.o: source-imx6/usb_ehci_queue_head.h
+source-imx6/sleep_wake.o: source-imx6/usb_ehci_queue_head_endpoint_capabilities.h
+source-imx6/sleep_wake.o: source-imx6/usb_ehci_queue_element_transfer_descriptor.h
+source-imx6/sleep_wake.o: source-imx6/usb_ehci_queue_element_transfer_descriptor_token.h
+source-imx6/sleep_wake.o: source-imx6/usb_ehci_queue_head_horizontal_link_pointer.h
+source-imx6/sleep_wake.o: source-imx6/usb_ehci_queue_head_endpoint_characteristics.h
+source-imx6/sleep_wake.o: source-imx6/usb_imx6q.h
+source-imx6/sleep_wake.o: source-imx6/usb_imx6q_endpoint_queuehead.h
+source-imx6/sleep_wake.o: source-imx6/usb_imx6q_endpoint_queuehead_capabilities.h
+source-imx6/sleep_wake.o: source-imx6/usb_imx6q_endpoint_transfer_descriptor.h
+source-imx6/sleep_wake.o: source-imx6/usb_imx6q_endpoint_transfer_descriptor_dtd_token.h
+source-imx6/sleep_wake.o: source-imx6/usb_setup_data.h
+source-imx6/sleep_wake.o: source-imx6/usb_setup_data_request_type.h
+source-imx6/sleep_wake.o: source-imx6/mmu_imx6q.h source-imx6/mmu.h
+source-imx6/sleep_wake.o: source-imx6/mmu_page_list.h
+source-imx6/sleep_wake.o: source-imx6/kernel_memory_allocator.h
+source-imx6/sleep_wake.o: source-imx6/uart_imx6q.h source-imx6/timer_imx6q.h
+source-imx6/sleep_wake.o: source-imx6/timer.h source-imx6/cpu_arm_imx6q.h
+source-imx6/sleep_wake.o: source-imx6/clock_imx6q.h
+source-imx6/sleep_wake.o: source-imx6/interrupt_arm.h
+source-imx6/sleep_wake.o: source-imx6/process_manager.h source-imx6/process.h
+source-imx6/sleep_wake.o: source-imx6/process_allocator.h
+source-imx6/sleep_wake.o: source-imx6/semaphore.h source-imx6/registers.h
+source-imx6/sleep_wake.o: source-imx6/pipe_task.h source-imx6/pipe.h
+source-imx6/sleep_wake.o: source-imx6/address_space.h source-imx6/thread.h
+source-imx6/sleep_wake.o: source-imx6/sleep_wake.h
+source-imx6/sleep_wake.o: source-imx6/interrupt_arm_gic.h
+source-imx6/sleep_wake.o: source-imx6/interrupt.h
+source-imx6/sleep_wake.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/irq_numbers.h
+source-imx6/stack.o: source-imx6/stack.h source-imx6/cpu_arm.h
+source-imx6/timer_imx6q.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsgpt.h
+source-imx6/timer_imx6q.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regs.h
+source-imx6/timer_imx6q.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/irq_numbers.h
+source-imx6/timer_imx6q.o: source-imx6/atose.h source-imx6/fat.h
+source-imx6/timer_imx6q.o: source-imx6/host_usb_device_disk.h
+source-imx6/timer_imx6q.o: source-imx6/host_usb_device_generic.h
+source-imx6/timer_imx6q.o: source-imx6/host_usb_device.h source-imx6/usb.h
+source-imx6/timer_imx6q.o: source-imx6/device_driver.h
+source-imx6/timer_imx6q.o: source-imx6/usb_standard_hub_descriptor.h
+source-imx6/timer_imx6q.o: source-imx6/usb_standard_device_descriptor.h
+source-imx6/timer_imx6q.o: source-imx6/usb_standard_configuration_descriptor.h
+source-imx6/timer_imx6q.o: source-imx6/file_system.h
+source-imx6/timer_imx6q.o: source-imx6/file_control_block.h
+source-imx6/timer_imx6q.o: source-imx6/fat_directory_entry.h
+source-imx6/timer_imx6q.o: source-imx6/stack.h source-imx6/debug.h
+source-imx6/timer_imx6q.o: source-imx6/ascii_str.h source-imx6/ctypes.h
+source-imx6/timer_imx6q.o: source-imx6/cpu_arm.h source-imx6/host_usb.h
+source-imx6/timer_imx6q.o: source-imx6/usb_ehci_queue_head.h
+source-imx6/timer_imx6q.o: source-imx6/usb_ehci_queue_head_endpoint_capabilities.h
+source-imx6/timer_imx6q.o: source-imx6/usb_ehci_queue_element_transfer_descriptor.h
+source-imx6/timer_imx6q.o: source-imx6/usb_ehci_queue_element_transfer_descriptor_token.h
+source-imx6/timer_imx6q.o: source-imx6/usb_ehci_queue_head_horizontal_link_pointer.h
+source-imx6/timer_imx6q.o: source-imx6/usb_ehci_queue_head_endpoint_characteristics.h
+source-imx6/timer_imx6q.o: source-imx6/usb_imx6q.h
+source-imx6/timer_imx6q.o: source-imx6/usb_imx6q_endpoint_queuehead.h
+source-imx6/timer_imx6q.o: source-imx6/usb_imx6q_endpoint_queuehead_capabilities.h
+source-imx6/timer_imx6q.o: source-imx6/usb_imx6q_endpoint_transfer_descriptor.h
+source-imx6/timer_imx6q.o: source-imx6/usb_imx6q_endpoint_transfer_descriptor_dtd_token.h
+source-imx6/timer_imx6q.o: source-imx6/usb_setup_data.h
+source-imx6/timer_imx6q.o: source-imx6/usb_setup_data_request_type.h
+source-imx6/timer_imx6q.o: source-imx6/mmu_imx6q.h source-imx6/mmu.h
+source-imx6/timer_imx6q.o: source-imx6/mmu_page_list.h
+source-imx6/timer_imx6q.o: source-imx6/kernel_memory_allocator.h
+source-imx6/timer_imx6q.o: source-imx6/uart_imx6q.h source-imx6/timer_imx6q.h
+source-imx6/timer_imx6q.o: source-imx6/timer.h source-imx6/cpu_arm_imx6q.h
+source-imx6/timer_imx6q.o: source-imx6/clock_imx6q.h
+source-imx6/timer_imx6q.o: source-imx6/interrupt_arm.h
+source-imx6/timer_imx6q.o: source-imx6/process_manager.h
+source-imx6/timer_imx6q.o: source-imx6/process.h
+source-imx6/timer_imx6q.o: source-imx6/process_allocator.h
+source-imx6/timer_imx6q.o: source-imx6/semaphore.h source-imx6/registers.h
+source-imx6/timer_imx6q.o: source-imx6/pipe_task.h source-imx6/pipe.h
+source-imx6/timer_imx6q.o: source-imx6/address_space.h source-imx6/thread.h
+source-imx6/timer_imx6q.o: source-imx6/sleep_wake.h
+source-imx6/timer_imx6q.o: source-imx6/interrupt_arm_gic.h
+source-imx6/timer_imx6q.o: source-imx6/interrupt.h
+source-imx6/uart_imx6q.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsiomuxc.h
+source-imx6/uart_imx6q.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regs.h
+source-imx6/uart_imx6q.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsccm.h
+source-imx6/uart_imx6q.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsuart.h
+source-imx6/uart_imx6q.o: source-imx6/uart_imx6q.h source-imx6/debug.h
+source-imx6/uart_imx6q.o: source-imx6/ascii_str.h source-imx6/ctypes.h
+source-imx6/usb.o: source-imx6/atose.h source-imx6/fat.h
+source-imx6/usb.o: source-imx6/host_usb_device_disk.h
+source-imx6/usb.o: source-imx6/host_usb_device_generic.h
+source-imx6/usb.o: source-imx6/host_usb_device.h source-imx6/usb.h
+source-imx6/usb.o: source-imx6/device_driver.h
+source-imx6/usb.o: source-imx6/usb_standard_hub_descriptor.h
+source-imx6/usb.o: source-imx6/usb_standard_device_descriptor.h
+source-imx6/usb.o: source-imx6/usb_standard_configuration_descriptor.h
+source-imx6/usb.o: source-imx6/file_system.h source-imx6/file_control_block.h
+source-imx6/usb.o: source-imx6/fat_directory_entry.h source-imx6/stack.h
+source-imx6/usb.o: source-imx6/debug.h source-imx6/ascii_str.h
+source-imx6/usb.o: source-imx6/ctypes.h source-imx6/cpu_arm.h
+source-imx6/usb.o: source-imx6/host_usb.h source-imx6/usb_ehci_queue_head.h
+source-imx6/usb.o: source-imx6/usb_ehci_queue_head_endpoint_capabilities.h
+source-imx6/usb.o: source-imx6/usb_ehci_queue_element_transfer_descriptor.h
+source-imx6/usb.o: source-imx6/usb_ehci_queue_element_transfer_descriptor_token.h
+source-imx6/usb.o: source-imx6/usb_ehci_queue_head_horizontal_link_pointer.h
+source-imx6/usb.o: source-imx6/usb_ehci_queue_head_endpoint_characteristics.h
+source-imx6/usb.o: source-imx6/usb_imx6q.h
+source-imx6/usb.o: source-imx6/usb_imx6q_endpoint_queuehead.h
+source-imx6/usb.o: source-imx6/usb_imx6q_endpoint_queuehead_capabilities.h
+source-imx6/usb.o: source-imx6/usb_imx6q_endpoint_transfer_descriptor.h
+source-imx6/usb.o: source-imx6/usb_imx6q_endpoint_transfer_descriptor_dtd_token.h
+source-imx6/usb.o: source-imx6/usb_setup_data.h
+source-imx6/usb.o: source-imx6/usb_setup_data_request_type.h
+source-imx6/usb.o: source-imx6/mmu_imx6q.h source-imx6/mmu.h
+source-imx6/usb.o: source-imx6/mmu_page_list.h
+source-imx6/usb.o: source-imx6/kernel_memory_allocator.h
+source-imx6/usb.o: source-imx6/uart_imx6q.h source-imx6/timer_imx6q.h
+source-imx6/usb.o: source-imx6/timer.h source-imx6/cpu_arm_imx6q.h
+source-imx6/usb.o: source-imx6/clock_imx6q.h source-imx6/interrupt_arm.h
+source-imx6/usb.o: source-imx6/process_manager.h source-imx6/process.h
+source-imx6/usb.o: source-imx6/process_allocator.h source-imx6/semaphore.h
+source-imx6/usb.o: source-imx6/registers.h source-imx6/pipe_task.h
+source-imx6/usb.o: source-imx6/pipe.h source-imx6/address_space.h
+source-imx6/usb.o: source-imx6/thread.h source-imx6/sleep_wake.h
+source-imx6/usb.o: source-imx6/interrupt_arm_gic.h source-imx6/interrupt.h
+source-imx6/usb.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/irq_numbers.h
+source-imx6/usb.o: source-imx6/usb_string_descriptor.h
+source-imx6/usb.o: source-imx6/usb_string_descriptor_language.h
+source-imx6/usb.o: source-imx6/usb_device_qualifier_descriptor.h
+source-imx6/usb.o: source-imx6/usb_cdc.h source-imx6/usb_cdc_line_coding.h
+source-imx6/usb.o: source-imx6/usb_cdc_virtual_com_port.h
+source-imx6/usb.o: source-imx6/usb_cdc_header_functional_descriptor.h
+source-imx6/usb.o: source-imx6/usb_cdc_abstract_control_management_functional_descriptor.h
+source-imx6/usb.o: source-imx6/usb_cdc_call_management_functional_descriptor.h
+source-imx6/usb.o: source-imx6/usb_standard_endpoint_descriptor.h
+source-imx6/usb.o: source-imx6/usb_standard_interface_descriptor.h
+source-imx6/usb.o: source-imx6/usb_union_interface_functional_descriptor.h
+source-imx6/usb.o: source-imx6/usb_ms.h
+source-imx6/usb.o: source-imx6/usb_ms_extended_properties.h
+source-imx6/usb.o: source-imx6/usb_ms_extended_property_header.h
+source-imx6/usb.o: source-imx6/usb_ms_extended_property_function.h
+source-imx6/usb.o: source-imx6/usb_ms_os_string_descriptor.h
+source-imx6/usb.o: source-imx6/usb_ms_extended_compatible_id_os_feature_descriptor.h
+source-imx6/usb.o: source-imx6/usb_ms_compatible_id_header.h
+source-imx6/usb.o: source-imx6/usb_ms_compatible_id_function.h
+source-imx6/usb_imx6q.o: source-imx6/atose.h source-imx6/fat.h
+source-imx6/usb_imx6q.o: source-imx6/host_usb_device_disk.h
+source-imx6/usb_imx6q.o: source-imx6/host_usb_device_generic.h
+source-imx6/usb_imx6q.o: source-imx6/host_usb_device.h source-imx6/usb.h
+source-imx6/usb_imx6q.o: source-imx6/device_driver.h
+source-imx6/usb_imx6q.o: source-imx6/usb_standard_hub_descriptor.h
+source-imx6/usb_imx6q.o: source-imx6/usb_standard_device_descriptor.h
+source-imx6/usb_imx6q.o: source-imx6/usb_standard_configuration_descriptor.h
+source-imx6/usb_imx6q.o: source-imx6/file_system.h
+source-imx6/usb_imx6q.o: source-imx6/file_control_block.h
+source-imx6/usb_imx6q.o: source-imx6/fat_directory_entry.h
+source-imx6/usb_imx6q.o: source-imx6/stack.h source-imx6/debug.h
+source-imx6/usb_imx6q.o: source-imx6/ascii_str.h source-imx6/ctypes.h
+source-imx6/usb_imx6q.o: source-imx6/cpu_arm.h source-imx6/host_usb.h
+source-imx6/usb_imx6q.o: source-imx6/usb_ehci_queue_head.h
+source-imx6/usb_imx6q.o: source-imx6/usb_ehci_queue_head_endpoint_capabilities.h
+source-imx6/usb_imx6q.o: source-imx6/usb_ehci_queue_element_transfer_descriptor.h
+source-imx6/usb_imx6q.o: source-imx6/usb_ehci_queue_element_transfer_descriptor_token.h
+source-imx6/usb_imx6q.o: source-imx6/usb_ehci_queue_head_horizontal_link_pointer.h
+source-imx6/usb_imx6q.o: source-imx6/usb_ehci_queue_head_endpoint_characteristics.h
+source-imx6/usb_imx6q.o: source-imx6/usb_imx6q.h
+source-imx6/usb_imx6q.o: source-imx6/usb_imx6q_endpoint_queuehead.h
+source-imx6/usb_imx6q.o: source-imx6/usb_imx6q_endpoint_queuehead_capabilities.h
+source-imx6/usb_imx6q.o: source-imx6/usb_imx6q_endpoint_transfer_descriptor.h
+source-imx6/usb_imx6q.o: source-imx6/usb_imx6q_endpoint_transfer_descriptor_dtd_token.h
+source-imx6/usb_imx6q.o: source-imx6/usb_setup_data.h
+source-imx6/usb_imx6q.o: source-imx6/usb_setup_data_request_type.h
+source-imx6/usb_imx6q.o: source-imx6/mmu_imx6q.h source-imx6/mmu.h
+source-imx6/usb_imx6q.o: source-imx6/mmu_page_list.h
+source-imx6/usb_imx6q.o: source-imx6/kernel_memory_allocator.h
+source-imx6/usb_imx6q.o: source-imx6/uart_imx6q.h source-imx6/timer_imx6q.h
+source-imx6/usb_imx6q.o: source-imx6/timer.h source-imx6/cpu_arm_imx6q.h
+source-imx6/usb_imx6q.o: source-imx6/clock_imx6q.h
+source-imx6/usb_imx6q.o: source-imx6/interrupt_arm.h
+source-imx6/usb_imx6q.o: source-imx6/process_manager.h source-imx6/process.h
+source-imx6/usb_imx6q.o: source-imx6/process_allocator.h
+source-imx6/usb_imx6q.o: source-imx6/semaphore.h source-imx6/registers.h
+source-imx6/usb_imx6q.o: source-imx6/pipe_task.h source-imx6/pipe.h
+source-imx6/usb_imx6q.o: source-imx6/address_space.h source-imx6/thread.h
+source-imx6/usb_imx6q.o: source-imx6/sleep_wake.h
+source-imx6/usb_imx6q.o: source-imx6/interrupt_arm_gic.h
+source-imx6/usb_imx6q.o: source-imx6/interrupt.h
+source-imx6/usb_imx6q.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/irq_numbers.h
+source-imx6/usb_imx6q.o: source-imx6/kernel_malloc.h
+source-imx6/usb_imx6q.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsusbcore.h
+source-imx6/usb_imx6q.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regs.h
+source-imx6/usb_imx6q.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsusbphy.h
+tools/elf_reader.o: tools/fundamental_types.h
+tests/imx233_dump_cpu_state.o: systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsuartdbg.h
+tests/imx233_dump_cpu_state.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regs.h
+tests/imx233_dump_cpu_state.o: source/ascii_str.h
+tests/imx233_mmu.o: systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsuartdbg.h
+tests/imx233_mmu.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regs.h
+tests/imx233_mmu.o: systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regspower.h
+tests/imx233_mmu.o: systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsdigctl.h
+tests/imx233_nand.o: source/registers.h
+tests/imx233_nand.o: systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsuartdbg.h
+tests/imx233_nand.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regs.h
+tests/imx233_nand.o: systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regspower.h
+tests/imx233_nand.o: systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/hw_irq.h
+tests/imx233_nand.o: systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsrtc.h
+tests/imx233_nand.o: systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsicoll.h
+tests/imx233_nand.o: systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regspinctrl.h
+tests/imx233_nand.o: systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsgpmi.h
+tests/imx233_nand.o: systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsapbh.h
+tests/imx233_nand.o: systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsclkctrl.h
+tests/imx233_nand.o: systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsdigctl.h
+tests/imx233_nand.o: systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsbch.h
+tests/imx233_timer.o: source/registers.h
+tests/imx233_timer.o: systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsuartdbg.h
+tests/imx233_timer.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regs.h
+tests/imx233_timer.o: systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regspower.h
+tests/imx233_timer.o: systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/hw_irq.h
+tests/imx233_timer.o: systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsrtc.h
+tests/imx233_timer.o: systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsicoll.h
+tests/imx233_usb.o: source/registers.h
+tests/imx233_usb.o: systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsuartdbg.h
+tests/imx233_usb.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regs.h
+tests/imx233_usb.o: systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regspower.h
+tests/imx233_usb.o: systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/hw_irq.h
+tests/imx233_usb.o: systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsrtc.h
+tests/imx233_usb.o: systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsicoll.h
+tests/imx233_usb.o: systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regspinctrl.h
+tests/imx233_usb.o: systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsgpmi.h
+tests/imx233_usb.o: systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsclkctrl.h
+tests/imx233_usb.o: systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsdigctl.h
+tests/imx233_usb.o: systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsapbx.h
+tests/imx233_usb.o: systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsusbctrl.h
+tests/imx233_usb.o: systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsusbphy.h
+tests/imx233_usb.o: systems/imx-bootlets-src-10.05.02/mach-mx23/includes/registers/regsaudioout.h
+tests/imx6q_clock.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsuart.h
+tests/imx6q_clock.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regs.h
+tests/imx6q_clock.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsccm.h
+tests/imx6q_clock.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsiomuxc.h
+tests/imx6q_clock.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsepit.h
+tests/imx6q_interrupt.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsuart.h
+tests/imx6q_interrupt.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regs.h
+tests/imx6q_interrupt.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsccm.h
+tests/imx6q_interrupt.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsiomuxc.h
+tests/imx6q_interrupt.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsgpt.h
+tests/imx6q_interrupt.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/irq_numbers.h
+tests/imx6q_ram.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsuart.h
+tests/imx6q_ram.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regs.h
+tests/imx6q_ram.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsccm.h
+tests/imx6q_ram.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsiomuxc.h
+tests/imx6q_ram.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsepit.h
+tests/imx6q_timer.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsuart.h
+tests/imx6q_timer.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regs.h
+tests/imx6q_timer.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsccm.h
+tests/imx6q_timer.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsiomuxc.h
+tests/imx6q_timer.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsgpt.h
+tests/imx6q_uart.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsuart.h
+tests/imx6q_uart.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regs.h
+tests/imx6q_uart.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsccm.h
+tests/imx6q_uart.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsiomuxc.h
+tests/imx6q_usb.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsuart.h
+tests/imx6q_usb.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regs.h
+tests/imx6q_usb.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsccm.h
+tests/imx6q_usb.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsiomuxc.h
+tests/imx6q_usb.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsgpt.h
+tests/imx6q_usb.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsusbcore.h
+tests/imx6q_usb.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsusbphy.h
+tests/imx6q_usb.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsepit.h
+tests/imx6q_usb.o: systems/iMX6_Platform_SDK/sdk/include/mx6dq/irq_numbers.h
+tests/test_ascii.o: source-imx6/ascii_str.h source-imx6/ctypes.h

@@ -37,7 +37,7 @@ DDK_LIB = c:\WinDDK\7600.16385.1\lib\wxp\i386\setupapi.lib c:\WinDDK\7600.16385.
 !include makefile.mak
 
 #
-# Host specific implic rules
+# Host specific implicit rules
 #
 {$(TESTS_DIR)}.c{$(BIN_DIR)}.elf:
 	@echo $@
@@ -46,15 +46,26 @@ DDK_LIB = c:\WinDDK\7600.16385.1\lib\wxp\i386\setupapi.lib c:\WinDDK\7600.16385.
 {$(TOOLS_DIR)}.c{$(BIN_DIR)}.$(EXT):
 	@$(CXX) $(CXXFLAGS) -Fe$@ /Tp $< -Fo$(OBJ_DIR)\$(@B).obj
 
+{$(SOURCE_DIR)}.c{$(OBJ_DIR)}.o:
+	@echo $@
+	@$(CCXX) $(CCXXFLAGS) -c $< -o $@
+
+{$(SOURCE_DIR)}.asm{$(OBJ_DIR)}.o:
+	@echo $@
+	@$(AS) $(ASFLAGS) $< -o $@
+
 #
 # Host specific explicit rules
 #
 
 $(BIN_DIR)\imx_run.$(EXT) : $(TOOLS_DIR)\imx_run.c
 	@$(CXX) $(CXXFLAGS) -Fe$@ /Tp $(TOOLS_DIR)\imx_run.c /X -I$(DDK_INCLUDE) $(DDK_LIB) -Fo$(OBJ_DIR)\$(@B).obj
- 
+
 #
 # Host specific build rules
 #
 clean:
 	$(DEL) $(CLEANABLE:/=\)
+
+depend:
+	makedepend -fmakefile.depend  -Y $(SOURCE_DIR)/*.c $(TOOLS_DIR)/*.c $(TESTS_DIR)/*.c 2> nul
