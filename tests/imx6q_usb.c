@@ -2647,7 +2647,7 @@ grab_interrupt(IMX_INT_USBOH3_UOTG);
 /*
 	Now we're up and running...
 */
-debug_print_string("\r\ni.MX6Q USB CDC Loopback\r\nby Andrew Trotman and Nick Sherlock\r\nCopyright (c) 2013 University of Otago\r\n\r\n");
+debug_print_string("\r\ni.MX6Q USB CDC Loopback\r\nby Andrew Trotman and Nick Sherlock\r\nCopyright (c) 2013\r\n\r\n");
 
 /*
 	Start the USB Controller

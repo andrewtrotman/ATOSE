@@ -2554,7 +2554,7 @@ enable_IRQ();
 /*
 	Now we're up and running...
 */
-debug_print_string("\r\ni.MX233 USB CDC Loopback\r\nby Andrew Trotman and Nick Sherlock\r\nCopyright (c) 2012 University of Otago\r\n\r\n");
+debug_print_string("\r\ni.MX233 USB CDC Loopback\r\nby Andrew Trotman and Nick Sherlock\r\nCopyright (c) 2012\r\n\r\n");
 
 /*
 	Enable the PHY (physical interface)

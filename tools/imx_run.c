@@ -1,7 +1,7 @@
 /*
 	IMX_RUN.C
 	----------
-	Copyright (c) 2013 Andrew Trotman, University of Otago
+	Copyright (c) 2013 Andrew Trotman
 	Open Source under the BSD License.
 
 	This program has three purposes:

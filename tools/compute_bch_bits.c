@@ -16,15 +16,15 @@ long ecc_long;
 
 while (1)
 	{
-	printf("bytes_per_sector:");
+	printf("bytes_per_sector (e.g. 4095):");
 	fflush(stdout);
 	scanf("%lld", &bytes_per_sector);
 
-	printf("spare_bytes_per_sector:");
+	printf("spare_bytes_per_sector (e.g. 218):");
 	fflush(stdout);
 	scanf("%lld", &spare_bytes_per_sector);
 
-	printf("bytes_per_BCH_subsector:");
+	printf("bytes_per_BCH_subsector (e.g. 512):");
 	fflush(stdout);
 	scanf("%lld", &bytes_per_BCH_subsector);
 
@@ -36,7 +36,7 @@ while (1)
 	printf("BEST BCH EEC BITS      :%f\n", ecc);
 
 	ecc_long = ((spare_bytes_per_sector * 8) / ((bytes_per_sector / bytes_per_BCH_subsector) * 13));
-	printf("Tell the i.MX233 BCH   :%lld\n\n", (ecc_long >> 1) << 1);
+	printf("Tell the i.MX233 or i.MX6Q BCH   :%lld\n\n", (ecc_long >> 1) << 1);
 	}
 
 return 0;

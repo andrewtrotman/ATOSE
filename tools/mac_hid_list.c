@@ -3,7 +3,7 @@
 	----------
 	List all the HID devices attached to a Mac running Mac OS X
 
-	Copyright (c) 2013 Andrew Trotman, University of Otago
+	Copyright (c) 2013 Andrew Trotman
 	Open Source under the BSD License.
 */
 #include <IOKit/hid/IOHIDLib.h>
