@@ -1,3 +1,9 @@
+/*
+	IMX6Q.S
+	-------
+	Copyright (c) 2013 Andrew Trotman
+	Open Source under the BSD License.
+*/
 .section .ATOSE_entry_point
 .global _Reset
 

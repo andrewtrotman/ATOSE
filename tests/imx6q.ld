@@ -1,3 +1,9 @@
+/*
+	IMX6Q.LD
+	--------
+	Copyright (c) 2013 Andrew Trotman
+	Open Source under the BSD License.
+*/
 ENTRY(_Reset)
 
 SECTIONS
