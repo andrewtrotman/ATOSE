@@ -1,11 +1,10 @@
 ENTRY(_Reset)
 
-STARTUP (obj\atose_process_entry_point.o)
+STARTUP (atose_process_entry_point.o)
 
 MEMORY
 {
-operating_system : ORIGIN = 0x0000, LENGTH = 1M
-ram : ORIGIN = 0x100000, LENGTH = 16M
+ram : ORIGIN = 0x20010000, LENGTH = 16M
 }
 
 SECTIONS

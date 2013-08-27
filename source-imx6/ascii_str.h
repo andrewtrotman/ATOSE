@@ -327,20 +327,21 @@ for (ch = string; *ch >= '0' && *ch <= '9'; ch++)
 return multiplier * ans;
 }
 
-/*
-	BZERO()
-	-------
-*/
-static inline void bzero(void *destination, size_t bytes)
-{
-uint8_t *start, *end;
-
-end = (uint8_t *)destination + bytes;
-
-for (start = (uint8_t *)destination; start < end; start++)
-	*start = 0;
-}
-
+#ifdef NEVER
+	/*
+		BZERO()
+		-------
+	*/
+	static inline void bzero(void *destination, size_t bytes)
+	{
+	memset(destination, 0, bytes);
+	}
+#else
+	/*
+		Now in memset.asm
+	*/
+	void bzero(void *destination, size_t bytes);
+#endif
 
 /*
 	MEMCPY()
@@ -359,21 +360,28 @@ while (from < end)
 return destination;
 }
 
-/*
-	MEMSET()
-	--------
-*/
-inline void *memset(void *destination, int value, size_t bytes)
-{
-uint8_t *to, *end;
+#ifdef NEVER
+	/*
+		MEMSET()
+		--------
+	*/
+	inline void *memset(void *destination, int value, size_t bytes)
+	{
+	uint8_t *to, *end;
 
-to = (uint8_t *)destination;
-end = (uint8_t *)to + bytes;
-while (to < end)
-	*to++ = (char)value;
+	to = (uint8_t *)destination;
+	end = (uint8_t *)to + bytes;
+	while (to < end)
+		*to++ = (char)value;
 
-return destination;
-}
+	return destination;
+	}
+#else
+	/*
+		Now in a memset.asm
+	*/
+	void *memset(void *destination, int value, size_t bytes);
+#endif
 
 /*
 	NONALIGNED()

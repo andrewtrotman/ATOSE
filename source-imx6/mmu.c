@@ -21,7 +21,7 @@ void ATOSE_mmu::initialise(void)
 uint32_t current;
 
 /*
-	Don't even ask what this does...  Just go read pages 2-47 to 2-48 of "ARM Cortex™-A9 processors r2 releases"
+	Don't even ask what this does...  Just go read pages 2-47 to 2-48 of "ARM Cortex-A9 processors r2 releases"
 */
 asm volatile
 	(
@@ -298,7 +298,7 @@ for (page = (uint8_t *)location; page < end; page += page_size)
 	if (page_count == 0)
 		{
 		/*
-			First we need to slice the ATOSE "identity" page table out of this
+			First we need to slice the ATOSE "identity" page table out of this.
 			The page table must be aligned on a 16KB boundary.  As we have 1MB
 			pages we can guarantee that the page table will be correctly aligned
 			if placed at the start of a page.
