@@ -223,9 +223,9 @@ for (which = 0; which < header_num; which++)
 		if ((uint8_t *)(current_header.p_vaddr + current_header.p_memsz) > current_break)
 			{
 			shift = ((uint8_t *)current_header.p_vaddr) + current_header.p_memsz - current_break;
-ATOSE_api::writeline("call set_heap_break[");
+//ATOSE_api::writeline("call set_heap_break[");
 			ATOSE_api::set_heap_break(shift, permissions);
-ATOSE_api::writeline("]");
+//ATOSE_api::writeline("]");
 			current_break = (uint8_t *)(current_header.p_vaddr + current_header.p_memsz);
 			}
 		}
@@ -237,7 +237,7 @@ ATOSE_api::writeline("]");
 	*/
 	if (error != SUCCESS)
 		{
-ATOSE_api::writeline("fail!");
+//ATOSE_api::writeline("fail!");
 		break;
 		}
 
@@ -246,8 +246,8 @@ ATOSE_api::writeline("fail!");
 	*/
 	ATOSE_fseek(infile, current_header.p_offset, ATOSE_SEEK_SET);
 
-void debug_print_cf_this(const char *start, uint32_t hex1, uint32_t hex2, const char *end = "");
-debug_print_cf_this("[offset->", current_header.p_offset, current_header.p_filesz, "<-bytes]\r\n");
+//void debug_print_cf_this(const char *start, uint32_t hex1, uint32_t hex2, const char *end = "");
+//debug_print_cf_this("[offset->", current_header.p_offset, current_header.p_filesz, "<-bytes]\r\n");
 
 	ATOSE_fread((void *)current_header.p_vaddr, current_header.p_filesz, 1, infile);
 

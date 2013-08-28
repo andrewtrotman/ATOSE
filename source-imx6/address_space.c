@@ -236,7 +236,7 @@ last_page = (end / mmu->page_size);
 /*
 	Now get pages and add them to the page table
 */
-debug_print_this("Add", last_page - base_page, "pages\r\n");
+debug_print_this("Add ", last_page - base_page, " pages\r\n");
 for (which = base_page; which <= last_page; which++)
 	{
 	debug_print_string(".");

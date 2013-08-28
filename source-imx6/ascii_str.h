@@ -327,22 +327,6 @@ for (ch = string; *ch >= '0' && *ch <= '9'; ch++)
 return multiplier * ans;
 }
 
-#ifdef NEVER
-	/*
-		BZERO()
-		-------
-	*/
-	static inline void bzero(void *destination, size_t bytes)
-	{
-	memset(destination, 0, bytes);
-	}
-#else
-	/*
-		Now in memset.asm
-	*/
-	void bzero(void *destination, size_t bytes);
-#endif
-
 /*
 	MEMCPY()
 	--------
@@ -360,28 +344,54 @@ while (from < end)
 return destination;
 }
 
-#ifdef NEVER
-	/*
-		MEMSET()
-		--------
-	*/
-	inline void *memset(void *destination, int value, size_t bytes)
-	{
-	uint8_t *to, *end;
+/*
+	MEMSET()
+	--------
+*/
+inline void *memset(void *destination, int value, size_t bytes)
+{
+uint8_t *to8, *end8, value8;
+uint32_t *to32, *end32, value32;
 
-	to = (uint8_t *)destination;
-	end = (uint8_t *)to + bytes;
-	while (to < end)
-		*to++ = (char)value;
+/*
+	copy bytes until we are word alligned
+*/
+to8 = (uint8_t *)destination;
+end8 = (uint8_t *)to8 + bytes;
+value8 = (uint8_t)value;
+while ((((ptrdiff_t)to8 & 0x03) != 0) && to8 < end8)
+	*to8++ = value8;
 
-	return destination;
-	}
-#else
-	/*
-		Now in a memset.asm
-	*/
-	void *memset(void *destination, int value, size_t bytes);
-#endif
+/*
+	copy whole words
+*/
+value32 = value8;
+value32 = value32 << 8 | value32;
+value32 = value32 << 16 | value32;
+to32 = (uint32_t *)to8;
+end32 = (uint32_t *)((ptrdiff_t)end8 & ~0x03);
+
+while (to32 < end32)
+	*to32++ = value32;
+
+/*
+	copy until the end of the array
+*/
+to8 = (uint8_t *)to32;
+while (to8 < end8)
+	*to8++ = value8;
+
+return destination;
+}
+
+/*
+	BZERO()
+	-------
+*/
+static inline void bzero(void *destination, size_t bytes)
+{
+memset(destination, 0, bytes);
+}
 
 /*
 	NONALIGNED()
