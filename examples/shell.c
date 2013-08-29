@@ -13,15 +13,12 @@ int main(void)
 {
 ATOSE_api api;
 
+//api.writeline("Hello Andrew");
 api.write('H');
 api.write('e');
 api.write('l');
 api.write('l');
 api.write('o');
-api.write(' ');
-api.write('F');
-api.write('e');
-api.write('i');
 api.write('\r');
 api.write('\n');
 

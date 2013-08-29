@@ -88,7 +88,6 @@ ATOSE_OBJECTS =								\
 	$(OBJ_DIR)/kernel_memory_allocator.o	\
 	$(OBJ_DIR)/main.o						\
 	$(OBJ_DIR)/malloc.o						\
-	$(OBJ_DIR)/memset.o						\
 	$(OBJ_DIR)/mmu.o						\
 	$(OBJ_DIR)/mmu_page_list.o				\
 	$(OBJ_DIR)/pipe.o						\

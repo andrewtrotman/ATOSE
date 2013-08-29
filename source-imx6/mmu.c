@@ -367,7 +367,7 @@ if ((page = free_list.pull()) == NULL)
 /*
 	Zero the page (someone is bound to complain about security if we don't do this)
 */
-//bzero(page->physical_address, page->page_size);
+bzero(page->physical_address, page->page_size);
 
 return page;
 }

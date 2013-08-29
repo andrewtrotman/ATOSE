@@ -26,6 +26,79 @@ void debug_print_string(const char *string);
 void debug_print_this(const char *start, uint32_t hex, const char *end = "");
 void debug_dump_buffer(unsigned char *buffer, uint32_t address, uint64_t bytes);
 
+
+/*
+***********
+*/
+
+/*
+	DEBUG_PUTC
+	----------
+*/
+void Xdebug_putc(char value)
+{
+ATOSE_api::write(value);
+}
+
+/*
+	DEBUG_PRINT_HEX()
+	-----------------
+*/
+void Xdebug_print_hex(int data)
+{
+int i = 0;
+char c;
+
+for (i = sizeof(int) * 2 - 1; i >= 0; i--)
+	{
+	c = data >> (i * 4);
+	c &= 0xf;
+	if (c > 9)
+		Xdebug_putc(c - 10 + 'A');
+	else
+		Xdebug_putc(c + '0');
+	}
+}
+
+/*
+	DEBUG_PRINT_HEX()
+	-----------------
+*/
+void Xdebug_print_hex_byte(uint8_t data)
+{
+char *string = (char *)"0123456789ABCDEF";
+
+Xdebug_putc(string[(data >> 4) & 0x0F]);
+Xdebug_putc(string[data & 0x0F]);
+}
+
+/*
+	DEBUG_PRINT_STRING()
+	--------------------
+*/
+void Xdebug_print_string(const char *string)
+{
+while (*string != 0)
+	Xdebug_putc(*string++);
+}
+
+/*
+	DEBUG_PRINT_THIS()
+	------------------
+*/
+void Xdebug_print_this(const char *start, uint32_t hex, const char *end="")
+{
+Xdebug_print_string(start);
+Xdebug_print_hex(hex);
+Xdebug_print_string(end);
+Xdebug_print_string("\r\n");
+}
+
+/*
+***********
+*/
+
+
 /*
 	ATOSE_PROCESS_MANAGER::INITIALISE()
 	-----------------------------------
@@ -213,6 +286,7 @@ for (which = 0; which < header_num; which++)
 	if (current_header.p_flags & ATOSE_elf32_phdr::PF_X)
 		permissions += ATOSE_address_space::EXECUTE;
 
+//		permissions += ATOSE_address_space::EXECUTE | ATOSE_address_space::WRITE | ATOSE_address_space::READ;
 	/*
 		Make sure the address space of the process includes the page we're about to use.
 		As we're in the address space of the new process we the add() method returns
@@ -228,6 +302,12 @@ for (which = 0; which < header_num; which++)
 //ATOSE_api::writeline("]");
 			current_break = (uint8_t *)(current_header.p_vaddr + current_header.p_memsz);
 			}
+
+
+		Xdebug_print_this("\r\nSection   :", which);
+		Xdebug_print_this("  Load at :", current_header.p_vaddr);
+		Xdebug_print_this("  Size    :", current_header.p_memsz);
+		Xdebug_print_this("  BRK     :", current_header.p_vaddr + current_header.p_memsz);
 		}
 
 	/*
