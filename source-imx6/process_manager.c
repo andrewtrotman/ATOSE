@@ -257,6 +257,15 @@ for (which = 0; which < header_num; which++)
 		error = ELF_BAD_PROGRAM_SEGMENT_TYPE;
 
 	/*
+		The rewind semantics (for C++ exceptions) are stored in the code (program) segment so we don't load them.
+	*/
+	if (current_header.p_type == ATOSE_elf32_phdr::PT_ARM_UNWIND)
+		{
+		Xdebug_print_string("Ignoring non-loadable segment\r\n");
+		continue;
+		}
+
+	/*
 		Make sure that in all cases the size in the ELF file is no larger than the amount
 		of memory needed to store it.
 	*/
@@ -286,7 +295,7 @@ for (which = 0; which < header_num; which++)
 	if (current_header.p_flags & ATOSE_elf32_phdr::PF_X)
 		permissions += ATOSE_address_space::EXECUTE;
 
-//		permissions += ATOSE_address_space::EXECUTE | ATOSE_address_space::WRITE | ATOSE_address_space::READ;
+		permissions += ATOSE_address_space::EXECUTE | ATOSE_address_space::WRITE | ATOSE_address_space::READ;
 	/*
 		Make sure the address space of the process includes the page we're about to use.
 		As we're in the address space of the new process we the add() method returns
