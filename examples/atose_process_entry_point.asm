@@ -5,6 +5,7 @@
 */
 
 .global _Reset
+.global ATOSE_exe_entry_point
 
 /*
 	ATOSE_EXE_ENTRY_POINT
