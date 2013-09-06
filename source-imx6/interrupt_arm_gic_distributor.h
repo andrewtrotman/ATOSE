@@ -64,6 +64,6 @@ public:
 	uint32_t component_id1;																	// 0x0FF4 (ICCIDR1)
 	uint32_t component_id2;																	// 0x0FF8 (ICCIDR2)
 	uint32_t component_id3;																	// 0x0FFC (ICCIDR3)
-} ;
+} __attribute__ ((packed));
 
 #endif

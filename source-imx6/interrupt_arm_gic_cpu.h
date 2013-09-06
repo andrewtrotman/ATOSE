@@ -40,6 +40,6 @@ public:
 	uint32_t implementation_defined_registers[36];
 	uint32_t reserved2[11];
 	uint32_t cpu_interface_dentification_register;					// 0xFC (ICCIIDR)
-} ;
+} __attribute__ ((packed));
 
 #endif

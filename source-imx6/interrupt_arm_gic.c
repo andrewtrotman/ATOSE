@@ -48,8 +48,8 @@ asm volatile
 	On the i.MX6Q (is this generally the case for the Cortex A9?) the registers are at
 	these fixed locations past the register base.
 */
-cpu_registers = (ATOSE_interrupt_arm_gic_cpu *)(base + CPU_REGISTERS_OFFSET_FROM_BASE);
-distributor_registers = (ATOSE_interrupt_arm_gic_distributor *)(base + DISTRIBUTOR_REGISTERS_OFFSET_FROM_BASE);
+cpu_registers = (volatile ATOSE_interrupt_arm_gic_cpu *)(base + CPU_REGISTERS_OFFSET_FROM_BASE);
+distributor_registers = (volatile ATOSE_interrupt_arm_gic_distributor *)(base + DISTRIBUTOR_REGISTERS_OFFSET_FROM_BASE);
 
 /*
 	Enable all interrupt levels (0 = high, 0xFF = low)
@@ -99,7 +99,7 @@ asm volatile
 	:
 	:
 	);
-gic_cpu_registers = (ATOSE_interrupt_arm_gic_cpu *)(base + 0x100);
+gic_cpu_registers = (volatile ATOSE_interrupt_arm_gic_cpu *)(base + 0x100);
 
 /*
    ACK the interrupt and tell the hardware that we're in the interrupt service routine

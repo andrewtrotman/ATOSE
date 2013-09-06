@@ -14,6 +14,186 @@
 
 #include "debug_kernel.h"
 
+
+/****
+*****
+****/
+
+
+#define _ARM_DSB()  asm volatile ("dsb\n\t")
+#define _ARM_ISB()  asm volatile ("isb\n\t")
+
+#define _ARM_MRC(coproc, opcode1, Rt, CRn, CRm, opcode2)	\
+    asm volatile ("mrc p" #coproc ", " #opcode1 ", %[output], c" #CRn ", c" #CRm ", " #opcode2 "\n" : [output] "=r" (Rt))
+
+#define _ARM_MCR(coproc, opcode1, Rt, CRn, CRm, opcode2)	\
+    asm volatile ("mcr p" #coproc ", " #opcode1 ", %[input], c" #CRn ", c" #CRm ", " #opcode2 "\n" :: [input] "r" (Rt))
+
+void arm_dcache_invalidate()
+{
+    uint32_t csid;    // Cache Size ID
+    uint32_t wayset;  // wayset parameter 
+    int num_sets; // number of sets  
+    int num_ways; // number of ways
+
+    _ARM_MRC(15, 1, csid, 0, 0, 0);    // Read Cache Size ID 
+    
+    // Fill number of sets  and number of ways from csid register  This walues are decremented by 1
+    num_ways = (csid >> 0x03) & 0x3FFu; //((csid& csid_ASSOCIATIVITY_MASK) >> csid_ASSOCIATIVITY_SHIFT)
+    
+    // Invalidation all lines (all Sets in all ways) 
+    while (num_ways >= 0)
+    {
+        num_sets = (csid >> 0x13) & 0x7FFFu; //((csid & csid_NUMSETS_MASK) >> csid_NUMSETS_SHIFT)
+        while (num_sets >= 0 )
+        {
+            wayset = (num_sets << 5u) | (num_ways << 30u); //(num_sets << SETWAY_SET_SHIFT) | (num_sets << 3SETWAY_WAY_SHIFT)
+            // invalidate line if we know set and way 
+            _ARM_MCR(15, 0, wayset, 7, 6, 2);
+            num_sets--;
+        }
+        num_ways--;
+    }
+    
+    // All Cache, Branch predictor and TLB maintenance operations before followed instruction complete
+    _ARM_DSB();
+}
+
+void arm_dcache_flush()
+{
+    uint32_t csid;    // Cache Size ID
+    uint32_t wayset;  // wayset parameter 
+    int num_sets; // number of sets  
+    int num_ways; // number of ways
+
+    _ARM_MRC(15, 1, csid, 0, 0, 0);    // Read Cache Size ID 
+    
+    // Fill number of sets  and number of ways from csid register  This walues are decremented by 1
+    num_ways = (csid >> 0x03) & 0x3FFu; //((csid& csid_ASSOCIATIVITY_MASK) >> csid_ASSOCIATIVITY_SHIFT`)
+    while (num_ways >= 0)
+    {
+        num_sets = (csid >> 0x13) & 0x7FFFu; //((csid & csid_NUMSETS_MASK)      >> csid_NUMSETS_SHIFT       )
+        while (num_sets >= 0 )
+        {
+            wayset = (num_sets << 5u) | (num_ways << 30u); //(num_sets << SETWAY_SET_SHIFT) | (num_ways << 3SETWAY_WAY_SHIFT)
+            // FLUSH (clean) line if we know set and way 
+            _ARM_MCR(15, 0, wayset, 7, 10, 2);
+            num_sets--;
+        }
+        num_ways--;
+    }
+    
+    // All Cache, Branch predictor and TLB maintenance operations before followed instruction complete
+    _ARM_DSB();
+}
+
+
+void arm_icache_invalidate()
+{
+    uint32_t SBZ = 0x0u;
+    
+    _ARM_MCR(15, 0, SBZ, 7, 5, 0);
+    
+    // synchronize context on this processor 
+    _ARM_ISB();
+}
+
+void arm_unified_tlb_invalidate()
+{
+asm volatile
+	(
+	"mov     r0, #1;"
+	"mcr     p15, 0, r0, c8, c7, 0;"  //               @ TLBIALL - Invalidate entire unified TLB
+	"dsb;"
+	:
+	:
+	:"r0");
+}
+
+void arm_invalidate_branch_target_cache_invalidate(void)
+{
+asm volatile
+	(
+	"mov     r0, #0;"
+	"mcr     p15, 0, r0, c7, c5, 6;"		//                 @ BPIALL - Invalidate entire branch predictor array
+	:
+	:
+	:"r0");
+}
+
+#define BM_SCTLR_I (1 << 12)   //!< Instruction cache enable
+#define BM_SCTLR_C (1 << 2)    //!< Data cache enable
+#define BM_SCTLR_M (1 << 0)    //!< MMU enable
+
+void arm_icache_enable()
+{
+    uint32_t sctlr  ;// System Control Register 
+    
+    // read sctlr 
+    _ARM_MRC(15, 0, sctlr, 1, 0, 0);
+    
+    // ignore the operation if I is enabled already
+    if(!(sctlr & BM_SCTLR_I))
+    {	
+        // set  I bit (instruction caching enable)
+        sctlr |= BM_SCTLR_I;
+        
+        // write modified sctlr
+        _ARM_MCR(15, 0, sctlr, 1, 0, 0);
+        
+        // synchronize context on this processor 
+        _ARM_ISB();
+    }
+}
+
+void arm_dcache_enable()
+{
+    uint32_t sctlr; // System Control Register 
+    
+    // read sctlr 
+    _ARM_MRC(15, 0, sctlr, 1, 0, 0);
+        
+    if (!(sctlr & BM_SCTLR_C))
+    {
+        // set  C bit (data caching enable) 
+        sctlr |= BM_SCTLR_C;
+        
+        // write modified sctlr
+        _ARM_MCR(15, 0, sctlr, 1, 0, 0);
+        
+        // All Cache, Branch predictor and TLB maintenance operations before followed instruction complete
+        _ARM_DSB();
+    }
+}
+
+
+void mmu_enable()
+{
+debug_print_string("Invalidate the TLB...");
+    // invalidate all tlb 
+    arm_unified_tlb_invalidate();
+
+    // read SCTLR 
+debug_print_string("read SCTLR...");
+    uint32_t sctlr;
+    _ARM_MRC(15, 0, sctlr, 1, 0, 0);
+
+debug_print_string("set MMU enable bit...");
+    // set MMU enable bit 
+    sctlr |= BM_SCTLR_M;
+
+debug_print_string("write modified SCTLR...");
+    // write modified SCTLR
+    _ARM_MCR(15, 0, sctlr, 1, 0, 0);
+
+debug_print_string("done\r\n");
+}
+
+/****
+*****
+****/
+
+
 /*
 	ATOSE_MMU::INITIALISE()
 	-----------------------
@@ -132,6 +312,7 @@ for (/* nothing */; current < pages_in_address_space; current++);
 
 for (current = 0; current < pages_in_address_space; current++)
 	identity_page_table[current] = (current << 20) | (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_NONCACHED_NONBUFFERED | ARM_MMU_V5_PAGE_TYPE_SECTION);
+
 #endif
 /*
 	page 6-2 of "Cortex-A9 Technical Reference Manual Revision: r2p0"
@@ -141,30 +322,50 @@ for (current = 0; current < pages_in_address_space; current++)
 
 	Where BTAC is "Branch Target Address Cache"
 */
+debug_print_string("invalidate_data_cache\r\n");
 invalidate_data_cache();		// invalidate because at boot it could contain noise
+debug_print_string("flush_caches\r\n");
 flush_caches();				// now flush
 
 /*
 	Set the page table to the identity page table
 */
+debug_print_string("assume(identity_page_table)\r\n");
 assume(identity_page_table);
-
+debug_print_this("Page Table:", (uint32_t)identity_page_table);
+debug_print_string("assumed\r\n");
 /*
 	Enable the data cache, the instructon cache, branch prediction, and the MMU.
 
 	NOTE: the data cache and instruction cache are addressed on virtual address
 	and therefore need to be flushed on each context switch
 */
-asm volatile
-	(
-	"mrc	p15, 0, r0, c1, c0, 0;"			// read c1
-	"orr	r0, r0, %[cache_enable];"		// enable data cache and instruction cache
-	"mcr	p15, 0, r0, c1, c0, 0;"			// write c1
-	"dsb;"										// full barrier
-	:                     /* data cache */    /* instruction cache *//* branch prediction */      /* MMU */
-	: [cache_enable]"r"(ARM_MMU_V5_CP15_R1_C | ARM_MMU_V5_CP15_R1_I | ARM_MMU_V7_CP15_R1_Z | ARM_MMU_V5_CP15_R1_M)
-	: "r0"
-	);
+#ifdef NEVER
+	debug_print_string("asm volatile\r\n");
+	asm volatile
+		(
+		"mrc	p15, 0, r0, c1, c0, 0;"			// read c1
+		"orr	r0, r0, %[cache_enable];"		// enable data cache and instruction cache
+		"mcr	p15, 0, r0, c1, c0, 0;"			// write c1
+		"isb;"										// Instruction Synchronization Barrier
+		"dsb;"										// Data Synchronization Barrier
+		:                     /* data cache */    /* instruction cache *//* branch prediction */      /* MMU */
+		: [cache_enable]"r"(ARM_MMU_V5_CP15_R1_C | ARM_MMU_V5_CP15_R1_I | ARM_MMU_V7_CP15_R1_Z | ARM_MMU_V5_CP15_R1_M)
+		: "r0"
+		);
+#else
+	debug_print_string("Freescale Version\r\n");
+
+	mmu_enable();
+	debug_print_string("MMU\r\n");
+
+	arm_icache_enable();
+	debug_print_string("Icache\r\n");
+
+	arm_dcache_enable();
+	debug_print_string("Dcache\r\n");
+#endif
+debug_print_string("caches enabled\r\n");
 
 initialised = true;
 }
@@ -309,107 +510,6 @@ asm volatile
 /*****
 ******
 ******/
-
-#define _ARM_DSB()  asm volatile ("dsb\n\t")
-#define _ARM_ISB()  asm volatile ("isb\n\t")
-
-#define _ARM_MRC(coproc, opcode1, Rt, CRn, CRm, opcode2)	\
-    asm volatile ("mrc p" #coproc ", " #opcode1 ", %[output], c" #CRn ", c" #CRm ", " #opcode2 "\n" : [output] "=r" (Rt))
-
-#define _ARM_MCR(coproc, opcode1, Rt, CRn, CRm, opcode2)	\
-    asm volatile ("mcr p" #coproc ", " #opcode1 ", %[input], c" #CRn ", c" #CRm ", " #opcode2 "\n" :: [input] "r" (Rt))
-
-void arm_dcache_invalidate()
-{
-    uint32_t csid;    // Cache Size ID
-    uint32_t wayset;  // wayset parameter 
-    int num_sets; // number of sets  
-    int num_ways; // number of ways
-
-    _ARM_MRC(15, 1, csid, 0, 0, 0);    // Read Cache Size ID 
-    
-    // Fill number of sets  and number of ways from csid register  This walues are decremented by 1
-    num_ways = (csid >> 0x03) & 0x3FFu; //((csid& csid_ASSOCIATIVITY_MASK) >> csid_ASSOCIATIVITY_SHIFT)
-    
-    // Invalidation all lines (all Sets in all ways) 
-    while (num_ways >= 0)
-    {
-        num_sets = (csid >> 0x13) & 0x7FFFu; //((csid & csid_NUMSETS_MASK) >> csid_NUMSETS_SHIFT)
-        while (num_sets >= 0 )
-        {
-            wayset = (num_sets << 5u) | (num_ways << 30u); //(num_sets << SETWAY_SET_SHIFT) | (num_sets << 3SETWAY_WAY_SHIFT)
-            // invalidate line if we know set and way 
-            _ARM_MCR(15, 0, wayset, 7, 6, 2);
-            num_sets--;
-        }
-        num_ways--;
-    }
-    
-    // All Cache, Branch predictor and TLB maintenance operations before followed instruction complete
-    _ARM_DSB();
-}
-
-void arm_dcache_flush()
-{
-    uint32_t csid;    // Cache Size ID
-    uint32_t wayset;  // wayset parameter 
-    int num_sets; // number of sets  
-    int num_ways; // number of ways
-
-    _ARM_MRC(15, 1, csid, 0, 0, 0);    // Read Cache Size ID 
-    
-    // Fill number of sets  and number of ways from csid register  This walues are decremented by 1
-    num_ways = (csid >> 0x03) & 0x3FFu; //((csid& csid_ASSOCIATIVITY_MASK) >> csid_ASSOCIATIVITY_SHIFT`)
-    while (num_ways >= 0)
-    {
-        num_sets = (csid >> 0x13) & 0x7FFFu; //((csid & csid_NUMSETS_MASK)      >> csid_NUMSETS_SHIFT       )
-        while (num_sets >= 0 )
-        {
-            wayset = (num_sets << 5u) | (num_ways << 30u); //(num_sets << SETWAY_SET_SHIFT) | (num_ways << 3SETWAY_WAY_SHIFT)
-            // FLUSH (clean) line if we know set and way 
-            _ARM_MCR(15, 0, wayset, 7, 10, 2);
-            num_sets--;
-        }
-        num_ways--;
-    }
-    
-    // All Cache, Branch predictor and TLB maintenance operations before followed instruction complete
-    _ARM_DSB();
-}
-
-
-void arm_icache_invalidate()
-{
-    uint32_t SBZ = 0x0u;
-    
-    _ARM_MCR(15, 0, SBZ, 7, 5, 0);
-    
-    // synchronize context on this processor 
-    _ARM_ISB();
-}
-
-void arm_unified_tlb_invalidate()
-{
-asm volatile
-	(
-	"mov     r0, #1;"
-	"mcr     p15, 0, r0, c8, c7, 0;"  //               @ TLBIALL - Invalidate entire unified TLB
-	"dsb;"
-	:
-	:
-	:"r0");
-}
-
-void arm_invalidate_branch_target_cache_invalidate(void)
-{
-asm volatile
-	(
-	"mov     r0, #0;"
-	"mcr     p15, 0, r0, c7, c5, 6;"		//                 @ BPIALL - Invalidate entire branch predictor array
-	:
-	:
-	:"r0");
-}
 
 void ATOSE_mmu::flush_caches(void)
 {

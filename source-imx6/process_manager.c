@@ -355,14 +355,20 @@ uint32_t pipe, got;
 ATOSE_FILE *fcb;
 void *entry_point;
 
+debug_print_string("[EXEC]\r\n");
 pipe = ATOSE_api::pipe_create();
+
+debug_print_string("[connect pipe]\r\n");
 do
 	if ((got = ATOSE_api::pipe_connect(pipe, ATOSE_server_disk::PIPE)) == 0)
 		ATOSE_api::yield();		// give up my time slice to someone else
 while (got != 0);
 
+debug_print_string("[got it... fopen]\r\n");
+
 if ((fcb = ATOSE_fopen((char *)parameter, "r+b")) != 0)
 	{
+	debug_print_string("[call elf_load]\r\n");
 	got = ATOSE_atose::get_ATOSE()->scheduler.elf_load(fcb, &entry_point);
 	ATOSE_fclose(fcb);
 	if (got == SUCCESS)
@@ -492,6 +498,8 @@ uint8_t *old_stack_break;
 if ((new_process = ATOSE_atose::get_ATOSE()->process_allocator.malloc(system_address_space)) == NULL)
 	return ELF_BAD_OUT_OF_PROCESSES;
 
+debug_print_string("Create:");
+debug_print_string(name);
 /*
 	Add one to the address-space's reference count
 */
@@ -560,6 +568,7 @@ else
 	memcpy(registers, &next_process->execution_path->registers, sizeof(*registers));
 //	debug_print_this("PC:", registers->r14_current);
 	mmu->assume(next_process->address_space);
+//	debug_print_this("PC:", registers->r14_current);
 	}
 
 return 0;

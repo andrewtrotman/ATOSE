@@ -112,20 +112,9 @@ void ATOSE_timer_imx6q::acknowledge(ATOSE_registers *registers)
 /*
 	Service the interrupt
 */
-HW_GPT_SR.U = HW_GPT_SR.U;
-
-/*
-{
-volatile uint32_t g, h;
-
-h = g = HW_GPT_CNT_RD();
-while (h == g)
-	{
-	g = HW_GPT_CNT_RD();
-	debug_print_this("v:", g);
-	}
-}
-*/
+debug_print_this("FLAGS (entry):", HW_GPT_SR.U);
+HW_GPT_SR_WR(HW_GPT_SR_RD());
+debug_print_this("FLAGS:", HW_GPT_SR.U);
 
 /*
 	Internally we store the true return address.  To get that from an IRQ we must subtract 4 from the
@@ -147,12 +136,8 @@ if (ATOSE_atose::get_ATOSE()->scheduler.get_current_process() != NULL)
 ATOSE_atose::get_ATOSE()->scheduler.context_switch(registers);
 registers->r14_current += 4;
 
-/*
-{
-uint32_t g = HW_GPT_CNT_RD();
-debug_print_this("After:", g);
-}
-*/
+debug_print_this("TIMER:", HW_GPT_CNT_RD());
+debug_print_this("FLAGS (exit):", HW_GPT_SR.U);
 }
 
 /*

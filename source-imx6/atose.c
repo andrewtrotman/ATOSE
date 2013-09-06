@@ -27,15 +27,36 @@ ATOSE_atose::ATOSE_atose() :
 	interrupt_controller(imx6q_gic)
 	/*, usb(imx6q_usb) */
 {
+debug_init();
+
+debug_print_string("set_ATOSE()\r\n");
 set_ATOSE();
+
+debug_print_string("stack.initialise()\r\n");
 stack.initialise();
+
+debug_print_string("imx6q_cpu.initialise()\r\n");
 imx6q_cpu.initialise();
+
+debug_print_string("imx6q_gic.initialise()\r\n");
 imx6q_gic.initialise();
+
+debug_print_string("imx6q_serial_port.initialise()\r\n");
 imx6q_serial_port.initialise();
+
+debug_print_string("imx6q_heap.initialise()\r\n");
 imx6q_heap.initialise();
+
+debug_print_string("imx6q_process_clock.initialise()\r\n");
 imx6q_process_clock.initialise();
+
+debug_print_string("process_allocator.initialise()\r\n");
 process_allocator.initialise(&imx6q_heap);
+
+debug_print_string("scheduler.initialise()\r\n");
 scheduler.initialise(&imx6q_heap, &process_allocator);
+
+debug_print_string("ATOSE_atose::ATOSE_atose() done\r\n");
 }
 
 /*
