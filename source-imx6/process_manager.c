@@ -22,82 +22,7 @@
 
 #include "client_file.h"
 
-void debug_print_string(const char *string);
-void debug_print_this(const char *start, uint32_t hex, const char *end = "");
-void debug_dump_buffer(unsigned char *buffer, uint32_t address, uint64_t bytes);
-
-
-/*
-***********
-*/
-
-/*
-	DEBUG_PUTC
-	----------
-*/
-void Xdebug_putc(char value)
-{
-ATOSE_api::write(value);
-}
-
-/*
-	DEBUG_PRINT_HEX()
-	-----------------
-*/
-void Xdebug_print_hex(int data)
-{
-int i = 0;
-char c;
-
-for (i = sizeof(int) * 2 - 1; i >= 0; i--)
-	{
-	c = data >> (i * 4);
-	c &= 0xf;
-	if (c > 9)
-		Xdebug_putc(c - 10 + 'A');
-	else
-		Xdebug_putc(c + '0');
-	}
-}
-
-/*
-	DEBUG_PRINT_HEX()
-	-----------------
-*/
-void Xdebug_print_hex_byte(uint8_t data)
-{
-char *string = (char *)"0123456789ABCDEF";
-
-Xdebug_putc(string[(data >> 4) & 0x0F]);
-Xdebug_putc(string[data & 0x0F]);
-}
-
-/*
-	DEBUG_PRINT_STRING()
-	--------------------
-*/
-void Xdebug_print_string(const char *string)
-{
-while (*string != 0)
-	Xdebug_putc(*string++);
-}
-
-/*
-	DEBUG_PRINT_THIS()
-	------------------
-*/
-void Xdebug_print_this(const char *start, uint32_t hex, const char *end="")
-{
-Xdebug_print_string(start);
-Xdebug_print_hex(hex);
-Xdebug_print_string(end);
-Xdebug_print_string("\r\n");
-}
-
-/*
-***********
-*/
-
+#include "debug_kernel.h"
 
 /*
 	ATOSE_PROCESS_MANAGER::INITIALISE()
@@ -257,13 +182,10 @@ for (which = 0; which < header_num; which++)
 		error = ELF_BAD_PROGRAM_SEGMENT_TYPE;
 
 	/*
-		The rewind semantics (for C++ exceptions) are stored in the code (program) segment so we don't load them.
+		Ignore all non-loadable segments (this includes C++ stack rewind semantics)
 	*/
-	if (current_header.p_type == ATOSE_elf32_phdr::PT_ARM_UNWIND)
-		{
-		Xdebug_print_string("Ignoring non-loadable segment\r\n");
+	if (current_header.p_type != ATOSE_elf32_phdr::PT_LOAD)
 		continue;
-		}
 
 	/*
 		Make sure that in all cases the size in the ELF file is no larger than the amount
@@ -295,7 +217,6 @@ for (which = 0; which < header_num; which++)
 	if (current_header.p_flags & ATOSE_elf32_phdr::PF_X)
 		permissions += ATOSE_address_space::EXECUTE;
 
-		permissions += ATOSE_address_space::EXECUTE | ATOSE_address_space::WRITE | ATOSE_address_space::READ;
 	/*
 		Make sure the address space of the process includes the page we're about to use.
 		As we're in the address space of the new process we the add() method returns
@@ -306,17 +227,9 @@ for (which = 0; which < header_num; which++)
 		if ((uint8_t *)(current_header.p_vaddr + current_header.p_memsz) > current_break)
 			{
 			shift = ((uint8_t *)current_header.p_vaddr) + current_header.p_memsz - current_break;
-//ATOSE_api::writeline("call set_heap_break[");
 			ATOSE_api::set_heap_break(shift, permissions);
-//ATOSE_api::writeline("]");
 			current_break = (uint8_t *)(current_header.p_vaddr + current_header.p_memsz);
 			}
-
-
-		Xdebug_print_this("\r\nSection   :", which);
-		Xdebug_print_this("  Load at :", current_header.p_vaddr);
-		Xdebug_print_this("  Size    :", current_header.p_memsz);
-		Xdebug_print_this("  BRK     :", current_header.p_vaddr + current_header.p_memsz);
 		}
 
 	/*
@@ -325,22 +238,13 @@ for (which = 0; which < header_num; which++)
 		permissions on an existing page
 	*/
 	if (error != SUCCESS)
-		{
-//ATOSE_api::writeline("fail!");
 		break;
-		}
 
 	/*
 		copy from the ELF file into the address space
 	*/
 	ATOSE_fseek(infile, current_header.p_offset, ATOSE_SEEK_SET);
-
-//void debug_print_cf_this(const char *start, uint32_t hex1, uint32_t hex2, const char *end = "");
-//debug_print_cf_this("[offset->", current_header.p_offset, current_header.p_filesz, "<-bytes]\r\n");
-
 	ATOSE_fread((void *)current_header.p_vaddr, current_header.p_filesz, 1, infile);
-
-//	debug_dump_buffer((unsigned char *)current_header.p_vaddr, current_header.p_vaddr, 0x80);
 	}
 
 /*
@@ -349,9 +253,6 @@ for (which = 0; which < header_num; which++)
 */
 
 *entry_point = (uint8_t *)header.e_entry;
-
-//ATOSE_atose::get_ATOSE()->debug.hex();
-//ATOSE_atose::get_ATOSE()->debug << "e_entry=" << header.e_entry << "\r\n";
 
 return error;
 }
@@ -479,10 +380,10 @@ if ((fcb = ATOSE_fopen((char *)parameter, "r+b")) != 0)
 			:
 			: "r0"
 			);
-
 		(*((void (*)(void))entry_point))();
 		}
 	}
+
 
 ATOSE_api::exit(0);
 return 0;
@@ -657,6 +558,7 @@ else
 		Set the registers and the address space for the new process
 	*/
 	memcpy(registers, &next_process->execution_path->registers, sizeof(*registers));
+//	debug_print_this("PC:", registers->r14_current);
 	mmu->assume(next_process->address_space);
 	}
 

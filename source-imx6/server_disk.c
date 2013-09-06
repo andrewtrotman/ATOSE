@@ -10,10 +10,6 @@
 #include "malloc.h"
 #include "client_file.h"
 
-void debug_dump_buffer(unsigned char *buffer, uint32_t address, uint64_t bytes);
-void debug_print_string(const char *string);
-void debug_print_this(const char *start, uint32_t hex, const char *end = "");
-
 /*
 	class ATOSE_SERVER_DISK_FILE
 	----------------------------
@@ -25,7 +21,7 @@ public:
 	uint32_t process_id;
 	ATOSE_file_control_block fcb_space;
 	uint8_t buffer;
-} ;
+} __attribute__ ((packed));
 
 /*
 	ATOSE_SERVER_DISK::SERVE()
@@ -46,6 +42,7 @@ ATOSE_api::pipe_bind(pipe, PIPE);
 while (1)
 	{
 	message = ATOSE_api::pipe_receive(pipe, &command, sizeof(command), &client_id);
+
 	if (message != 0)
 		{
 		/*

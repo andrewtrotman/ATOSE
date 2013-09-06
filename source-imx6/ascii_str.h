@@ -19,13 +19,7 @@
 */
 static inline uint32_t ASCII_strlen(const char *string)
 {
-const char *ch;
-
-ch = string;
-while (*ch != '\0')
-	ch++;
-
-return ch - string;
+return __builtin_strlen(string);
 }
 
 /*
@@ -40,14 +34,7 @@ static inline uint32_t ASCII_strlen(const void *string) { return ASCII_strlen((c
 */
 static inline char *ASCII_strchr(const char *string, int value)
 {
-while (*string != '\0')
-	{
-	if (*string == value)
-		return (char *)string;
-	string++;
-	}
-
-return 0;
+return __builtin_strchr(string, value);
 }
 
 /*
@@ -56,16 +43,7 @@ return 0;
 */
 static inline char *ASCII_strrchr(const char *string, int value)
 {
-char *here = 0;
-
-while (*string != '\0')
-	{
-	if (*string == value)
-		here = (char *)string;
-	string++;
-	}
-
-return here;
+return __builtin_strrchr(string, value);
 }
 
 /*
@@ -74,13 +52,7 @@ return here;
 */
 static inline char *ASCII_strcpy(char *destination, const char *source)
 {
-char *into = (char *)destination;
-char *from = (char *)source;
-
-while ((*into++ = *from++) != '\0')
-	;	// do nothing
-
-return destination;
+return __builtin_strcpy(destination, source);
 }
 
 /*
@@ -96,22 +68,7 @@ static inline char *ASCII_strcpy(void *destination, const void *source) { return
 */
 static inline char *ASCII_strncpy(char *destination, const char *source, size_t count)
 {
-char *into = (char *)destination;
-char *from = (char *)source;
-
-if (count != 0)
-	do
-		if ((*into++ = *from++) == 0)
-			{
-			/* NUL pad the remaining n-1 bytes */
-			while (--count != 0)
-				*into++ = 0;
-			break;
-			}
-
-	while (--count != 0);
-
-return destination;
+return __builtin_strncpy(destination, source, count);
 }
 
 /*
@@ -122,18 +79,7 @@ return destination;
 */
 static inline int ASCII_strncasecmp(const char *string_1, const char *string_2, size_t size)
 {
-if (size == 0)
-	return 0;
-
-while (size-- != 0 && ASCII_tolower(*string_1) == ASCII_tolower(*string_2))
-	{
-	if (size == 0 || *string_1 == '\0' || *string_2 == '\0')
-		break;
-	string_1++;
-	string_2++;
-	}
-
-return ASCII_tolower(*(unsigned char *)string_1) - ASCII_tolower(*(unsigned char *)string_2);
+return __builtin_strncasecmp(string_1, string_2, size);
 }
 
 /*
@@ -142,13 +88,7 @@ return ASCII_tolower(*(unsigned char *)string_1) - ASCII_tolower(*(unsigned char
 */
 static inline int ASCII_strcmp(const char *string_1, const char *string_2)
 {
-while (*string_1 == *string_2 && *string_1 != '\0')
-	{
-	string_1++;
-	string_2++;
-	}
-
-return (unsigned char)*string_1 - (unsigned char)*string_2;
+return __builtin_strcmp(string_1, string_2);
 }
 
 /*
@@ -333,15 +273,25 @@ return multiplier * ans;
 */
 inline void *memcpy(void *destination, const void *source, size_t bytes)
 {
-uint8_t *from, *to, *end;
+#ifdef NEVER
+	/*
+		The built in memcpy does not understand memory allignmnt correctly and leads to crashes.
+	*/
+	return __builtin_memcpy(destination, source, bytes);
+#else
+	/*
+		As __builtin_memcpy() on ARM is broken we have our own.
+	*/
+	uint8_t *from, *to, *end;
 
-from = (uint8_t *)source;
-to = (uint8_t *)destination;
-end = (uint8_t *)from + bytes;
-while (from < end)
-	*to++ = *from++;
+	from = (uint8_t *)source;
+	to = (uint8_t *)destination;
+	end = (uint8_t *)from + bytes;
+	while (from < end)
+			  *to++ = *from++;
 
-return destination;
+	return destination;
+#endif
 }
 
 /*
@@ -350,38 +300,7 @@ return destination;
 */
 inline void *memset(void *destination, int value, size_t bytes)
 {
-uint8_t *to8, *end8, value8;
-uint32_t *to32, *end32, value32;
-
-/*
-	copy bytes until we are word alligned
-*/
-to8 = (uint8_t *)destination;
-end8 = (uint8_t *)to8 + bytes;
-value8 = (uint8_t)value;
-while ((((ptrdiff_t)to8 & 0x03) != 0) && to8 < end8)
-	*to8++ = value8;
-
-/*
-	copy whole words
-*/
-value32 = value8;
-value32 = value32 << 8 | value32;
-value32 = value32 << 16 | value32;
-to32 = (uint32_t *)to8;
-end32 = (uint32_t *)((ptrdiff_t)end8 & ~0x03);
-
-while (to32 < end32)
-	*to32++ = value32;
-
-/*
-	copy until the end of the array
-*/
-to8 = (uint8_t *)to32;
-while (to8 < end8)
-	*to8++ = value8;
-
-return destination;
+return __builtin_memset(destination, value, bytes);
 }
 
 /*
@@ -390,21 +309,33 @@ return destination;
 */
 static inline void bzero(void *destination, size_t bytes)
 {
-memset(destination, 0, bytes);
+__builtin_bzero(destination, bytes);
 }
 
 /*
 	NONALIGNED()
 	------------
 */
-inline uint16_t nonaligned(const uint16_t &from)
+inline uint16_t nonaligned(const uint16_t *from)
 {
 uint8_t *byte;
 
-byte = (uint8_t *)&from;
+byte = (uint8_t *)from;
 
-return *byte  + (*(byte + 1) << 8);
+return *byte | (*(byte + 1) << 8);
 }
 
+/*
+	NONALIGNED()
+	------------
+*/
+inline int16_t nonaligned(const int16_t *from)
+{
+uint8_t *byte;
+
+byte = (uint8_t *)from;
+
+return (int16_t)(*byte | (*(byte + 1) << 8));
+}
 
 #endif

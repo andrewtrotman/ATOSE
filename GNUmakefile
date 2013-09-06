@@ -46,7 +46,7 @@ $(BIN_DIR)/%.$(EXT) : $(TOOLS_DIR)/%.c
 
 $(OBJ_DIR)/%.o : $(SOURCE_DIR)/%.c
 	@echo $@
-	@$(CCXX) $(CCXXFLAGS) -c $< -o $@
+	$(CCXX) $(CCXXFLAGS) -c $< -o $@
 
 $(OBJ_DIR)/%.o : $(SOURCE_DIR)/%.asm
 	@echo $@

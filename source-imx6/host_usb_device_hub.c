@@ -59,8 +59,14 @@ for (port = 1; port <= hub_ports; port++)
 						Do that recursive thing (enumerate my children)
 						If the child is USB 1.1 and I'm USB 2.0 then I'm the translator, else my translator is my child's translator
 					*/
-					child_velocity = status.status.port_low_speed ? ATOSE_host_usb_device::VELOCITY_LOW : status.status.port_high_speed ? ATOSE_host_usb_device::VELOCITY_HIGH : ATOSE_host_usb_device::VELOCITY_FULL;
-					if (port_velocity == ATOSE_host_usb_device::VELOCITY_HIGH && (child_velocity == ATOSE_host_usb_device::VELOCITY_LOW || child_velocity == ATOSE_host_usb_device::VELOCITY_FULL))
+					if (status.status.port_low_speed)
+						child_velocity = VELOCITY_LOW;
+					else if (status.status.port_high_speed)
+						child_velocity = VELOCITY_HIGH;
+					else
+						child_velocity = VELOCITY_FULL;
+
+					if (port_velocity == VELOCITY_HIGH && (child_velocity == VELOCITY_LOW || child_velocity == VELOCITY_FULL))
 						ehci->enumerate(address, address, port, child_velocity);
 					else
 						ehci->enumerate(address, transaction_translator_address, transaction_translator_port, child_velocity);

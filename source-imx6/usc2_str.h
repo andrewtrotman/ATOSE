@@ -15,7 +15,7 @@
 	Convert a UCS-2 character into UTF-8.  A valid 3-byte buffer must be supplied to write into.
 	Return the number of bytes needed to store the character in UTF-8
 
-	This mehtod's code is based on that from: ftp://kermit.columbia.edu/kermit/charsets/utf8.c
+	This method's code is based on that from: ftp://kermit.columbia.edu/kermit/charsets/utf8.c
 	The original was written by F. da Cruz, Columbia University, May 2000. It did not contain
 	a copyright notice when I found it.
 */

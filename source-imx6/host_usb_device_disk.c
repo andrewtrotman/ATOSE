@@ -28,8 +28,6 @@
 #include "usb_disk_command_block_wrapper.h"
 #include "file_control_block.h"
 
-void debug_print_string(const char *string);
-
 /*
 	ATOSE_HOST_USB_DEVICE_DISK::ATOSE_USB_SCSI_TEST_UNIT_READY
 	----------------------------------------------------------
@@ -308,7 +306,7 @@ if (endpoint->bEndpointAddress & ATOSE_usb_standard_endpoint_descriptor::DIRECTI
 else
 	endpoint_out = endpoint->bEndpointAddress;
 
-max_packet_size[endpoint->bEndpointAddress & ~ATOSE_usb_standard_endpoint_descriptor::DIRECTION_IN] = endpoint->wMaxPacketSize;
+max_packet_size[endpoint->bEndpointAddress & ~ATOSE_usb_standard_endpoint_descriptor::DIRECTION_IN] = nonaligned(&endpoint->wMaxPacketSize);
 
 /*
 	move on to the second endpoint descriptor
@@ -323,7 +321,7 @@ if (endpoint->bEndpointAddress & ATOSE_usb_standard_endpoint_descriptor::DIRECTI
 else
 	endpoint_out = endpoint->bEndpointAddress;
 
-max_packet_size[endpoint->bEndpointAddress & ~ATOSE_usb_standard_endpoint_descriptor::DIRECTION_IN] = endpoint->wMaxPacketSize;
+max_packet_size[endpoint->bEndpointAddress & ~ATOSE_usb_standard_endpoint_descriptor::DIRECTION_IN] = nonaligned(&endpoint->wMaxPacketSize);
 
 /*
 	Now we bring the disk up
@@ -475,11 +473,7 @@ uint8_t command[31];
 */
 if (block < 0xFFFFFFFF && blocks_to_read < 0xFFFF)
 	{
-	/*
-		We can do a 32-bit transfer
-	*/
 	memcpy(command, ATOSE_usb_scsi_read_10, sizeof(command));
-
 	address_32 = (ATOSE_msb_uint32_t *)(command + 17);
 	*address_32 = (uint32_t)block;
 	number_16 = (ATOSE_msb_uint16_t *)(command + 22);

@@ -34,7 +34,7 @@ while (got != 0);
 */
 ATOSE_FILE *ATOSE_fopen(const char *path, const char *mode)
 {
-ATOSE_server_disk_protocol command;
+volatile ATOSE_server_disk_protocol command;
 
 if (!initialised)
 	ATOSE_finitialise();
@@ -53,7 +53,7 @@ return (ATOSE_FILE *)ATOSE_api::pipe_send(ATOSE_file_pipe, &command, sizeof(comm
 */
 int32_t ATOSE_fclose(ATOSE_FILE *stream)
 {
-ATOSE_server_disk_protocol command;
+volatile ATOSE_server_disk_protocol command;
 
 command.command = ATOSE_server_disk_protocol::COMMAND_CLOSE;
 command.fcb = (uint32_t)stream;
@@ -67,7 +67,7 @@ return ATOSE_api::pipe_send(ATOSE_file_pipe, &command, sizeof(command), &command
 */
 int32_t ATOSE_fseek(ATOSE_FILE *stream, int64_t offset, uint8_t from)
 {
-ATOSE_server_disk_protocol command;
+volatile ATOSE_server_disk_protocol command;
 
 command.command = ATOSE_server_disk_protocol::COMMAND_SEEK;
 command.fcb = (uint32_t)stream;
@@ -83,7 +83,7 @@ return ATOSE_api::pipe_send(ATOSE_file_pipe, &command, sizeof(command), &command
 */
 uint64_t ATOSE_ftell(ATOSE_FILE *stream)
 {
-ATOSE_server_disk_protocol command;
+volatile ATOSE_server_disk_protocol command;
 
 command.command = ATOSE_server_disk_protocol::COMMAND_TELL;
 command.fcb = (uint32_t)stream;
@@ -99,7 +99,7 @@ return command.location;
 */
 uint32_t ATOSE_fread(void *destination, uint64_t size, uint32_t count, ATOSE_FILE *stream)
 {
-ATOSE_server_disk_protocol command;
+volatile ATOSE_server_disk_protocol command;
 
 command.command = ATOSE_server_disk_protocol::COMMAND_READ;
 command.fcb = (uint32_t)stream;

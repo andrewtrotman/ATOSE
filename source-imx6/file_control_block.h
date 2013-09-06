@@ -53,6 +53,6 @@ public:
 	uint64_t write(uint8_t *buffer, uint64_t bytes_to_write) { return file_system->write(this, buffer, bytes_to_write); }
 	uint64_t write(void *buffer, uint64_t bytes_to_write) { return write((uint8_t *)buffer, bytes_to_write); }
 	ATOSE_file_control_block *close(void) { return file_system->close(this); }
-} ;
+} __attribute__ ((packed));;
 
 #endif

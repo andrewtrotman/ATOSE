@@ -12,6 +12,8 @@
 #include "address_space.h"
 #include "ascii_str.h"
 
+#include "debug_kernel.h"
+
 /*
 	ATOSE_MMU::INITIALISE()
 	-----------------------
@@ -99,19 +101,38 @@ peripheral_page = (ARM_MMU_V5_PAGE_SECTION_USER_FORBIDDEN | ARM_MMU_V5_PAGE_DOMA
 		 (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V7_PAGE_SECTION_USER_NO_EXECUTE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION)
 */
 user_data_page = (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V7_PAGE_SECTION_USER_NO_EXECUTE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_NONCACHED_NONBUFFERED | ARM_MMU_V5_PAGE_TYPE_SECTION);
+//user_data_page = (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V7_PAGE_SECTION_USER_NO_EXECUTE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION);
 
 /*
 	User CODE (probram) pages are set to cache, buffer, and user can read only:
 		(ARM_MMU_V5_PAGE_SECTION_USER_READONLY | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION)
 */
 user_code_page = (ARM_MMU_V5_PAGE_SECTION_USER_READONLY | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_NONCACHED_NONBUFFERED | ARM_MMU_V5_PAGE_TYPE_SECTION);
+//user_code_page = (ARM_MMU_V5_PAGE_SECTION_USER_READONLY | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION);
 
 /*
-	A page table can now be set up with: each page is 1MB in size (ARM V5 Sections), full permission to do anything
+	A page table (the identity) can now be set up with: each page is 1MB in size (ARM V5 Sections), full permission to do anything.
+	On the i.MX6Q:
+		Page 0 is the interrupt vectors
+		The next 255 pages are the periperal devices
+		Page 9 is the on chip RAM
+		All other pages are off-chip DRAM
 */
+#ifdef NEVER
+{
+for (current = 0; current < 256; current++)
+	identity_page_table[current] = (current << 20) | peripheral_page;
+
+identity_page_table[9] = (9 << 20) | os_page;
+
+for (/* nothing */; current < pages_in_address_space; current++);
+	identity_page_table[current] =  (current << 20) | os_page;
+}
+#else
+
 for (current = 0; current < pages_in_address_space; current++)
 	identity_page_table[current] = (current << 20) | (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_NONCACHED_NONBUFFERED | ARM_MMU_V5_PAGE_TYPE_SECTION);
-
+#endif
 /*
 	page 6-2 of "Cortex-A9 Technical Reference Manual Revision: r2p0"
 	"You must invalidate the instruction cache, the data cache, and BTAC before using them.
@@ -139,8 +160,8 @@ asm volatile
 	"mrc	p15, 0, r0, c1, c0, 0;"			// read c1
 	"orr	r0, r0, %[cache_enable];"		// enable data cache and instruction cache
 	"mcr	p15, 0, r0, c1, c0, 0;"			// write c1
-	"dsb;"									// full barrier
-	:
+	"dsb;"										// full barrier
+	:                     /* data cache */    /* instruction cache *//* branch prediction */      /* MMU */
 	: [cache_enable]"r"(ARM_MMU_V5_CP15_R1_C | ARM_MMU_V5_CP15_R1_I | ARM_MMU_V7_CP15_R1_Z | ARM_MMU_V5_CP15_R1_M)
 	: "r0"
 	);
@@ -156,7 +177,7 @@ void ATOSE_mmu::invalidate_data_cache(void)
 {
 /*
 	At startup the data cache is full of garbage so we need to invalidate it
-	without flushing it to main memory because that might trach main memory.
+	without flushing it to main memory because that might trash main memory.
 
 	The code for the i.MX6Q (ARM Cortex A9) is somewhat more involved.  For more detail on exactly how to
 	do this see pages 15-3 to 15-4 of "Cortex-A Series Programmer's Guide Version: 3.0" from where this
@@ -171,113 +192,241 @@ asm volatile
 	"movw r3, #0x1ff;"
 	"and r0, r3, r0, lsr #13;"			// r0 = no. of sets - 1
 	"mov r1, #0;"						// r1 = way counter way_loop
-"idc_way_loop:;"
+"idc_way_loop%=:;"							// %= is the assembly way of saying "generate a unique label from this"
 	"mov r3, #0;"						// r3 = set counter set_loop
-"idc_set_loop:;"
+"idc_set_loop%=:;"
 	"mov r2, r1, lsl #30;"
 	"orr r2, r3, lsl #5;"				// r2 = set/way cache operation format
 	"mcr p15, 0, r2, c7, c6, 2;"		// DCISW - Invalidate line described by r2
 	"add r3, r3, #1;"					// Increment set counter
 	"cmp r0, r3;"						// Last set reached yet?
-	"bne idc_set_loop;"						// if not, iterate set_loop
+	"bne idc_set_loop%=;"						// if not, iterate set_loop
 	"add r1, r1, #1;"					// else, next
 	"cmp r1, #4;"						// Last way reached yet?
-	"bne idc_way_loop;"						// if not, iterate way_loop
+	"bne idc_way_loop%=;"						// if not, iterate way_loop
 	:
 	:
 	:"r0", "r1", "r2", "r3");
 }
 
-/*
-	ATOSE_MMU::FLUSH_CACHES()
-	-------------------------
-*/
-void ATOSE_mmu::flush_caches(void)
+
+
+#ifdef NEVER
+		/*
+			ATOSE_MMU::FLUSH_CACHES()
+			-------------------------
+		*/
+		void ATOSE_mmu::flush_caches(void)
+		{
+		/*
+			The cache on the ARM926 is addressed by virtual address not physical
+			address. This is apparently faster than using physical addresses
+			because no address translation is required to get entries out of the
+			cache, but it means that every time a context switch occurs its
+			necessary to invalidate both the instruction and data cache.
+
+			As writes cannot happen to the instruction cache, ICache, we just
+			invalidate it.  The data cache, DCache, however can have dirty data
+			in it.  We need to flush this to memory.  To do that we "test and
+			clean" the cache which checks for dirty data and flushes it to
+			memory.  We then need to invalidate the cache.  As there's a test,
+			clean, and invalidate instruction we just use that.  Note (from page
+			2-23 of the ARM926EJ-S Technical Reference Manual) that we need to
+			check each line in a loop.
+
+			The cache is, of course, not actually flushed to memory, but is
+			rather flushed to the write buffer.  To truely flush the cache its
+			necessary to also flush the write buffer.
+		*/
+
+		/*
+			The code for the i.MX6Q (ARM Cortex A9) is somewhat more involved.  For more detail on exactly how to
+			do this see pages 15-3 to 15-4 of "Cortex-A Series Programmer's Guide Version: 3.0" from where this
+			code was taken.
+		*/
+		asm volatile
+			(
+			/*
+				Barrier (complete all instructions up to this point before going on)
+			*/
+			"dsb;"
+
+			/*
+				Clear register 0
+			*/
+			"mov r0, #0;"
+
+			/*
+				Invalidate the TLB
+			*/
+			"mcr p15, 0, r0, c8, c7, 0;"		// TLBIALL
+
+			/*
+				Branch predictor invalidate all
+			*/
+			"mcr p15, 0, r0, c7, c5, 6;"		// BPIALL
+
+			/*
+				Instruction cache invalidate all
+			*/
+			"mcr p15, 0, r0, c7, c5, 0;"		// ICIALLU
+			"isb;"									// flush the CPU pipeline
+
+			/*
+				Data cache invalidate all
+			*/
+			"mrc p15, 1, r0, c0, c0, 0;"		// Read Cache Size ID
+			"movw r3, #0x1ff;"
+			"and r0, r3, r0, lsr #13;"			// r0 = no. of sets - 1
+			"mov r1, #0;"						// r1 = way counter way_loop
+		"way_loop:;"
+			"mov r3, #0;"						// r3 = set counter set_loop
+		"set_loop:;"
+			"mov r2, r1, lsl #30;"
+			"orr r2, r3, lsl #5;"				// r2 = set/way cache operation format
+			"mcr p15, 0, r2, c7, c14, 2;"		// DCCISW - Clean and Invalidate line described by r2
+			"add r3, r3, #1;"					// Increment set counter
+			"cmp r0, r3;"						// Last set reached yet?
+			"bne set_loop;"						// if not, iterate set_loop
+			"add r1, r1, #1;"					// else, next
+			"cmp r1, #4;"						// Last way reached yet?
+			"bne way_loop;"						// if not, iterate way_loop
+
+
+			/*
+				Barrier (complete all instructions up to this point before going on)
+			*/
+			"dsb;"
+
+			:
+			:
+			:"r0", "r1", "r2", "r3");
+		}
+#endif
+
+
+
+/*****
+******
+******/
+
+#define _ARM_DSB()  asm volatile ("dsb\n\t")
+#define _ARM_ISB()  asm volatile ("isb\n\t")
+
+#define _ARM_MRC(coproc, opcode1, Rt, CRn, CRm, opcode2)	\
+    asm volatile ("mrc p" #coproc ", " #opcode1 ", %[output], c" #CRn ", c" #CRm ", " #opcode2 "\n" : [output] "=r" (Rt))
+
+#define _ARM_MCR(coproc, opcode1, Rt, CRn, CRm, opcode2)	\
+    asm volatile ("mcr p" #coproc ", " #opcode1 ", %[input], c" #CRn ", c" #CRm ", " #opcode2 "\n" :: [input] "r" (Rt))
+
+void arm_dcache_invalidate()
 {
-/*
-	The cache on the ARM926 is addressed by virtual address not physical
-	address. This is apparently faster than using physical addresses
-	because no address translation is required to get entries out of the
-	cache, but it means that every time a context switch occurs its
-	necessary to invalidate both the instruction and data cache.
+    uint32_t csid;    // Cache Size ID
+    uint32_t wayset;  // wayset parameter 
+    int num_sets; // number of sets  
+    int num_ways; // number of ways
 
-	As writes cannot happen to the instruction cache, ICache, we just
-	invalidate it.  The data cache, DCache, however can have dirty data
-	in it.  We need to flush this to memory.  To do that we "test and
-	clean" the cache which checks for dirty data and flushes it to
-	memory.  We then need to invalidate the cache.  As there's a test,
-	clean, and invalidate instruction we just use that.  Note (from page
-	2-23 of the ARM926EJ-S Technical Reference Manual) that we need to
-	check each line in a loop.
+    _ARM_MRC(15, 1, csid, 0, 0, 0);    // Read Cache Size ID 
+    
+    // Fill number of sets  and number of ways from csid register  This walues are decremented by 1
+    num_ways = (csid >> 0x03) & 0x3FFu; //((csid& csid_ASSOCIATIVITY_MASK) >> csid_ASSOCIATIVITY_SHIFT)
+    
+    // Invalidation all lines (all Sets in all ways) 
+    while (num_ways >= 0)
+    {
+        num_sets = (csid >> 0x13) & 0x7FFFu; //((csid & csid_NUMSETS_MASK) >> csid_NUMSETS_SHIFT)
+        while (num_sets >= 0 )
+        {
+            wayset = (num_sets << 5u) | (num_ways << 30u); //(num_sets << SETWAY_SET_SHIFT) | (num_sets << 3SETWAY_WAY_SHIFT)
+            // invalidate line if we know set and way 
+            _ARM_MCR(15, 0, wayset, 7, 6, 2);
+            num_sets--;
+        }
+        num_ways--;
+    }
+    
+    // All Cache, Branch predictor and TLB maintenance operations before followed instruction complete
+    _ARM_DSB();
+}
 
-	The cache is, of course, not actually flushed to memory, but is
-	rather flushed to the write buffer.  To truely flush the cache its
-	necessary to also flush the write buffer.
-*/
+void arm_dcache_flush()
+{
+    uint32_t csid;    // Cache Size ID
+    uint32_t wayset;  // wayset parameter 
+    int num_sets; // number of sets  
+    int num_ways; // number of ways
 
-/*
-	The code for the i.MX6Q (ARM Cortex A9) is somewhat more involved.  For more detail on exactly how to
-	do this see pages 15-3 to 15-4 of "Cortex-A Series Programmer's Guide Version: 3.0" from where this
-	code was taken.
-*/
+    _ARM_MRC(15, 1, csid, 0, 0, 0);    // Read Cache Size ID 
+    
+    // Fill number of sets  and number of ways from csid register  This walues are decremented by 1
+    num_ways = (csid >> 0x03) & 0x3FFu; //((csid& csid_ASSOCIATIVITY_MASK) >> csid_ASSOCIATIVITY_SHIFT`)
+    while (num_ways >= 0)
+    {
+        num_sets = (csid >> 0x13) & 0x7FFFu; //((csid & csid_NUMSETS_MASK)      >> csid_NUMSETS_SHIFT       )
+        while (num_sets >= 0 )
+        {
+            wayset = (num_sets << 5u) | (num_ways << 30u); //(num_sets << SETWAY_SET_SHIFT) | (num_ways << 3SETWAY_WAY_SHIFT)
+            // FLUSH (clean) line if we know set and way 
+            _ARM_MCR(15, 0, wayset, 7, 10, 2);
+            num_sets--;
+        }
+        num_ways--;
+    }
+    
+    // All Cache, Branch predictor and TLB maintenance operations before followed instruction complete
+    _ARM_DSB();
+}
+
+
+void arm_icache_invalidate()
+{
+    uint32_t SBZ = 0x0u;
+    
+    _ARM_MCR(15, 0, SBZ, 7, 5, 0);
+    
+    // synchronize context on this processor 
+    _ARM_ISB();
+}
+
+void arm_unified_tlb_invalidate()
+{
 asm volatile
 	(
-	/*
-		Barrier (complete all instructions up to this point before going on)
-	*/
+	"mov     r0, #1;"
+	"mcr     p15, 0, r0, c8, c7, 0;"  //               @ TLBIALL - Invalidate entire unified TLB
 	"dsb;"
-
-	/*
-		Clear register 0
-	*/
-	"mov r0, #0;"
-
-	/*
-		Invalidate the TLB
-	*/
-	"mcr p15, 0, r0, c8, c7, 0;"		// TLBIALL
-
-	/*
-		Branch predictor invalidate all
-	*/
-	"mcr p15, 0, r0, c7, c5, 6;"		// BPIALL
-
-	/*
-		Instruction cache invalidate all
-	*/
-	"mcr p15, 0, r0, c7, c5, 0;"		// ICIALLU
-	"isb;"									// flush the CPU pipeline
-
-	/*
-		Data cache invalidate all
-	*/
-	"mrc p15, 1, r0, c0, c0, 0;"		// Read Cache Size ID
-	"movw r3, #0x1ff;"
-	"and r0, r3, r0, lsr #13;"			// r0 = no. of sets - 1
-	"mov r1, #0;"						// r1 = way counter way_loop
-"way_loop:;"
-	"mov r3, #0;"						// r3 = set counter set_loop
-"set_loop:;"
-	"mov r2, r1, lsl #30;"
-	"orr r2, r3, lsl #5;"				// r2 = set/way cache operation format
-	"mcr p15, 0, r2, c7, c14, 2;"		// DCCISW - Clean and Invalidate line described by r2
-	"add r3, r3, #1;"					// Increment set counter
-	"cmp r0, r3;"						// Last set reached yet?
-	"bne set_loop;"						// if not, iterate set_loop
-	"add r1, r1, #1;"					// else, next
-	"cmp r1, #4;"						// Last way reached yet?
-	"bne way_loop;"						// if not, iterate way_loop
-
-
-	/*
-		Barrier (complete all instructions up to this point before going on)
-	*/
-	"dsb;"
-
 	:
 	:
-	:"r0", "r1", "r2", "r3");
+	:"r0");
 }
+
+void arm_invalidate_branch_target_cache_invalidate(void)
+{
+asm volatile
+	(
+	"mov     r0, #0;"
+	"mcr     p15, 0, r0, c7, c5, 6;"		//                 @ BPIALL - Invalidate entire branch predictor array
+	:
+	:
+	:"r0");
+}
+
+void ATOSE_mmu::flush_caches(void)
+{
+arm_dcache_flush();
+arm_dcache_invalidate();
+arm_icache_invalidate();
+arm_unified_tlb_invalidate();
+arm_invalidate_branch_target_cache_invalidate();
+_ARM_ISB();
+}
+
+/*****
+******
+******/
+
+
+
 
 /*
 	ATOSE_MMU::PUSH()
@@ -368,7 +517,6 @@ if ((page = free_list.pull()) == NULL)
 	Zero the page (someone is bound to complain about security if we don't do this)
 */
 bzero(page->physical_address, page->page_size);
-
 return page;
 }
 
@@ -396,6 +544,7 @@ void ATOSE_mmu::assume(ATOSE_address_space *address_space)
 {
 flush_caches();
 assume(address_space->get_page_table());
+flush_caches();
 }
 
 /*
@@ -408,5 +557,7 @@ if (initialised)
 	{
 	flush_caches();
 	assume(identity_page_table);
+	flush_caches();
 	}
 }
+

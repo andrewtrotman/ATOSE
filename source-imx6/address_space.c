@@ -31,6 +31,7 @@ uint32_t current;
 if (reference_count != 0)
 	return this;
 
+
 /*
 	Move into the land of the identity address space (so we can access memory directly)
 */

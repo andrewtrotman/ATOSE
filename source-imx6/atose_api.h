@@ -107,7 +107,7 @@ public:
 	static uint32_t pipe_bind(uint32_t pipe_id, uint32_t port)                  { return SYSTEM_CALL(ATOSE_PIPE_BIND, pipe_id, port); }
 	static uint32_t pipe_connect(uint32_t pipe_id, uint32_t port)               { return SYSTEM_CALL(ATOSE_PIPE_CONNECT, pipe_id, port); }
 	static uint32_t pipe_close(uint32_t pipe_id)                                { return SYSTEM_CALL(ATOSE_PIPE_CLOSE, pipe_id); }
-	static uint32_t pipe_send(uint32_t pipe_id, void *destination, uint32_t destination_length, void *source, uint32_t source_length) { return SYSTEM_CALL(ATOSE_PIPE_SEND, pipe_id, (uint32_t)destination, destination_length, (uint32_t)source, source_length); }
+	static uint32_t pipe_send(uint32_t pipe_id, volatile void *destination, uint32_t destination_length, volatile void *source, uint32_t source_length) { return SYSTEM_CALL(ATOSE_PIPE_SEND, pipe_id, (uint32_t)destination, destination_length, (uint32_t)source, source_length); }
 	static uint32_t pipe_post_event(uint32_t pipe_id, uint32_t event_id)                                                              { return SYSTEM_CALL(ATOSE_PIPE_POST_EVENT, pipe_id, event_id); }
 	static uint32_t pipe_receive(uint32_t pipe_id, void *data, uint32_t length, uint32_t *client_process_id = 0)                      { return SYSTEM_CALL(ATOSE_PIPE_RECEIVE, pipe_id, (uint32_t)data, length, (uint32_t)client_process_id); }
 	static uint32_t pipe_memcpy(uint32_t message_id, uint32_t destination_offset, void *source, uint32_t length)                      { return SYSTEM_CALL(ATOSE_PIPE_MEMCPY, message_id, destination_offset, (uint32_t)source, length); }

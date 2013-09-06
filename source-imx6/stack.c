@@ -62,17 +62,17 @@ asm volatile
 current_mode = status_register & ATOSE_cpu_arm::MODE_BITS;
 
 if (current_mode != ATOSE_cpu_arm::MODE_FIRQ)
-	set_stack(((uint8_t *)firq_stack) + STACK_SIZE_FIRQ, (status_register & ~0x1F) | ATOSE_cpu_arm::MODE_FIRQ);
+	set_stack(((uint8_t *)firq_stack) + STACK_SIZE_FIRQ, (status_register & ~ATOSE_cpu_arm::MODE_BITS) | ATOSE_cpu_arm::MODE_FIRQ);
 if (current_mode != ATOSE_cpu_arm::MODE_IRQ)
-	set_stack(((uint8_t *)irq_stack) + STACK_SIZE_IRQ, (status_register & ~0x1F) | ATOSE_cpu_arm::MODE_IRQ);
+	set_stack(((uint8_t *)irq_stack) + STACK_SIZE_IRQ, (status_register & ~ATOSE_cpu_arm::MODE_BITS) | ATOSE_cpu_arm::MODE_IRQ);
 if (current_mode != ATOSE_cpu_arm::MODE_SUPERVISOR)
-	set_stack(((uint8_t *)supervisor_stack) + STACK_SIZE_SUPERVISOR, (status_register & ~0x1F) | ATOSE_cpu_arm::MODE_SUPERVISOR);
+	set_stack(((uint8_t *)supervisor_stack) + STACK_SIZE_SUPERVISOR, (status_register & ~ATOSE_cpu_arm::MODE_BITS) | ATOSE_cpu_arm::MODE_SUPERVISOR);
 if (current_mode != ATOSE_cpu_arm::MODE_ABORT)
-	set_stack(((uint8_t *)abort_stack) + STACK_SIZE_ABORT, (status_register & ~0x1F) | ATOSE_cpu_arm::MODE_ABORT);
+	set_stack(((uint8_t *)abort_stack) + STACK_SIZE_ABORT, (status_register & ~ATOSE_cpu_arm::MODE_BITS) | ATOSE_cpu_arm::MODE_ABORT);
 if (current_mode != ATOSE_cpu_arm::MODE_UNDEFINED)
-	set_stack(((uint8_t *)undefined_stack) + STACK_SIZE_UNDEFINED, (status_register & ~0x1F) | ATOSE_cpu_arm::MODE_UNDEFINED);
+	set_stack(((uint8_t *)undefined_stack) + STACK_SIZE_UNDEFINED, (status_register & ~ATOSE_cpu_arm::MODE_BITS) | ATOSE_cpu_arm::MODE_UNDEFINED);
 if (current_mode != ATOSE_cpu_arm::MODE_SYSTEM)
-	set_stack(((uint8_t *)system_stack) + STACK_SIZE_SYSTEM, (status_register & ~0x1F) | ATOSE_cpu_arm::MODE_SYSTEM);				// system and user mode share the stack
+	set_stack(((uint8_t *)system_stack) + STACK_SIZE_SYSTEM, (status_register & ~ATOSE_cpu_arm::MODE_BITS) | ATOSE_cpu_arm::MODE_SYSTEM);				// system and user mode share the stack
 
 /*
 	Go back into what ever mode we were in before (probably Supervisor mode)

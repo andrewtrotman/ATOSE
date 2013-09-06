@@ -13,7 +13,7 @@
 #include "semaphore.h"
 #include "process_allocator.h"
 
-void debug_print_string(const char *string);
+#include "debug_kernel.h"
 
 /*
 	ATOSE_ATOSE::ATOSE_ATOSE()
@@ -65,10 +65,9 @@ uint32_t ATOSE_bootstrap(void)
 {
 ATOSE_atose *os = ATOSE_atose::get_ATOSE();
 
-os->imx6q_host_usb.initialise();
-os->imx6q_host_usb.enable();
 os->interrupt_controller.enable(&os->imx6q_host_usb, os->imx6q_host_usb.get_interrup_id());
-
+os->imx6q_host_usb.enable();
+os->imx6q_host_usb.initialise();
 os->imx6q_host_usb.device_manager();
 
 //scheduler.create_system_thread(start_shell);
@@ -141,8 +140,20 @@ while (1)
 */
 void ATOSE_atose::isr_data_abort(ATOSE_registers *registers)
 {
+static uint32_t my_ip;
+asm volatile
+	(
+	"mov %0, ip;"
+	: "=r"(my_ip)
+	:
+	:
+	);
+
 debug.hex();
 debug << "Data Abort at address:0x" << (registers->r14_current - 8) << ATOSE_debug::eoln;
+debug_print_this("IP=", my_ip);
+
+debug_print_registers();
 while (1)
 	;	/* hang */
 }
@@ -253,7 +264,7 @@ void ATOSE_atose::isr_swi(ATOSE_registers *registers)
 memcpy(&ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->execution_path->registers, registers, sizeof(*registers));
 
 /*
-	First we need to determine whether or no the SWI is for us.  We do this by getting the SWI number,
+	First we need to determine whether or not the SWI is for us.  We do this by getting the SWI number,
 	that number is stored in the instruction just executed, which is stored at R14.  So we subtract 4 from
 	R14 to get the instruction then turn off the top bits to get the number
 
@@ -262,7 +273,6 @@ memcpy(&ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->execution_pat
 if (( (*(uint32_t *)(registers->r14_current - 4)) & 0x00FFFFFF) == ATOSE_SWI)
 	if (registers->r0 < ATOSE_END_OF_METHODS)
 		ATOSE_call[registers->r0](&ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->execution_path->registers);
-
 /*
 	Context switch
 */

@@ -1,49 +1,13 @@
-/*
-	Copyright (c) 2013 Andrew Trotman
-	Licensed BSD
-
-	Linker script for the Freescale i.MX6Q
-*/
-
-/*
-	i.MX6Q Memory MAP
-	0x900000: Start of internal (on-chip) RAM
-		Reserved (29KB)
-	0x907000
-		OCRAM Free Area (196KB)
-	0x938000
-		MMU Table (24KB)
-	0x93E000
-		Stack (8120 bytes)
-	0x93FFB8
-		RAM Exception Vector
-	0x93FFFF: End of on-chip RAM
-
-	0x10000000: Start of external (off-chip) RAM
-	0xFFFFFFFF: End of externakl (off-chip) RAM
-
-	Off-chip RAM will end before the top of memory if there is less than 3840MB installed
-
-	The on-chip RAM is problematic beause the GNU Linker has problems.  If we set the start address to
-	other than on 32K boundary it rounds down to the wrong address.  So we can't start at 0x907000
-	we must start a little higher in memory.  As that cuts into the 196KB we had (by 4K) we only get
-	192KB to play with,
-
-	For the memory map see:
-		on-chip RAM: page 397 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012"
-		off-chip RAM: chapter 2 of "i.MX 6Dual/6Quad Applications Processor Reference Manual Rev. 0, 11/2012"
-*/
-
-
 /* Default linker script, for normal executables */
-OUTPUT_FORMAT("elf32-littlearm", "elf32-bigarm", "elf32-littlearm")
+OUTPUT_FORMAT("elf32-littlearm", "elf32-bigarm",
+	      "elf32-littlearm")
 OUTPUT_ARCH(arm)
-ENTRY(_Reset)
+ENTRY(_start)
 SEARCH_DIR("/opt/local/arm-none-eabi/lib");
 SECTIONS
 {
   /* Read-only sections, merged into text segment: */
-  PROVIDE (__executable_start = SEGMENT_START("text-segment", 0x00908000)); . = SEGMENT_START("text-segment", 0x00908000);
+  PROVIDE (__executable_start = SEGMENT_START("text-segment", 0x8000)); . = SEGMENT_START("text-segment", 0x8000);
   .interp         : { *(.interp) }
   .note.gnu.build-id : { *(.note.gnu.build-id) }
   .hash           : { *(.hash) }
@@ -105,7 +69,6 @@ SECTIONS
   .iplt           : { *(.iplt) }
   .text           :
   {
-    *(.text.ATOSE)
     *(.text.unlikely .text.*_unlikely)
     *(.text.exit .text.exit.*)
     *(.text.startup .text.startup.*)
@@ -137,18 +100,7 @@ SECTIONS
   .exception_ranges*) }
   /* Adjust the address for the data segment.  We want to adjust up to
      the same address within the page on the next page up.  */
-
-/*
-	ATOSE all fits in RAM so we align on a 4 byte boundary
-*/
-  . = ALIGN(4);
-/*
-*/
-/*
   . = ALIGN(CONSTANT (MAXPAGESIZE)) + (. & (CONSTANT (MAXPAGESIZE) - 1));
-*/
-
-
   /* Exception handling  */
   .eh_frame       : ONLY_IF_RW { KEEP (*(.eh_frame)) }
   .gcc_except_table   : ONLY_IF_RW { *(.gcc_except_table .gcc_except_table.*) }
@@ -237,18 +189,6 @@ SECTIONS
   . = ALIGN(32 / 8);
   __end__ = . ;
   _end = .; PROVIDE (end = .);
-  
-	/*
-		ATOSE STACK
-	*/
-	. = ALIGN(4);
-	. = . + 16K; /* 16kB of stack memory (the ATOSE_atose object takes 4K of that!) */
-	ATOSE_stack_top = .;
-	ATOSE_start_of_heap = .;
-	/*
-	*/
- 
-
   /* Stabs debugging sections.  */
   .stab          0 : { *(.stab) }
   .stabstr       0 : { *(.stabstr) }
@@ -287,18 +227,11 @@ SECTIONS
   .debug_ranges   0 : { *(.debug_ranges) }
   /* DWARF Extension.  */
   .debug_macro    0 : { *(.debug_macro) }
-
-/*
-	ATOSE DOESN'T USE THE GNU STACK
-*/
-/*
     .stack         0x80000 :
   {
     _stack = .;
     *(.stack)
   }
-*/
-
   .ARM.attributes 0 : { KEEP (*(.ARM.attributes)) KEEP (*(.gnu.attributes)) }
   .note.gnu.arm.ident 0 : { KEEP (*(.note.gnu.arm.ident)) }
   /DISCARD/ : { *(.note.GNU-stack) *(.gnu_debuglink) *(.gnu.lto_*) }

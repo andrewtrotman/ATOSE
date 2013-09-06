@@ -20,9 +20,6 @@
 #include "utf8_str.h"
 #include "file_control_block.h"
 
-void debug_print_string(const char *string);
-void debug_dump_buffer(unsigned char *buffer, uint32_t address, uint64_t bytes);
-
 /*
 	ATOSE_FAT::INITIALISE()
 	-----------------------

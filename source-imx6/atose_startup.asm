@@ -7,6 +7,8 @@
 	This file manages the bootstrapping between ASM and C++
 */
 
+.section .text.ATOSE
+
 /*
 	We define two globals, one is the program entry point, the other is
 	the address in memory in which the ATOSE object is kept.  This second

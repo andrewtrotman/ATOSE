@@ -22,12 +22,12 @@ CPU = IMX6Q
 AS = arm-none-eabi-as
 ASFLAGS = -mcpu=cortex-a9
 
-CC = arm-none-eabi-gcc
-CCFLAGS = -mcpu=cortex-a9 -D$(CPU) -D$(TARGET) -g3 -Wall -Os -l gcc -ffreestanding -nostartfiles
+CC = @arm-none-eabi-gcc
+CCFLAGS = -mcpu=cortex-a9 -O1 -D$(CPU) -D$(TARGET) -Wall -l gcc -ffreestanding -nostartfiles
+#CCFLAGS = -mcpu=cortex-a9 -D$(CPU) -D$(TARGET) -g3 -Wall -Os -l gcc -ffreestanding -nostartfiles
 
-CCXX = arm-none-eabi-g++
+CCXX = @arm-none-eabi-g++
 CCXXFLAGS = -std=c++0x $(CCFLAGS) -fno-exceptions -fno-rtti
-
 #CCXXFLAGS = -std=c++0x $(CCFLAGS) -fno-exceptions -fno-rtti -nostdlib -nodefaultlibs
 
 #
@@ -75,6 +75,7 @@ ATOSE_OBJECTS =								\
 	$(OBJ_DIR)/cpu_arm_imx6q.o				\
 	$(OBJ_DIR)/ctypes.o						\
 	$(OBJ_DIR)/debug.o						\
+	$(OBJ_DIR)/debug_kernel.o				\
 	$(OBJ_DIR)/fat.o						\
 	$(OBJ_DIR)/file_system.o				\
 	$(OBJ_DIR)/host_usb.o					\

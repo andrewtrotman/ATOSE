@@ -60,7 +60,7 @@ public:
 	void push(ATOSE_mmu_page *page);
 	ATOSE_mmu_page *pull(void);
 
-	void flush_caches(void);
+	static void flush_caches(void);
 	void assume(ATOSE_address_space *address_space);				// switch to the given address space
 
 	void assume_identity(void);											// switch to the identity address space

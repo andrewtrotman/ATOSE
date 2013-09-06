@@ -16,6 +16,8 @@
 #include "atose.h"
 #include "timer_imx6q.h"
 
+#include "debug_kernel.h"
+
 /*
 	ATOSE_TIMER_IMX6Q::INITIALISE()
    -------------------------------
@@ -35,7 +37,7 @@ while (HW_GPT_CR.B.SWR != 0)
    Set the clock source and its divider
 */
 HW_GPT_CR.B.CLKSRC = 7;		// use the 24MHz crystal
-HW_GPT_PR.B.PRESCALER = 24;	// divide by 24 to get MHz
+HW_GPT_PR.B.PRESCALER = 23;	// divide by 24 (that is, 23 + 1) to get MHz
 
 /*
 	Set the counter to "restart" mode in which it wraps back to 0 when it hits the
@@ -113,6 +115,19 @@ void ATOSE_timer_imx6q::acknowledge(ATOSE_registers *registers)
 HW_GPT_SR.U = HW_GPT_SR.U;
 
 /*
+{
+volatile uint32_t g, h;
+
+h = g = HW_GPT_CNT_RD();
+while (h == g)
+	{
+	g = HW_GPT_CNT_RD();
+	debug_print_this("v:", g);
+	}
+}
+*/
+
+/*
 	Internally we store the true return address.  To get that from an IRQ we must subtract 4 from the
 	link pointer.  But when we return from and IRQ we subtract four from the link pointer to we need to
 	add four once we get the new process's registers back out
@@ -131,6 +146,13 @@ if (ATOSE_atose::get_ATOSE()->scheduler.get_current_process() != NULL)
 */
 ATOSE_atose::get_ATOSE()->scheduler.context_switch(registers);
 registers->r14_current += 4;
+
+/*
+{
+uint32_t g = HW_GPT_CNT_RD();
+debug_print_this("After:", g);
+}
+*/
 }
 
 /*

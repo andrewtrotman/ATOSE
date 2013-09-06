@@ -11,6 +11,7 @@
 ^freescale/
 ^boundary/
 ^usb-test/
+^temp/
 \.bak$
 \.o$
 \.elf$

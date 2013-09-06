@@ -1,4 +1,4 @@
-/*v
+/*
 	INTERRUPT_ARM_GIC.C
 	-------------------
 	Copyright (c) 2013 Andrew Trotman
@@ -16,9 +16,10 @@
 #include "interrupt_arm_gic_cpu.h"
 #include "interrupt_arm_gic_distributor.h"
 
+#include "debug_kernel.h"
 /*
-	class ATOSE_INTERRUPT_ARM_GIC::ATOSE_INTERRUPT_ARM_GIC()
-   --------------------------------------------------------
+	class ATOSE_INTERRUPT_ARM_GIC::INITIALISE()
+   -------------------------------------------
 */
 void ATOSE_interrupt_arm_gic::initialise(void)
 {
@@ -27,7 +28,7 @@ uint32_t base;
 /*
 	Clear the list of pointers to device drivers
 */
-memset(device, 0, sizeof(device));
+bzero(device, sizeof(device));
 
 /*
 	Get the address of the CPU's configuration registers, but in the address space of the SOC.
@@ -83,7 +84,7 @@ device[source] = driver;
 void ATOSE_interrupt_arm_gic::isr_irq(ATOSE_registers *registers)
 {
 uint32_t base;
-ATOSE_interrupt_arm_gic_cpu *gic_cpu_registers;
+volatile ATOSE_interrupt_arm_gic_cpu *gic_cpu_registers;
 uint32_t got;
 
 /*
@@ -112,6 +113,8 @@ got = gic_cpu_registers->interrupt_acknowledge_register;
 */
 if (got == IMX_INT_SPURIOUS)
    return;
+
+//debug_print_this("INT:", got);
 
 /*
 	Dispatch to the device driver

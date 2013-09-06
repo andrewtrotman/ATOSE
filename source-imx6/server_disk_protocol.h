@@ -25,6 +25,6 @@ public:
 	uint8_t from;
 	uint8_t filename[255];
 	uint8_t mode[4];
-} ;
+} __attribute__ ((packed));
 
 #endif

@@ -10,6 +10,7 @@
 #include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsccm.h"
 #include "../systems/iMX6_Platform_SDK/sdk/include/mx6dq/registers/regsepit.h"
 
+#include "debug_kernel.h"
 #include "atose.h"
 
 #define DEFAULT_TIMER 1
@@ -216,6 +217,7 @@ int main(void)
 configure_saberlite();	// set up the external RAM (and other stuff too)
 
 ATOSE_atose atose;		// create and initialise everything
+
 atose.reset();			// now pass control to the OS (which will never return)
 return 0;				// like as if this is ever going to happen!
 }
