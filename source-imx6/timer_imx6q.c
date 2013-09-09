@@ -27,6 +27,12 @@ void ATOSE_timer_imx6q::initialise(void)
 disable();
 
 /*
+   Set the clock source and its divider
+*/
+HW_GPT_CR.B.CLKSRC = 7;		// use the 24MHz crystal
+HW_GPT_PR.B.PRESCALER = 23;	// divide by 24 (that is, 23 + 1) to get MHz
+
+/*
    Software Reset
 */
 HW_GPT_CR.B.SWR = 0;
@@ -34,10 +40,14 @@ while (HW_GPT_CR.B.SWR != 0)
    ;/* nothing */
 
 /*
-   Set the clock source and its divider
+   Clear the status register
 */
-HW_GPT_CR.B.CLKSRC = 7;		// use the 24MHz crystal
-HW_GPT_PR.B.PRESCALER = 23;	// divide by 24 (that is, 23 + 1) to get MHz
+HW_GPT_SR.U = 0;
+
+/*
+	Start from 0 when we enable
+*/
+HW_GPT_CR.B.ENMOD = 1;
 
 /*
 	Set the counter to "restart" mode in which it wraps back to 0 when it hits the
@@ -65,6 +75,11 @@ void ATOSE_timer_imx6q::enable(void)
 HW_GPT_SR.U = 0;
 
 /*
+	Start from 0 when we enable
+*/
+HW_GPT_CR.B.ENMOD = 1;
+
+/*
 	Enable
 */
 HW_GPT_CR.B.EN = 1;
@@ -81,6 +96,11 @@ HW_GPT_IR.B.OF1IE = 1;
 */
 void ATOSE_timer_imx6q::disable(void)
 {
+/*
+	Disable the GPT subsystem
+*/
+HW_GPT_CR.B.EN = 0;
+
 /*
    Disable the interrupts
 */
@@ -112,9 +132,7 @@ void ATOSE_timer_imx6q::acknowledge(ATOSE_registers *registers)
 /*
 	Service the interrupt
 */
-debug_print_this("FLAGS (entry):", HW_GPT_SR.U);
 HW_GPT_SR_WR(HW_GPT_SR_RD());
-debug_print_this("FLAGS:", HW_GPT_SR.U);
 
 /*
 	Internally we store the true return address.  To get that from an IRQ we must subtract 4 from the
@@ -135,9 +153,6 @@ if (ATOSE_atose::get_ATOSE()->scheduler.get_current_process() != NULL)
 */
 ATOSE_atose::get_ATOSE()->scheduler.context_switch(registers);
 registers->r14_current += 4;
-
-debug_print_this("TIMER:", HW_GPT_CNT_RD());
-debug_print_this("FLAGS (exit):", HW_GPT_SR.U);
 }
 
 /*

@@ -23,7 +23,7 @@ AS = arm-none-eabi-as
 ASFLAGS = -mcpu=cortex-a9
 
 CC = @arm-none-eabi-gcc
-CCFLAGS = -mcpu=cortex-a9 -O1 -D$(CPU) -D$(TARGET) -Wall -l gcc -ffreestanding -nostartfiles
+CCFLAGS = -mcpu=cortex-a9 -O3 -D$(CPU) -D$(TARGET) -Wall -l gcc -ffreestanding -nostartfiles
 #CCFLAGS = -mcpu=cortex-a9 -D$(CPU) -D$(TARGET) -g3 -Wall -Os -l gcc -ffreestanding -nostartfiles
 
 CCXX = @arm-none-eabi-g++

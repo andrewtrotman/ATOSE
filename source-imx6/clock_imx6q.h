@@ -24,7 +24,7 @@ private:
 
 public:
 	ATOSE_clock_imx6q();
-	void delay_us(uint32_t time_in_useconds);
+	static void delay_us(uint32_t time_in_useconds);
 } ;
 
 #endif
