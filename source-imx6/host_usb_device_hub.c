@@ -13,6 +13,7 @@
 #include "usb_standard_endpoint_descriptor.h"
 
 void debug_print_string(const char *string);
+#include "atose.h"
 
 /*
 	ATOSE_HOST_USB_DEVICE_HUB::ATOSE_HOST_USB_DEVICE_HUB()
@@ -37,6 +38,11 @@ for (port = 1; port <= hub_ports; port++)
 	*/
 	if (set_port_feature(port, ATOSE_usb_hub::PORT_POWER) == 0)
 		{
+		/*
+			It takes time for the PORT_POWER to have an effect (this appears to be 10ms, plus a few us) so we wait... 
+		*/
+		ATOSE_atose::get_ATOSE()->cpu.delay_us(11000);
+
 		if (get_port_status(port, &status) == 0)
 			{
 			if (status.status.port_connection)
@@ -45,6 +51,17 @@ for (port = 1; port <= hub_ports; port++)
 					Reset the port
 				*/
 				set_port_feature(port, ATOSE_usb_hub::PORT_RESET);
+				
+				/*
+					The port will hold the device in reset for 10ms and then the device will reply in a few us.  We wait for 11ms which
+					is longet then needed.  Specifically, "The reset signaling must be driven for a minimum of 10ms" from section 7.1.7.5
+					(page 153) of "Universal Serial Bus Specification Revision 2.0".
+				*/
+				ATOSE_atose::get_ATOSE()->cpu.delay_us(11000);
+
+				/*
+					Now reset the "changed" connection and reset flags.
+				*/
 				clear_port_feature(port, ATOSE_usb_hub::C_PORT_CONNECTION);
 				clear_port_feature(port, ATOSE_usb_hub::C_PORT_RESET);
 

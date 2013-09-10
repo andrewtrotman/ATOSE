@@ -114,13 +114,31 @@ got = gic_cpu_registers->interrupt_acknowledge_register;
 if (got == IMX_INT_SPURIOUS)
    return;
 
-//debug_print_this("INT:", got);
+/*
+	Internally we store the true return address.  To get that from an IRQ we must subtract 4 from the
+	link pointer.  But when we return from and IRQ we subtract four from the link pointer to we need to
+	add four once we get the new process's registers back out
+*/
+registers->r14_current -= 4;
+
+/*
+	If we're running a process then copy the registers into its register space
+	this way if we cause a context switch then we've not lost anything
+*/
+if (ATOSE_atose::get_ATOSE()->scheduler.get_current_process() != NULL)
+	memcpy(&ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->execution_path->registers, registers, sizeof(*registers));
 
 /*
 	Dispatch to the device driver
 */
 if (device[got] != NULL)
 	device[got]->acknowledge(registers);
+
+/*
+	Cause a context switch
+*/
+ATOSE_atose::get_ATOSE()->scheduler.context_switch(registers);
+registers->r14_current += 4;
 
 /*
 	Tell the interrupt controller that we've finished processing the Interrupt

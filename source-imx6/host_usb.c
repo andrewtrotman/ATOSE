@@ -250,6 +250,7 @@ semaphore->clear();
 semaphore_handle = (uint32_t)semaphore;
 
 #ifdef SABRE_LITE
+	
 	/*
 		Turn on the USB Hub on the SABRE Lite board.
 		On the SABRE Lite board GPIO port 7/12 is connected to a USB hub that is held in reset until
@@ -811,6 +812,7 @@ uint32_t ATOSE_host_usb::wait_for_connection(void)
 */
 ATOSE_api::semaphore_wait(semaphore_handle);
 
+debug_print_string("Got Connection\r\n");
 /*
 	Reset the USB bus
 */
@@ -868,6 +870,10 @@ current.transaction_translator_port = transaction_translator_port;
 #endif
 if (current.get_device_descriptor(&device_descriptor) != 0)
 	return NULL;		// if we can't read the descriptor then something is seriously broken
+
+#ifdef USB_DEBUG
+	debug_print_string("get_device_descriptor done\r\n");
+#endif
 
 current.vendor_id = device_descriptor.idVendor;
 current.product_id = device_descriptor.idProduct;

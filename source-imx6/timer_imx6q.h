@@ -19,7 +19,7 @@
 class ATOSE_timer_imx6q : public ATOSE_timer
 {
 private:
-	static const uint32_t TIME_SLICE_IN_MILLISECONDS = 20;		// 20ms per time slice (i.e. between forced context switches)
+	static const uint32_t TIME_SLICE_IN_MILLISECONDS = 200;		// 200ms per time slice (i.e. between forced context switches)
 
 public:
 	ATOSE_timer_imx6q() : ATOSE_timer() {}

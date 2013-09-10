@@ -169,24 +169,18 @@ void arm_dcache_enable()
 
 void mmu_enable()
 {
-debug_print_string("Invalidate the TLB...");
-    // invalidate all tlb 
+    // invalidate all tlb
     arm_unified_tlb_invalidate();
 
     // read SCTLR 
-debug_print_string("read SCTLR...");
     uint32_t sctlr;
     _ARM_MRC(15, 0, sctlr, 1, 0, 0);
 
-debug_print_string("set MMU enable bit...");
-    // set MMU enable bit 
+    // set MMU enable bit
     sctlr |= BM_SCTLR_M;
 
-debug_print_string("write modified SCTLR...");
     // write modified SCTLR
     _ARM_MCR(15, 0, sctlr, 1, 0, 0);
-
-debug_print_string("done\r\n");
 }
 
 /****
@@ -266,8 +260,8 @@ bad_page = ARM_MMU_V5_PAGE_TYPE_FAULT;		// cause a fault
 	controller writes into these pages
 		(ARM_MMU_V5_PAGE_SECTION_USER_READONLY | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION)
 */
-//os_page = (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION);
-os_page = ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_NONCACHED_NONBUFFERED | ARM_MMU_V5_PAGE_TYPE_SECTION;
+os_page = (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION);
+//os_page = ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_NONCACHED_NONBUFFERED | ARM_MMU_V5_PAGE_TYPE_SECTION;
 
 /*
 
@@ -280,15 +274,15 @@ peripheral_page = (ARM_MMU_V5_PAGE_SECTION_USER_FORBIDDEN | ARM_MMU_V5_PAGE_DOMA
 	User DATA pages are set to cache, buffer, user read write, no-execute:
 		 (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V7_PAGE_SECTION_USER_NO_EXECUTE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION)
 */
-user_data_page = (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V7_PAGE_SECTION_USER_NO_EXECUTE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_NONCACHED_NONBUFFERED | ARM_MMU_V5_PAGE_TYPE_SECTION);
-//user_data_page = (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V7_PAGE_SECTION_USER_NO_EXECUTE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION);
+//user_data_page = (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V7_PAGE_SECTION_USER_NO_EXECUTE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_NONCACHED_NONBUFFERED | ARM_MMU_V5_PAGE_TYPE_SECTION);
+user_data_page = (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V7_PAGE_SECTION_USER_NO_EXECUTE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION);
 
 /*
 	User CODE (probram) pages are set to cache, buffer, and user can read only:
 		(ARM_MMU_V5_PAGE_SECTION_USER_READONLY | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION)
 */
-user_code_page = (ARM_MMU_V5_PAGE_SECTION_USER_READONLY | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_NONCACHED_NONBUFFERED | ARM_MMU_V5_PAGE_TYPE_SECTION);
-//user_code_page = (ARM_MMU_V5_PAGE_SECTION_USER_READONLY | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION);
+//user_code_page = (ARM_MMU_V5_PAGE_SECTION_USER_READONLY | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_NONCACHED_NONBUFFERED | ARM_MMU_V5_PAGE_TYPE_SECTION);
+user_code_page = (ARM_MMU_V5_PAGE_SECTION_USER_READONLY | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION);
 
 /*
 	A page table (the identity) can now be set up with: each page is 1MB in size (ARM V5 Sections), full permission to do anything.
@@ -322,18 +316,16 @@ for (current = 0; current < pages_in_address_space; current++)
 
 	Where BTAC is "Branch Target Address Cache"
 */
-debug_print_string("invalidate_data_cache\r\n");
+arm_icache_invalidate();
 invalidate_data_cache();		// invalidate because at boot it could contain noise
-debug_print_string("flush_caches\r\n");
-flush_caches();				// now flush
+arm_invalidate_branch_target_cache_invalidate();
+arm_unified_tlb_invalidate();
 
 /*
 	Set the page table to the identity page table
 */
-debug_print_string("assume(identity_page_table)\r\n");
 assume(identity_page_table);
-debug_print_this("Page Table:", (uint32_t)identity_page_table);
-debug_print_string("assumed\r\n");
+
 /*
 	Enable the data cache, the instructon cache, branch prediction, and the MMU.
 
@@ -354,18 +346,10 @@ debug_print_string("assumed\r\n");
 		: "r0"
 		);
 #else
-	debug_print_string("Freescale Version\r\n");
-
 	mmu_enable();
-	debug_print_string("MMU\r\n");
-
 	arm_icache_enable();
-	debug_print_string("Icache\r\n");
-
 	arm_dcache_enable();
-	debug_print_string("Dcache\r\n");
 #endif
-debug_print_string("caches enabled\r\n");
 
 initialised = true;
 }
@@ -513,12 +497,26 @@ asm volatile
 
 void ATOSE_mmu::flush_caches(void)
 {
+//debug_print_string("arm_dcache_flush\r\n");
 arm_dcache_flush();
+
+//debug_print_string("arm_dcache_invalidate\r\n");
 arm_dcache_invalidate();
-arm_icache_invalidate();
-arm_unified_tlb_invalidate();
-arm_invalidate_branch_target_cache_invalidate();
-_ARM_ISB();
+
+//debug_print_string("arm_icache_invalidate\r\n");
+//arm_icache_invalidate();
+
+//debug_print_string("arm_unified_tlb_invalidate\r\n");
+//arm_unified_tlb_invalidate();
+
+//debug_print_string("arm_invalidate_branch_target_cache_invalidate\r\n");
+//arm_invalidate_branch_target_cache_invalidate();
+
+//debug_print_string("_ARM_ISB\r\n");
+//_ARM_ISB();
+//_ARM_DSB();
+
+//debug_print_string("flush DONE\r\n");
 }
 
 /*****
@@ -634,6 +632,9 @@ asm volatile
 	: [table]"r"(page_table)
 	:
 	);
+arm_icache_invalidate();
+arm_unified_tlb_invalidate();
+arm_invalidate_branch_target_cache_invalidate();
 }
 
 /*
