@@ -292,17 +292,18 @@ user_code_page = (ARM_MMU_V5_PAGE_SECTION_USER_READONLY | ARM_MMU_V5_PAGE_DOMAIN
 		Page 9 is the on chip RAM
 		All other pages are off-chip DRAM
 */
-#ifdef NEVER
+
 {
 for (current = 0; current < 256; current++)
 	identity_page_table[current] = (current << 20) | peripheral_page;
 
 identity_page_table[9] = (9 << 20) | os_page;
 
-for (/* nothing */; current < pages_in_address_space; current++);
-	identity_page_table[current] =  (current << 20) | os_page;
+for (/* nothing */; current < pages_in_address_space; current++)
+	identity_page_table[current] = (current << 20) | os_page;
 }
-#else
+
+#ifdef NEVER
 
 for (current = 0; current < pages_in_address_space; current++)
 	identity_page_table[current] = (current << 20) | (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_NONCACHED_NONBUFFERED | ARM_MMU_V5_PAGE_TYPE_SECTION);
