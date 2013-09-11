@@ -1,9 +1,18 @@
 /*
 	IMX6Q_USB.C
 	-----------
-	Experiments with the I.MX6Q USB controller
 	Copyright (c) 2012-2013 Andrew Trotman
 	Licensed BSD
+
+	Thanks to Nick Sherlock for working wit me on the predecessor of this, for the i.MX233
+
+	Make the i.MX6Q look like a USB CDC device (serial port) and then echo back any data recieved.
+	To test this program on my Mac I do the following....
+		Open a terminal window on the UART (minicom -D /dev/tty.usbserial-FTG4ND95)
+		Upload this program to the SABRE Lite (imx_run.mac imx6q_usb.elf)
+		You'll get a whole load of debug through the UART
+		Open a terminal window on the USB CDC we just created (minicom -D /dev/tty.usbmodemSN#DE1)
+		Now I get local echo on the USB CDC device (i.e the terminal window above).
 */
 #include <stdint.h>
 #include <stdlib.h>

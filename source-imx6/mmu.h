@@ -36,6 +36,7 @@ public:
 private:
 	uint32_t page_count;										// the number of pages (is size page_size) we have
 	uint32_t initialised;									// has the object been initialised or not?
+	
 protected:
 	ATOSE_mmu_page_list free_list;
 	uint32_t *identity_page_table;								// a copy of the identity page table (used by the kernel)
@@ -49,9 +50,9 @@ public:
 	uint8_t *the_system_break;									// points to the top of used memory, the kernel should set its break to this address
 
 protected:
-	void invalidate_data_cache(void);
+	static void invalidate_data_cache(void);
 	void push(void *location, uint64_t size_in_bytes);
-	void assume(uint32_t *page_table);
+	static void assume(uint32_t *page_table);
 
 public:
 	ATOSE_mmu() { page_count = initialised = 0; }
@@ -64,7 +65,6 @@ public:
 	void assume(ATOSE_address_space *address_space);				// switch to the given address space
 
 	void assume_identity(void);											// switch to the identity address space
-//	uint32_t *get_identity_page_table(void) { return identity_page_table; } 	// return a pointer to the identity page table
 };
 
 #endif /* MMU_H_ */

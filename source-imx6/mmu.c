@@ -29,7 +29,7 @@
 #define _ARM_MCR(coproc, opcode1, Rt, CRn, CRm, opcode2)	\
     asm volatile ("mcr p" #coproc ", " #opcode1 ", %[input], c" #CRn ", c" #CRm ", " #opcode2 "\n" :: [input] "r" (Rt))
 
-void arm_dcache_invalidate()
+void Xinvalidate_data_cache()
 {
     uint32_t csid;    // Cache Size ID
     uint32_t wayset;  // wayset parameter 
@@ -88,17 +88,20 @@ void arm_dcache_flush()
 }
 
 
-void arm_icache_invalidate()
+void invalidate_instruction_cache()
 {
-    uint32_t SBZ = 0x0u;
-    
-    _ARM_MCR(15, 0, SBZ, 7, 5, 0);
-    
-    // synchronize context on this processor 
-    _ARM_ISB();
+asm volatile
+	(
+	"mov r0, #0;"
+	"mcr p15, 0, r0, c7, c5, 0;"
+	"isb;"
+	:
+	:
+	: "r0"
+	);
 }
 
-void arm_unified_tlb_invalidate()
+void invalidate_unified_tlb(void)
 {
 asm volatile
 	(
@@ -110,7 +113,7 @@ asm volatile
 	:"r0");
 }
 
-void arm_invalidate_branch_target_cache_invalidate(void)
+void invalidate_branch_target_cache(void)
 {
 asm volatile
 	(
@@ -127,23 +130,19 @@ asm volatile
 
 void arm_icache_enable()
 {
-    uint32_t sctlr  ;// System Control Register 
+    uint32_t sctlr  ;// System Control Register
     
     // read sctlr 
     _ARM_MRC(15, 0, sctlr, 1, 0, 0);
     
-    // ignore the operation if I is enabled already
-    if(!(sctlr & BM_SCTLR_I))
-    {	
-        // set  I bit (instruction caching enable)
-        sctlr |= BM_SCTLR_I;
-        
-        // write modified sctlr
-        _ARM_MCR(15, 0, sctlr, 1, 0, 0);
-        
-        // synchronize context on this processor 
-        _ARM_ISB();
-    }
+	  // set  I bit (instruction caching enable)
+	  sctlr |= BM_SCTLR_I;
+	  
+	  // write modified sctlr
+	  _ARM_MCR(15, 0, sctlr, 1, 0, 0);
+	  
+	  // synchronize context on this processor 
+	  _ARM_ISB();
 }
 
 void arm_dcache_enable()
@@ -153,34 +152,31 @@ void arm_dcache_enable()
     // read sctlr 
     _ARM_MRC(15, 0, sctlr, 1, 0, 0);
         
-    if (!(sctlr & BM_SCTLR_C))
-    {
-        // set  C bit (data caching enable) 
-        sctlr |= BM_SCTLR_C;
-        
-        // write modified sctlr
-        _ARM_MCR(15, 0, sctlr, 1, 0, 0);
-        
-        // All Cache, Branch predictor and TLB maintenance operations before followed instruction complete
-        _ARM_DSB();
-    }
+	  // set  C bit (data caching enable)
+	  sctlr |= BM_SCTLR_C;
+	  
+	  // write modified sctlr
+	  _ARM_MCR(15, 0, sctlr, 1, 0, 0);
+	  
+	  // All Cache, Branch predictor and TLB maintenance operations before followed instruction complete
+	  _ARM_DSB();
 }
 
 
 void mmu_enable()
 {
-    // invalidate all tlb
-    arm_unified_tlb_invalidate();
+// invalidate all tlb
+invalidate_unified_tlb();
 
-    // read SCTLR 
-    uint32_t sctlr;
-    _ARM_MRC(15, 0, sctlr, 1, 0, 0);
+// read SCTLR 
+uint32_t sctlr;
+_ARM_MRC(15, 0, sctlr, 1, 0, 0);
 
-    // set MMU enable bit
-    sctlr |= BM_SCTLR_M;
+// set MMU enable bit
+sctlr |= BM_SCTLR_M;
 
-    // write modified SCTLR
-    _ARM_MCR(15, 0, sctlr, 1, 0, 0);
+// write modified SCTLR
+_ARM_MCR(15, 0, sctlr, 1, 0, 0);
 }
 
 /****
@@ -285,7 +281,7 @@ user_data_page = (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V7_PAGE_SECTI
 user_code_page = (ARM_MMU_V5_PAGE_SECTION_USER_READONLY | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION);
 
 /*
-	A page table (the identity) can now be set up with: each page is 1MB in size (ARM V5 Sections), full permission to do anything.
+	A page table (the identity) can now be set up with: each page is 1MB in size (ARM MMU Sections), full permission to do anything.
 	On the i.MX6Q:
 		Page 0 is the interrupt vectors
 		The next 255 pages are the periperal devices
@@ -293,7 +289,6 @@ user_code_page = (ARM_MMU_V5_PAGE_SECTION_USER_READONLY | ARM_MMU_V5_PAGE_DOMAIN
 		All other pages are off-chip DRAM
 */
 
-{
 for (current = 0; current < 256; current++)
 	identity_page_table[current] = (current << 20) | peripheral_page;
 
@@ -301,14 +296,7 @@ identity_page_table[9] = (9 << 20) | os_page;
 
 for (/* nothing */; current < pages_in_address_space; current++)
 	identity_page_table[current] = (current << 20) | os_page;
-}
 
-#ifdef NEVER
-
-for (current = 0; current < pages_in_address_space; current++)
-	identity_page_table[current] = (current << 20) | (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_NONCACHED_NONBUFFERED | ARM_MMU_V5_PAGE_TYPE_SECTION);
-
-#endif
 /*
 	page 6-2 of "Cortex-A9 Technical Reference Manual Revision: r2p0"
 	"You must invalidate the instruction cache, the data cache, and BTAC before using them.
@@ -316,11 +304,14 @@ for (current = 0; current < pages_in_address_space; current++)
 	safety reasons. This ensures compatibility with future revisions of the processor"
 
 	Where BTAC is "Branch Target Address Cache"
+	
+	Why?  Because the caches startup with noise in them and its a software problem to invalidate
+	them before use.
 */
-arm_icache_invalidate();
-invalidate_data_cache();		// invalidate because at boot it could contain noise
-arm_invalidate_branch_target_cache_invalidate();
-arm_unified_tlb_invalidate();
+invalidate_instruction_cache();
+invalidate_data_cache();
+invalidate_branch_target_cache();
+invalidate_unified_tlb();
 
 /*
 	Set the page table to the identity page table
@@ -358,44 +349,162 @@ initialised = true;
 /*
 	ATOSE_MMU::INVALIDATE_DATA_CACHE()
 	----------------------------------
-*/
-void ATOSE_mmu::invalidate_data_cache(void)
-{
-/*
 	At startup the data cache is full of garbage so we need to invalidate it
 	without flushing it to main memory because that might trash main memory.
 
-	The code for the i.MX6Q (ARM Cortex A9) is somewhat more involved.  For more detail on exactly how to
-	do this see pages 15-3 to 15-4 of "Cortex-A Series Programmer's Guide Version: 3.0" from where this
-	code was taken.
-*/
-asm volatile
+	The code for the i.MX6Q (ARM Cortex A9) is somewhat involved.  According to pages 15-3 to
+	15-4 of "Cortex-A Series Programmer's Guide Version: 3.0" we should do this:
+
+	asm volatile
 	(
-	/*
-		Data cache invalidate all
-	*/
-	"mrc p15, 1, r0, c0, c0, 0;"		// Read Cache Size ID
+	"mrc p15, 1, r0, c0, c0, 0;"	// Read Cache Size ID
 	"movw r3, #0x1ff;"
-	"and r0, r3, r0, lsr #13;"			// r0 = no. of sets - 1
+	"and r0, r3, r0, lsr #13;"		// r0 = no. of sets - 1
 	"mov r1, #0;"						// r1 = way counter way_loop
-"idc_way_loop%=:;"							// %= is the assembly way of saying "generate a unique label from this"
+"way_loop:;"
 	"mov r3, #0;"						// r3 = set counter set_loop
-"idc_set_loop%=:;"
+"set_loop:;"
 	"mov r2, r1, lsl #30;"
-	"orr r2, r3, lsl #5;"				// r2 = set/way cache operation format
-	"mcr p15, 0, r2, c7, c6, 2;"		// DCISW - Invalidate line described by r2
+	"orr r2, r3, lsl #5;"			// r2 = set/way cache operation format
+	"mcr p15, 0, r2, c7, c6, 2;"	// Invalidate line described by r2
 	"add r3, r3, #1;"					// Increment set counter
 	"cmp r0, r3;"						// Last set reached yet?
-	"bne idc_set_loop%=;"						// if not, iterate set_loop
+	"bne idc_set_loop;"				// if not, iterate set_loop
 	"add r1, r1, #1;"					// else, next
 	"cmp r1, #4;"						// Last way reached yet?
-	"bne idc_way_loop%=;"						// if not, iterate way_loop
+	"bne idc_way_loop;"				// if not, iterate way_loop
+	"dsb;"
 	:
 	:
 	:"r0", "r1", "r2", "r3");
+	
+	However, its broken. For example, the movw r3 on line 2 should be 15 bits not 9 bits (i.e. #0x7fff).
+	The Freescale i.MX6 Platform SDK has the correct code:
+	
+	void arm_dcache_invalidate()
+	{
+		 uint32_t csid;    // Cache Size ID
+		 uint32_t wayset;  // wayset parameter 
+		 int num_sets; // number of sets  
+		 int num_ways; // number of ways
+
+		 _ARM_MRC(15, 1, csid, 0, 0, 0);    // Read Cache Size ID 
+		 
+		 // Fill number of sets  and number of ways from csid register  This walues are decremented by 1
+		 num_ways = (csid >> 0x03) & 0x3FFu; //((csid& csid_ASSOCIATIVITY_MASK) >> csid_ASSOCIATIVITY_SHIFT)
+		 
+		 // Invalidation all lines (all Sets in all ways) 
+		 while (num_ways >= 0)
+		 {
+			  num_sets = (csid >> 0x13) & 0x7FFFu; //((csid & csid_NUMSETS_MASK) >> csid_NUMSETS_SHIFT)
+			  while (num_sets >= 0 )
+			  {
+					wayset = (num_sets << 5u) | (num_ways << 30u); //(num_sets << SETWAY_SET_SHIFT) | (num_sets << 3SETWAY_WAY_SHIFT)
+					// invalidate line if we know set and way 
+					_ARM_MCR(15, 0, wayset, 7, 6, 2);
+					num_sets--;
+			  }
+			  num_ways--;
+		 }
+		 
+		 // All Cache, Branch predictor and TLB maintenance operations before followed instruction complete
+		 _ARM_DSB();
+	}
+	
+	The code below is based on the Freescale version.
+*/
+#ifndef NEVER
+void ATOSE_mmu::invalidate_data_cache(void)
+{
+uint32_t cache_size_id;
+uint32_t associativity, number_of_sets;
+uint32_t way, set;
+uint32_t value;
+
+/*
+	Get the cache size ID register (CCSIDR)
+*/
+asm volatile
+	(
+	"mrc p15, 1, %[cache_size_id], c0, c0, 0;"
+	:[cache_size_id]"=r"(cache_size_id)
+	:
+	:
+	);
+
+/*
+	Extract the Associativity (bits 3-12)
+*/
+associativity = (cache_size_id >> 3) & 0x3FF;
+//debug_print_this("ASSOC:", associativity);
+
+/*
+	Extract the number of sets (bits 13-27)
+*/
+number_of_sets = (cache_size_id >> 0x13) & 0x7FFF;
+//debug_print_this("SETS:", number_of_sets);
+
+/*
+	For each way and each set, invalidate the cache
+*/
+for (way = 0; way <= associativity; way++)
+	for (set = 0; set <= number_of_sets; set++)
+		{
+		value = (set << 5) | (way << 30);
+		asm volatile
+			(
+			"mcr p15, 0, %[value], c7, c6, 2;"
+			:
+			: [value]"r"(value)
+			:
+			);
+		}
+
+/*
+	Data barrieier (make sure all the writes happen before we proceed
+*/
+asm volatile
+	(
+	"dsb;"
+	:
+	:
+	:
+	);
 }
+#else
 
 
+	void ATOSE_mmu::invalidate_data_cache(void)
+	{
+		 uint32_t csid;    // Cache Size ID
+		 uint32_t wayset;  // wayset parameter 
+		 int num_sets; // number of sets  
+		 int num_ways; // number of ways
+
+		 _ARM_MRC(15, 1, csid, 0, 0, 0);    // Read Cache Size ID 
+		 
+		 // Fill number of sets  and number of ways from csid register  This walues are decremented by 1
+		 num_ways = (csid >> 0x03) & 0x3FFu; //((csid& csid_ASSOCIATIVITY_MASK) >> csid_ASSOCIATIVITY_SHIFT)
+		 
+		 // Invalidation all lines (all Sets in all ways) 
+		 while (num_ways >= 0)
+		 {
+			  num_sets = (csid >> 0x13) & 0x7FFFu; //((csid & csid_NUMSETS_MASK) >> csid_NUMSETS_SHIFT)
+			  while (num_sets >= 0 )
+			  {
+					wayset = (num_sets << 5u) | (num_ways << 30u); //(num_sets << SETWAY_SET_SHIFT) | (num_sets << 3SETWAY_WAY_SHIFT)
+					// invalidate line if we know set and way 
+					_ARM_MCR(15, 0, wayset, 7, 6, 2);
+					num_sets--;
+			  }
+			  num_ways--;
+		 }
+		 
+		 // All Cache, Branch predictor and TLB maintenance operations before followed instruction complete
+		 _ARM_DSB();
+	}
+
+#endif
 
 #ifdef NEVER
 		/*
@@ -502,7 +611,7 @@ void ATOSE_mmu::flush_caches(void)
 arm_dcache_flush();
 
 //debug_print_string("arm_dcache_invalidate\r\n");
-arm_dcache_invalidate();
+invalidate_data_cache();
 
 //debug_print_string("arm_icache_invalidate\r\n");
 //arm_icache_invalidate();
@@ -633,9 +742,9 @@ asm volatile
 	: [table]"r"(page_table)
 	:
 	);
-arm_icache_invalidate();
-arm_unified_tlb_invalidate();
-arm_invalidate_branch_target_cache_invalidate();
+invalidate_instruction_cache();
+invalidate_unified_tlb();
+invalidate_branch_target_cache();
 }
 
 /*
