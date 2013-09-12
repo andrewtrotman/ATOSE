@@ -50,21 +50,24 @@ public:
 	uint8_t *the_system_break;									// points to the top of used memory, the kernel should set its break to this address
 
 protected:
+	static void invalidate_instruction_cache(void);
+	static void invalidate_unified_tlb(void);
+	static void invalidate_branch_target_cache(void);
 	static void invalidate_data_cache(void);
-	void push(void *location, uint64_t size_in_bytes);
+	static void flush_data_cache(void);
 	static void assume(uint32_t *page_table);
 
 public:
 	ATOSE_mmu() { page_count = initialised = 0; }
 	virtual void initialise(void);
 
+	void push(void *location, uint64_t size_in_bytes);
 	void push(ATOSE_mmu_page *page);
 	ATOSE_mmu_page *pull(void);
 
-	static void flush_caches(void);
 	void assume(ATOSE_address_space *address_space);				// switch to the given address space
-
 	void assume_identity(void);											// switch to the identity address space
+	static void flush_and_invalidate_data_cache(void);
 };
 
 #endif /* MMU_H_ */

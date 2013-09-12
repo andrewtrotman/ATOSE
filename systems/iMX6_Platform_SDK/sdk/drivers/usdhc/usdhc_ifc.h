@@ -40,6 +40,7 @@
 #define __USDHC_IFC_H__
 
 #include "sdk.h"
+#include "registers/regsusdhc.h"
 
 //////////////////////////////////////////////////////////////////////////////
 // Definitions
@@ -69,18 +70,6 @@ typedef enum {
     EMMC_BOOT_DDR8
 } emmc_bus_width_e;
 
-/*!
- * Whether to enable ADMA when read/write from/to card.
- * If enabled, then use ADMA for transfer, or else, use polling IO
- */
-extern int SDHC_ADMA_mode;
-
-/*!
- * Whether use interrupt to indicate end of transfer
- * If enabled, will attach the status to interrupt, or else, poll the status
- */
-extern int SDHC_INTR_mode;
-
 //////////////////////////////////////////////////////////////////////////////////
 // API
 //////////////////////////////////////////////////////////////////////////////////
@@ -88,6 +77,25 @@ extern int SDHC_INTR_mode;
 #if defined(__cplusplus)
 extern "C" {
 #endif
+/*!
+ * @brief Set Card access mode
+ *
+ * @param sdma Whether to enable ADMA when read/write from/to card.
+ *      If enabled, then use ADMA for transfer, or else, use polling IO.
+ * @param intr Whether use interrupt to indicate end of transfer
+ *      If enabled, will attach the status to interrupt, or else, poll the status.
+ */
+extern void set_card_access_mode(uint32_t sdma, uint32_t intr);
+
+/*!
+ * @brief Returns whether ADMA mode is currently enabled.
+ */
+extern uint32_t read_usdhc_adma_mode();
+
+/*!
+ * @brief Returns whether interrupt mode is currently enabled.
+ */
+extern uint32_t read_usdhc_intr_mode(); 
 
 /*!
  * @brief Initialize usdhc controller and card inserted
@@ -108,7 +116,7 @@ extern int card_init(uint32_t instance, int bus_width);
  *
  * @return   0 if successful; non-zero otherwise 
 */
-extern int card_data_read(uint32_t instance, int *dst_ptr,  int length, int offset);
+extern int card_data_read(uint32_t instance, int *dst_ptr,  int length, uint32_t offset);
 
 /*!
  * @brief Write data to card
@@ -131,6 +139,15 @@ extern int card_data_write(uint32_t instance, int *src_ptr, int length, int offs
  * @return 0 if successful; non-zero otherwise
  */
 extern int card_xfer_result(uint32_t instance, int *status);
+
+/*!
+ * @brief Wait for the transfer complete. It covers the interrupt mode, DMA mode and PIO mode
+ *
+ * @param instance     Instance number of the uSDHC module.
+ * 
+ * @return             0 if successful; 1 otherwise
+ */
+extern int card_wait_xfer_done(uint32_t instance);
 
 /*!
  * eMMC specific functions

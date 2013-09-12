@@ -89,8 +89,9 @@ static inline void debug_printf(const char * format, ...)
 //! @name Test results
 typedef enum _test_return
 {
-	TEST_NOT_IMPLEMENTED = -2, // present in the menu, but not functional
-	TEST_FAILED          = -1,
+    TEST_NOT_STARTED     = -3, // present in the menu, but not run
+    TEST_NOT_IMPLEMENTED = -2, // present in the menu, but not functional
+    TEST_FAILED          = -1,
     TEST_PASSED          = 0,
     TEST_BYPASSED        = 2,  // user elected to exit the test before it was run
     TEST_NOT_PRESENT     = 3,  // not present in the menu.
@@ -99,25 +100,11 @@ typedef enum _test_return
 
 //! @name Return codes
 //@{
-// #define SUCCESS (0)
-// #define ERROR (1)
+#define SUCCESS (0)
+#define FAIL (1)
+#define ERROR_GENERIC (-1)
+#define ERROR_OUT_OF_MEMORY (-2)
 //@}
-
-//! @brief Defines a pointer to a function.
-typedef void (*funct_t) (void);
-
-/*!
- * @brief Details of a hardware peripheral instance.
- */
-typedef struct hw_module {
-    const char *name;       //!< Name of the module.
-    uint32_t instance;    //!< The number of this module instance. The first instance is number 1.
-    uint32_t base;      //!< Module base address.
-    uint32_t freq;      //!< Input clock frequency.
-    uint32_t irq_id;    //!< ID of its interrupt.
-    void (*irq_subroutine)(void);   //!< Module interrupt sub-routine address.
-    void (*iomux_config) (void);   //!< Module I/O mux configuration function.
-} hw_module_t;
 
 //! @brief Possible types of displays.
 enum display_type {

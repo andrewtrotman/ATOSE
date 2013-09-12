@@ -24,15 +24,25 @@
 #  - board
 #  - sdk_unit_test
 #  - power_modes_test
+#  - obds
 #  - gpu_demo
-#  - multicore_demo
+#  - smp_primes
+#  - stream
+#  - usb_hid_mouse
+#  - httpd
+#  - ping
 #  - clean
 #  - clean_sdk
 #  - clean_board
 #  - clean_sdk_unit_test
 #  - clean_power_modes_test
+#  - clean_obds
 #  - clean_gpu_demo
-#  - clean_multicore_demo
+#  - clean_smp_primes
+#  - clean_stream
+#  - clean_usb_hid_mouse
+#  - clean_httpd
+#  - clean_ping
 #
 # The clean targets work with any combination of configuration variables. For
 # example, clean_sdk with TARGET set will clean libsdk for only that TARGET, while
@@ -40,6 +50,11 @@
 #
 
 include mk/common.mk
+
+# Turn off parallel jobs for this makefile only. Child makefiles will still use the
+# specified number of jobs. This isn't strictly necessary, and actually slows the build
+# a little bit, but greatly improves the readability of the log output.
+.NOTPARALLEL:
 
 # Determine if the target is either the MX6DQ or MX6SDL.
 ifeq "$(TARGET)" "mx6dq"
@@ -51,24 +66,31 @@ endif
 # Library subdirectories that the apps depend upon. Handled automatically by targets.mk.
 SUBDIRS = \
     sdk \
+    lwip \
     $(BOARD_ROOT)
 
 # List of all applications to build. Applications must reside in the apps directory.
 ALL_APPS = \
+    filesystem \
+    httpd \
+    obds \
+    ping \
+    power_modes_test \
     sdk_unit_test \
-    power_modes_test
+    stream \
+    usb_hid_mouse
 
 # Apps that are only built for MX6DQ and MX6SDL.
 ifdef is_dq_or_sdl
 ALL_APPS += \
+    caam_blob_gen \
     gpu_demo \
-    multicore_demo \
-    caam_blob_gen
+    smp_primes
 endif
 
 # Default target.
 .PHONY: all
-all: $(ALL_APPS) ;
+all: $(sort $(ALL_APPS)) ;
 
 # App targets. All apps depend on the listed subdirectories.
 .PHONY: ALL_APPS

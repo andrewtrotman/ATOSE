@@ -29,6 +29,7 @@
  */
 
 #include "sdk.h"
+#include "usb/usb.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 // Code
@@ -47,40 +48,34 @@ void usbEnableVbus(usb_module_t * port)
     case OTG:
     case OTG1:
 #ifdef BOARD_SABRE_AI
+        board_ioexpander_iomux_config();
         // Vbus control is on I2C port expander C1 for the ARD board.
         max7310_set_gpio_output(2, 1, 1);
 #endif
 #if defined(BOARD_EVB) || defined(BOARD_SMART_DEVICE)
-        reg32_write(IOMUXC_SW_MUX_CTL_PAD_EIM_D22, ALT5);
+        gpio_set_gpio(GPIO_PORT3, 22);
         gpio_set_direction(GPIO_PORT3, 22, GPIO_GDIR_OUTPUT);
         gpio_set_level(GPIO_PORT3, 22, GPIO_HIGH_LEVEL);
-#endif
-#if defined(BOARD_EVK)
-        BW_USBNC_USB_OTG1_CTRL_PWR_POL(1);
-        reg32_write(IOMUXC_SW_MUX_CTL_PAD_KEY_COL4, ALT6);
 #endif
 
         break;
     case Host1:
     case OTG2:
 #ifdef BOARD_SABRE_AI
+        board_ioexpander_iomux_config();
         // Vbus control is on I2C port expander B7 for the ARD board.
         max7310_set_gpio_output(1, 7, 1);
 #endif
 
 #ifdef BOARD_EVB
-        reg32_write(IOMUXC_SW_MUX_CTL_PAD_EIM_D31, ALT5);
+        gpio_set_gpio(GPIO_PORT3, 31);
         gpio_set_direction(GPIO_PORT3, 31, GPIO_GDIR_OUTPUT);
         gpio_set_level(GPIO_PORT3, 31, GPIO_HIGH_LEVEL);
 #endif
 #ifdef BOARD_SMART_DEVICE
-        reg32_write(IOMUXC_SW_MUX_CTL_PAD_EIM_D30, ALT5);
+        gpio_set_gpio(GPIO_PORT3, 30);
         gpio_set_direction(GPIO_PORT3, 30, GPIO_GDIR_OUTPUT);
         gpio_set_level(GPIO_PORT3, 30, GPIO_HIGH_LEVEL);
-#endif
-#if defined(BOARD_EVK)
-        BW_USBNC_USB_OTG2_CTRL_PWR_POL(1);
-        reg32_write(IOMUXC_SW_MUX_CTL_PAD_KEY_COL5, ALT6);
 #endif
 
         break;
@@ -110,6 +105,7 @@ void usbDisableVbus(usb_module_t * port)
     switch (port->controllerID) {
     case OTG:
 #ifdef BOARD_SABRE_AI
+        board_ioexpander_iomux_config();
         max7310_set_gpio_output(2, 1, 0);
 #endif
 #if defined(BOARD_EVB) || defined(BOARD_SMART_DEVICE)
@@ -118,6 +114,7 @@ void usbDisableVbus(usb_module_t * port)
         break;
     case Host1:
 #ifdef BOARD_SABRE_AI
+        board_ioexpander_iomux_config();
         max7310_set_gpio_output(1, 7, 0);
 #endif
 #ifdef BOARD_EVB

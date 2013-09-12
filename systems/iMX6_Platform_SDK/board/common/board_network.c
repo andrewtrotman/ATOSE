@@ -41,6 +41,31 @@ void imx_ar8031_iomux()
 }
 
 /*CPU_PER_RST_B low to high*/
+void imx_KSZ9021RN_reset(void)
+{
+    //max7310_set_gpio_output(0, 2, GPIO_LOW_LEVEL);
+    //hal_delay_us(1000000);
+    //max7310_set_gpio_output(0, 2, GPIO_HIGH_LEVEL);
+#ifdef BOARD_SABRE_LITE
+    // Config gpio3_GPIO[23] to pad EIM_D23(D25)
+    gpio_set_gpio(GPIO_PORT3, 23);
+    HW_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA23_WR(
+            BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA23_HYS_V(ENABLED) |
+            BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA23_PUS_V(100K_OHM_PU) |
+            BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA23_PUE_V(PULL) |
+            BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA23_PKE_V(ENABLED) |
+            BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA23_ODE_V(DISABLED) |
+            BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA23_SPEED_V(100MHZ) |
+            BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA23_DSE_V(40_OHM) |
+            BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA23_SRE_V(SLOW));
+    gpio_set_direction(GPIO3, 23, GPIO_GDIR_OUTPUT);
+    gpio_set_level(GPIO3, 23, GPIO_LOW_LEVEL);
+    hal_delay_us(1000000);      // hold in reset for a delay
+    gpio_set_level(GPIO3, 23, GPIO_LOW_HIGH);
+#endif
+}
+
+/*CPU_PER_RST_B low to high*/
 void imx_ar8031_reset(void)
 {
 #if defined(BOARD_SMART_DEVICE)
@@ -70,7 +95,7 @@ void imx_enet_iomux(void)
     max7310_set_gpio_output(1, 2, GPIO_LOW_LEVEL);
     /* Select ALT5 mode of GPIO_19 for GPIO4_5 - PGMIT_INT_B */
     /* active low input */
-    writel(ALT5, IOMUXC_SW_MUX_CTL_PAD_GPIO_19);
+    gpio_set_gpio(GPIO_PORT4, 5);
     gpio_set_direction(GPIO_PORT4, 5, GPIO_GDIR_INPUT);
 #endif
 }

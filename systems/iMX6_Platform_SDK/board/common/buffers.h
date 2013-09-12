@@ -66,7 +66,6 @@
 /* put the TWO video instance on different CS to
    improve the performance.
  */
-#define FAT_DRIVER_BUFFER       (0x44000000)
 #define VPU_WORK_BUFFERS        (0x44100000)
 #define VIDEO_BUFFERS_START     (0x48000000)
 #define VIDEO_BUFFERS_END       (0x4FFFFFFF)
@@ -83,7 +82,7 @@
 
 // USB buffers
 #define QH_BUFFER               0x00908000  // internal RAM
-#define TD_BUFFER               0x00908100  // internal RAM
+#define TD_BUFFER               0x00908200  // internal RAM
 
 #define SATA_PROTOCOL_BUFFER_BASE 0x0090a000
 #define SATA_PROTOCOL_BUFFER_SIZE 0x1000

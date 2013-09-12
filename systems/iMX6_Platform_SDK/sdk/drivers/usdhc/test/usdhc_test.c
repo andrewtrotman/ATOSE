@@ -35,6 +35,7 @@
 #include "usdhc_test.h"
 #include "usdhc/usdhc_ifc.h"
 #include "registers/regsusdhc.h"
+#include "utility/menu.h"
 
 static int usdhc_test_pio(void);
 static int usdhc_test_adma(void);
@@ -44,7 +45,7 @@ static int emmc_test_dump(void);
 static int emmc_test_boot(void);
 static int emmc_test_width(void);
 static int emmc_test_ack(void);
-static int mmc_test(unsigned int bus_width, uint32_t instance);
+static test_return_t mmc_test(unsigned int bus_width, uint32_t instance);
 
 static usdhc_test_t usdhc_tests[] = {
     {"usdhc polling IO", usdhc_test_pio},
@@ -87,8 +88,7 @@ static int mmc_test_dst[MMC_TEST_BUF_SIZE + MMC_CARD_SECTOR_BUFFER];
 static int mmc_test_tmp[MMC_TEST_BUF_SIZE + MMC_CARD_SECTOR_BUFFER];
 
 /********************************************* Global Function ******************************************/
-//int mmc_sd_test(unsigned int bus_width, unsigned int base_address)
-int mmc_sd_test(unsigned int bus_width, uint32_t instance)
+test_return_t mmc_sd_test(unsigned int bus_width, uint32_t instance)
 {
     return mmc_test(bus_width, instance);
 }
@@ -151,13 +151,13 @@ static int usdhc_test_adma(void)
 {
     int retv = TRUE;
 
-    SDHC_ADMA_mode = TRUE;
-
+//    SDHC_ADMA_mode = TRUE;
+    set_card_access_mode(1, 0);
     /* MMC - 8 bit, SD - 4 bit  */
 //    retv = mmc_test(8, USDHC3_BASE_ADDR);    
     retv = mmc_test(8, HW_USDHC3);
 
-    SDHC_ADMA_mode = FALSE;
+//    SDHC_ADMA_mode = FALSE;
 
     return retv;
 }
@@ -166,13 +166,13 @@ static int usdhc_test_adma_intr(void)
 {
     int retv;
 
-    SDHC_INTR_mode = SDHC_ADMA_mode = TRUE;
-
+//    SDHC_INTR_mode = SDHC_ADMA_mode = TRUE;
+    set_card_access_mode(1, 0);
     /* MMC - 8 bit, SD - 4 bit  */
 //    retv = mmc_test(8, USDHC3_BASE_ADDR);
     retv = mmc_test(8, HW_USDHC3);
     
-    SDHC_INTR_mode = SDHC_ADMA_mode = FALSE;
+//    SDHC_INTR_mode = SDHC_ADMA_mode = FALSE;
 
     return retv;
 }
@@ -339,128 +339,131 @@ static int usdhc_test_emmc(void)
  * @param bus_width    Bus width
  * @param instance     Instance number of the uSDHC module.
  * 
- * @return             0 if successful; 1 otherwise
+ * @return             TEST_PASSED if successful; TEST_FAILED otherwise
  */
-static int mmc_test(unsigned int bus_width, uint32_t instance)
+static test_return_t mmc_test(unsigned int bus_width, uint32_t instance)
 {
     int status, idx, result;
+    const char* indent = menu_get_indent();
 
-    printf("1. Init card.\n");
+    printf("%s1. Init card.\n", indent);
 
     /* Initialize card */
     status = card_init(instance, bus_width);
 
     if (status == FAIL) {
-        printf("SD/MMC initialize failed.\n");
-        return FALSE;
+        printf("%sSD/MMC initialize failed.\n", indent);
+        return TEST_FAILED;
     }
 
-    printf("2. Card -> TMP.\n");
+    printf("%s2. Card -> TMP.\n", indent);
 
     /* Initialize buffer */
     memset(mmc_test_src, 0x5A, MMC_TEST_BUF_SIZE);
     memset(mmc_test_dst, 0xA5, MMC_TEST_BUF_SIZE);
 
     /* Store card data to temporary buffer */
-    status =
-        card_data_read(instance, mmc_test_tmp, MMC_TEST_BUF_SIZE * sizeof(int),
-                       MMC_TEST_OFFSET);
+    status = card_data_read(instance, mmc_test_tmp, MMC_TEST_BUF_SIZE * sizeof(int), MMC_TEST_OFFSET);
     if (status == FAIL) {
-        printf("%d: SD/MMC data read failed.\n", __LINE__);
-        return FALSE;
+        printf("%s%d: SD/MMC data read failed.\n", indent, __LINE__);
+        return TEST_FAILED;
     }
 
     /* Wait for transfer complete */
-    if (SDHC_INTR_mode == TRUE) {
+    if (read_usdhc_intr_mode() == TRUE) {
+//    if (SDHC_INTR_mode == TRUE) {
         do {
             card_xfer_result(instance, &result);
         } while (result == 0);
 
         if (result == 2) {
-            printf("%d: Error status caught.\n", __LINE__);
-            return FALSE;
+            printf("%s%d: Error status caught.\n", indent, __LINE__);
+            return TEST_FAILED;
         }
     }
 
-    printf("3. SRC -> Card.\n");
+    printf("%s3. SRC -> Card.\n", indent);
 
     /* Copy from source to Card */
     status =
         card_data_write(instance, mmc_test_src, MMC_TEST_BUF_SIZE * sizeof(int),
                         MMC_TEST_OFFSET);
     if (status == FAIL) {
-        printf("%d: SD/MMC data write failed.\n", __LINE__);
-        return FALSE;
+        printf("%s%d: SD/MMC data write failed.\n", indent, __LINE__);
+        return TEST_FAILED;
     }
 
     /* Wait for transfer complete */
-    if (SDHC_INTR_mode == TRUE) {
+    if (read_usdhc_intr_mode() == TRUE) {
+//    if (SDHC_INTR_mode == TRUE) {
         do {
             card_xfer_result(instance, &result);
         } while (result == 0);
 
         if (result == 2) {
-            printf("%d: Error status caught.\n", __LINE__);
-            return FALSE;
+            printf("%s%d: Error status caught.\n", indent, __LINE__);
+            return TEST_FAILED;
         }
     }
 
-    printf("4. Card -> DST.\n");
+    printf("%s4. Card -> DST.\n", indent);
 
     /* Copy from card to destination */
     status =
         card_data_read(instance, mmc_test_dst, MMC_TEST_BUF_SIZE * sizeof(int),
                        MMC_TEST_OFFSET);
     if (status == FAIL) {
-        printf("%d: SD/MMC data read failed.\n", __LINE__);
-        return FALSE;
+        printf("%s%d: SD/MMC data read failed.\n", indent, __LINE__);
+        return TEST_FAILED;
     }
 
     /* Wait for transfer complete */
-    if (SDHC_INTR_mode == TRUE) {
+    if (read_usdhc_intr_mode() == TRUE) {
+//    if (SDHC_INTR_mode == TRUE) {
         do {
             card_xfer_result(instance, &result);
         } while (result == 0);
 
         if (result == 2) {
-            printf("%d: Error status caught.\n", __LINE__);
-            return FALSE;
+            printf("%s%d: Error status caught.\n", indent, __LINE__);
+            return TEST_FAILED;
         }
     }
 
-    printf("5. TMP -> Card.\n");
+    printf("%s5. TMP -> Card.\n", indent);
 
     /* Restore from temporary buffer to card */
     status =
         card_data_write(instance, mmc_test_tmp, MMC_TEST_BUF_SIZE * sizeof(int),
                         MMC_TEST_OFFSET);
     if (status == FAIL) {
-        printf("%d: SD/MMC data write failed.\n", __LINE__);
-        return FALSE;
+        printf("%s%d: SD/MMC data write failed.\n", indent, __LINE__);
+        return TEST_FAILED;
     }
 
     /* Wait for transfer complete */
-    if (SDHC_INTR_mode == TRUE) {
+    if (read_usdhc_intr_mode() == TRUE) {
+//    if (SDHC_INTR_mode == TRUE) {
         do {
             card_xfer_result(instance, &result);
         } while (result == 0);
 
         if (result == 2) {
-            printf("%d: Error status caught.\n", __LINE__);
-            return FALSE;
+            printf("%s%d: Error status caught.\n", indent, __LINE__);
+            return TEST_FAILED;
         }
     }
 
-    printf("6. Compare SRC & DST.\n");
+    printf("%s6. Compare SRC & DST.\n", indent);
 
     /* Compare loopback data */
     for (idx = 0; idx < MMC_TEST_BUF_SIZE; idx++) {
         if (mmc_test_src[idx] != mmc_test_dst[idx]) {
-            printf("Word %d mismatch: source - 0x%x, destination - 0x%x\n", idx + 1,
+            printf("%sWord %d mismatch: source - 0x%x, destination - 0x%x\n", indent, idx + 1,
                    mmc_test_src[idx], mmc_test_dst[idx]);
-            return FALSE;
+            return TEST_FAILED;
         }
     }
 
-    return TRUE;
+    return TEST_PASSED;
 }

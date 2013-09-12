@@ -35,6 +35,8 @@
 #include "usdhc_host.h"
 #include "registers/regsusdhc.h"
 #include "buffers.h"
+#include "core/cortex_a9.h"
+#include "utility/menu.h"
 
 /* Global Variables */
 
@@ -84,11 +86,19 @@ usdhc_inst_t usdhc_device[USDHC_NUMBER_PORTS] = {
     ,
 };
 
+/* Whether to enable Card Detect Test in card_init() */
+int card_detect_test_en = 1;
+extern bool usdhc_card_detected(uint32_t instance);
+
+/* Whether to enable Card Protect Test in card_init() */
+int write_protect_test_en = 1;
+extern bool usdhc_write_protected(uint32_t instance);
+
 /* Whether to enable ADMA */
-int SDHC_ADMA_mode = FALSE;
+static int SDHC_ADMA_mode = FALSE;
 
 /* Whether to enable Interrupt */
-int SDHC_INTR_mode = FALSE;
+static int SDHC_INTR_mode = FALSE;
 
 /********************************************* Static Function ******************************************/
 /*!
@@ -146,6 +156,31 @@ static int card_init_interrupt(uint32_t instance)
 
 /********************************************* Global Function ******************************************/
 /*!
+ * @brief Set Card access mode
+ *
+ * @param mode     Set card access mode
+ * 
+ * @return           
+ */
+extern void set_card_access_mode(uint32_t sdma, uint32_t intr)
+{
+	/* Whether to enable ADMA */
+    SDHC_ADMA_mode = sdma;
+
+	/* Whether to enable Interrupt */
+    SDHC_INTR_mode = intr; 	
+}
+ 
+uint32_t read_usdhc_adma_mode()
+{
+	return SDHC_ADMA_mode;
+}
+uint32_t read_usdhc_intr_mode() 
+{
+	return SDHC_INTR_mode;
+}
+
+/*!
  * @brief Card initialization
  *
  * @param instance     Instance number of the uSDHC module.
@@ -156,6 +191,7 @@ static int card_init_interrupt(uint32_t instance)
 int card_init(uint32_t instance, int bus_width)
 {
     int init_status = FAIL;
+    const char* indent = menu_get_indent();
 
     /* Initialize uSDHC Controller */
     host_init(instance);
@@ -163,9 +199,29 @@ int card_init(uint32_t instance, int bus_width)
     /* Software Reset to Interface Controller */
     host_reset(instance, ESDHC_ONE_BIT_SUPPORT, ESDHC_LITTLE_ENDIAN_MODE);
 
+    /* card detect */
+    if(card_detect_test_en) {
+        if(usdhc_card_detected(instance) == false) {
+            printf("%s   *Card on SD%d is not inserted.\n", indent, instance);
+            return FAIL;
+        } else {
+            printf("%s   Card on SD%d is inserted.\n", indent, instance);
+        }
+    }
+
+    /* write protect */
+    if(write_protect_test_en) {
+        if(usdhc_write_protected(instance) == true) {
+            printf("%s   *Card on SD%d is write protected.\n", indent, instance);
+            return FAIL;
+        } else {
+            printf("%s   Card on SD%d is not write protected.\n", indent, instance);
+        }
+    }
+
     /* Initialize interrupt */
     if (card_init_interrupt(instance) == FAIL) {
-        printf("Interrupt initialize failed.\n");
+        printf("%s   Interrupt initialize failed.\n", indent);
         return FAIL;
     }
 
@@ -456,9 +512,18 @@ int card_set_blklen(uint32_t instance, int len)
     /* Send CMD16 */
     if (host_send_cmd(instance, &cmd) == SUCCESS) {
         status = SUCCESS;
-    }
-
+    } 
+    
     return status;
+}
+
+static void card_buffer_flush(void *buffer, int length)
+{
+    if(!arm_dcache_state_query())
+        return;
+
+        arm_dcache_flush_mlines(buffer, length);
+        arm_dcache_invalidate_mlines(buffer, length);
 }
 
 /*!
@@ -471,7 +536,7 @@ int card_set_blklen(uint32_t instance, int len)
  * 
  * @return             0 if successful; 1 otherwise
  */
-int card_data_read(uint32_t instance, int *dst_ptr, int length, int offset)
+int card_data_read(uint32_t instance, int *dst_ptr, int length, uint32_t offset)
 {
     int port, sector;
     command_t cmd;
@@ -510,7 +575,7 @@ int card_data_read(uint32_t instance, int *dst_ptr, int length, int offset)
 
     /* Set block length to card */
     if (card_set_blklen(instance, BLK_LEN) == FAIL) {
-        printf("Fail to set block length to card.\n");
+        printf("Fail to set block length to card in reading sector %d.\n", offset / BLK_LEN);
         return FAIL;
     }
 
@@ -523,6 +588,7 @@ int card_data_read(uint32_t instance, int *dst_ptr, int length, int offset)
     /* If DMA mode enabled, configure BD chain */
     if (SDHC_ADMA_mode == TRUE) {
         host_setup_adma(instance, dst_ptr, length);
+        card_buffer_flush(dst_ptr, length);
     }
 
     /* Use CMD18 for multi-block read */
@@ -600,7 +666,7 @@ int card_data_write(uint32_t instance, int *src_ptr, int length, int offset)
 
     /* Set block length to card */
     if (card_set_blklen(instance, BLK_LEN) == FAIL) {
-        printf("Fail to set block length to card.\n");
+        printf("Fail to set block length to card in writing sector %d.\n", offset / BLK_LEN);
         return FAIL;
     }
 
@@ -610,6 +676,7 @@ int card_data_write(uint32_t instance, int *src_ptr, int length, int offset)
     /* If DMA mode enabled, configure BD chain */
     if (SDHC_ADMA_mode == TRUE) {
         host_setup_adma(instance, src_ptr, length);
+        card_buffer_flush(src_ptr, length);        
     }
 
     /* Use CMD25 for multi-block write */
@@ -657,4 +724,30 @@ int card_xfer_result(uint32_t instance, int *result)
     *result = usdhc_device[idx].status;
 
     return SUCCESS;
+}
+
+/*!
+ * @brief Wait for the transfer complete. It covers the interrupt mode, DMA mode and PIO mode
+ *
+ * @param instance     Instance number of the uSDHC module.
+ * 
+ * @return             0 if successful; 1 otherwise
+ */
+int card_wait_xfer_done(uint32_t instance)
+{
+    int usdhc_status = 0;
+    int timeout = 0x40000000;
+    if(SDHC_INTR_mode)
+    {
+        while (timeout--) {
+            card_xfer_result(instance, &usdhc_status);
+            if (usdhc_status == 1)
+                return SUCCESS;
+        }
+     } else {
+            /*do nothing, since in PIO/DMA mode, will check the flag in host send data*/
+            return SUCCESS;
+     }
+
+     return FAIL;
 }

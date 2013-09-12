@@ -232,7 +232,7 @@ device_list[0].dead = true;
 		As the ARM does not have DNA cache coherenecy its necessary to flush the data cache before
 		passing a pointer to the USB DMA controller
 	*/
-	ATOSE_mmu::flush_caches();
+	ATOSE_mmu::flush_and_invalidate_data_cache();
 	/*
 		Pass the queuehead on to the i.MX6Q and wait for it to start up
 	*/
@@ -478,7 +478,7 @@ uint32_t ATOSE_host_usb::perform_transaction(ATOSE_usb_ehci_queue_head *queue)
 		As the ARM does not have DNA cache coherenecy its necessary to flush the data cache before
 		passing a pointer to the USB DMA controller
 	*/
-	ATOSE_mmu::flush_caches();
+	ATOSE_mmu::flush_and_invalidate_data_cache();
 
 	/*
 		Now pass the queue head to the USB DMA controller

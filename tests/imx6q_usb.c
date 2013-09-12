@@ -4,7 +4,7 @@
 	Copyright (c) 2012-2013 Andrew Trotman
 	Licensed BSD
 
-	Thanks to Nick Sherlock for working wit me on the predecessor of this, for the i.MX233
+	Thanks to Nick Sherlock for working with me on the predecessor of this, that program was for the i.MX233
 
 	Make the i.MX6Q look like a USB CDC device (serial port) and then echo back any data recieved.
 	To test this program on my Mac I do the following....

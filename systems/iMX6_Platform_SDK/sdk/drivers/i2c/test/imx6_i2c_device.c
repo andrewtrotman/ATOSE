@@ -36,17 +36,11 @@
  */
 
 #include "sdk.h"
+#include "registers/regsi2c.h"
+#include "registers/regsiomuxc.h"
 
 // I2C3 is used to be a slave port
-hw_module_t imx6_i2c_slave_port = {
-    "I2C3 is slave port",
-    3,
-    I2C3_BASE_ADDR,
-    66000000,
-    IMX_INT_I2C3,
-    &default_interrupt_routine,
-};
-
+static uint32_t imx6_i2c_slave_port = HW_I2C3;
 static imx_i2c_request_t imx6_i2c_req;
 
 static uint8_t test_buffer[] = {'F', 'R', 'E', 'E', 'S', 'C', 'A', 'L', 'E', 'I', '2', 'C', 'T', 'E', 'S', 'T', '!', '!'};
@@ -149,6 +143,7 @@ int32_t imx6_slave_transmit(const imx_i2c_request_t *rq)
  * waiting for a single external transfer to read or write a data.
  *
  */
+//! todo Move the BOARD_EVB code out of driver.
 int32_t i2c_imx6_slave_test(void)
 {
     uint8_t sel, i;
@@ -157,7 +152,7 @@ int32_t i2c_imx6_slave_test(void)
     printf("  Starting i.MX6DQ/SDL slave test...\n");
 
     // Initialize the request
-    imx6_i2c_req.ctl_addr = imx6_i2c_slave_port.base;   /* the I2C controller base address */
+    imx6_i2c_req.ctl_addr = imx6_i2c_slave_port;   /* the I2C controller instance */
     imx6_i2c_req.dev_addr = IMX6_DEFAULT_SLAVE_ID;  /* the I2C DEVICE address - keep default */
     imx6_i2c_req.reg_addr = 0;          /* not used in slave mode */
     imx6_i2c_req.reg_addr_sz = 1;       /* used to set the address size of this slave */
@@ -168,17 +163,39 @@ int32_t i2c_imx6_slave_test(void)
     /* initialize the buffer with known data */
     memset(imx6_i2c_req.buffer, 0, sizeof(imx6_i2c_req.buffer));
 
-    i2c_init(imx6_i2c_req.ctl_addr, 170000);
+    i2c_init(imx6_i2c_slave_port, 170000);
 
 #if defined(BOARD_EVB)
     /*Set iomux and daisy chain for eeprom test */
-    reg32_write(IOMUXC_SW_MUX_CTL_PAD_EIM_D17, ALT6 | 0x10);
-    reg32_write(IOMUXC_I2C3_IPP_SCL_IN_SELECT_INPUT, 0x00);
-    reg32_write(IOMUXC_SW_PAD_CTL_PAD_EIM_D17, 0x1b8b0);
+    HW_IOMUXC_SW_MUX_CTL_PAD_EIM_DATA17_WR(
+            BF_IOMUXC_SW_MUX_CTL_PAD_EIM_DATA17_SION_V(ENABLED) |
+            BF_IOMUXC_SW_MUX_CTL_PAD_EIM_DATA17_MUX_MODE_V(ALT6));
+    HW_IOMUXC_I2C3_SCL_IN_SELECT_INPUT_WR(
+            BF_IOMUXC_I2C3_SCL_IN_SELECT_INPUT_DAISY_V(EIM_DATA17_ALT6));
+    HW_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA17_WR(
+            BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA17_HYS_V(ENABLED) |
+            BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA17_PUS_V(100K_OHM_PU) |
+            BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA17_PUE_V(PULL) |
+            BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA17_PKE_V(ENABLED) |
+            BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA17_ODE_V(ENABLED) |
+            BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA17_SPEED_V(100MHZ) |
+            BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA17_DSE_V(40_OHM) |
+            BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA17_SRE_V(SLOW));
 
-    reg32_write(IOMUXC_SW_MUX_CTL_PAD_EIM_D18, ALT6 | 0x10);
-    reg32_write(IOMUXC_I2C3_IPP_SDA_IN_SELECT_INPUT, 0x00);
-    reg32_write(IOMUXC_SW_PAD_CTL_PAD_EIM_D18, 0x1b8b0);
+    HW_IOMUXC_SW_MUX_CTL_PAD_EIM_DATA18_WR(
+            BF_IOMUXC_SW_MUX_CTL_PAD_EIM_DATA18_SION_V(ENABLED) |
+            BF_IOMUXC_SW_MUX_CTL_PAD_EIM_DATA18_MUX_MODE_V(ALT6));
+    HW_IOMUXC_I2C3_SDA_IN_SELECT_INPUT_WR(
+            BF_IOMUXC_I2C3_SDA_IN_SELECT_INPUT_DAISY_V(EIM_DATA18_ALT6));
+    HW_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA18_WR(
+            BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA18_HYS_V(ENABLED) |
+            BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA18_PUS_V(100K_OHM_PU) |
+            BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA18_PUE_V(PULL) |
+            BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA18_PKE_V(ENABLED) |
+            BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA18_ODE_V(ENABLED) |
+            BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA18_SPEED_V(100MHZ) |
+            BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA18_DSE_V(40_OHM) |
+            BF_IOMUXC_SW_PAD_CTL_PAD_EIM_DATA18_SRE_V(SLOW));
 #endif
 
     do {
@@ -194,7 +211,7 @@ int32_t i2c_imx6_slave_test(void)
         {
             printf("    Waiting for the access from the master...\n");
 
-            i2c_slave_xfer(&imx6_i2c_slave_port, &imx6_i2c_req);
+            i2c_slave_xfer(&imx6_i2c_req);
 
             if (!s_masterDidWrite)
             {
