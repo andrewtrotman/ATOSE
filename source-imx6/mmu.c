@@ -15,52 +15,6 @@
 #include "debug_kernel.h"
 
 /*
-	ATOSE_MMU::INVALIDATE_INSTRUCTION_CACHE()
-	-----------------------------------------
-*/
-void ATOSE_mmu::invalidate_instruction_cache(void)
-{
-asm volatile
-	(
-	"mov r0, #0;"
-	"mcr p15, 0, r0, c7, c5, 0;"
-	"isb;"
-	:
-	:
-	: "r0"
-	);
-}
-/*
-	ATOSE_MMU::INVALIDATE_UNIFIED_TLB()
-	-----------------------------------
-*/
-void ATOSE_mmu::invalidate_unified_tlb(void)
-{
-asm volatile
-	(
-	"mov     r0, #1;"
-	"mcr     p15, 0, r0, c8, c7, 0;"
-	"dsb;"
-	:
-	:
-	:"r0");
-}
-/*
-	ATOSE_MMU::INVALIDATE_BRANCH_TARGET_CACHE()
-	-------------------------------------------
-*/
-void ATOSE_mmu::invalidate_branch_target_cache(void)
-{
-asm volatile
-	(
-	"mov     r0, #0;"
-	"mcr     p15, 0, r0, c7, c5, 6;"
-	:
-	:
-	:"r0");
-}
-
-/*
 	ATOSE_MMU::INITIALISE()
 	-----------------------
 */
@@ -154,14 +108,19 @@ user_data_page = (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V7_PAGE_SECTI
 user_code_page = (ARM_MMU_V5_PAGE_SECTION_USER_READONLY | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION);
 
 /*
-	A page table (the identity) can now be set up with: each page is 1MB in size (ARM MMU Sections), full permission to do anything.
+	The identity page table maps, one-to-one, each virtual page to a physical page.  We need this for
+	two reasons.  First, we need a page table to be ready for the moment we enable the MMU.  Second,
+	in order to allocate a new address space we need to be in an address space that has access to the
+	page being used to hold the new address space's page table (so that we can write to it) - and that
+	address spaces uses the identity page table.
+
+	The identity can now be set up with: each page is 1MB in size (ARM MMU Sections), full permission to do anything.
 	On the i.MX6Q:
 		Page 0 is the interrupt vectors
 		The next 255 pages are the periperal devices
 		Page 9 is the on chip RAM
 		All other pages are off-chip DRAM
 */
-
 for (current = 0; current < 256; current++)
 	identity_page_table[current] = (current << 20) | peripheral_page;
 
@@ -181,10 +140,8 @@ for (/* nothing */; current < pages_in_address_space; current++)
 	Why?  Because the caches startup with noise in them and its a software problem to invalidate
 	them before use.
 */
-invalidate_instruction_cache();
 invalidate_data_cache();
-invalidate_branch_target_cache();
-invalidate_unified_tlb();
+invalidate_instruction_pathway();
 
 /*
 	Set the page table to the identity page table
@@ -208,8 +165,6 @@ asm volatile
 	: [cache_enable]"r"(ARM_MMU_V5_CP15_R1_C | ARM_MMU_V5_CP15_R1_I | ARM_MMU_V7_CP15_R1_Z | ARM_MMU_V5_CP15_R1_M)
 	: "r0"
 	);
-
-initialised = true;
 }
 
 /*
@@ -337,67 +292,6 @@ asm volatile
 }
 
 /*
-	ATOSE_MMU::FLUSH_DATA_CACHE()
-	-----------------------------
-*/
-void ATOSE_mmu::flush_data_cache(void)
-{
-uint32_t cache_size_id;
-uint32_t associativity, number_of_sets;
-uint32_t way, set;
-uint32_t value;
-
-/*
-	Get the cache size ID register (CCSIDR)
-*/
-asm volatile
-	(
-	"mrc p15, 1, %[cache_size_id], c0, c0, 0;"
-	:[cache_size_id]"=r"(cache_size_id)
-	:
-	:
-	);
-
-/*
-	Extract the Associativity (bits 3-12)
-*/
-associativity = (cache_size_id >> 3) & 0x3FF;
-
-/*
-	Extract the number of sets (bits 13-27)
-*/
-number_of_sets = (cache_size_id >> 13) & 0x7FFF;
-
-/*
-	For each way and each set, invalidate the cache
-*/
-for (way = 0; way <= associativity; way++)
-	for (set = 0; set <= number_of_sets; set++)
-		{
-		value = (set << 5) | (way << 30);
-		asm volatile
-			(
-			"mcr p15, 0, %[value], c7, c10, 2;"
-			:
-			: [value]"r"(value)
-			:
-			);
-		}
-
-/*
-	Data barrieier (make sure all the writes happen before we proceed
-*/
-asm volatile
-	(
-	"dsb;"
-	:
-	:
-	:
-	);
-}
-
-
-/*
 	ATOSE_MMU::FLUSH_AND_INVALIDATE_DATA_CACHE()
 	--------------------------------------------
 	The cache on the ARM is addressed by virtual address not physical
@@ -464,6 +358,87 @@ asm volatile
 	:
 	:
 	);
+}
+
+/*
+	ATOSE_MMU::INAVLIDATE_INSTRUCTION_PATHWAY()
+	-------------------------------------------
+*/
+void ATOSE_mmu::invalidate_instruction_pathway(void)
+{
+/*
+	Invalidate instruction cache
+*/
+asm volatile
+	(
+	"mov r0, #0;"
+	"mcr p15, 0, r0, c7, c5, 0;"
+	"isb;"
+	:
+	:
+	: "r0"
+	);
+
+/*
+	Invalidate Unified TLB
+*/
+asm volatile
+	(
+	"mov     r0, #1;"
+	"mcr     p15, 0, r0, c8, c7, 0;"
+	"dsb;"
+	:
+	:
+	:"r0");
+
+/*
+	Invalidate Branch Target Cache
+*/
+asm volatile
+	(
+	"mov     r0, #0;"
+	"mcr     p15, 0, r0, c7, c5, 6;"
+	:
+	:
+	:"r0");
+}
+
+/*
+	ATOSE_MMU::ASSUME()
+	-------------------
+*/
+void ATOSE_mmu::assume(uint32_t *page_table)
+{
+flush_and_invalidate_data_cache();
+
+asm volatile
+	(
+	"mcr	p15, 0, %[table], c2, c0, 0;"	// set the Translation Table Base Register
+	"dsb;"										// make sure it completes before proceeding
+	:
+	: [table]"r"(page_table)
+	:
+	);
+
+invalidate_instruction_pathway();
+}
+
+/*
+	ATOSE_MMU::GET_CURRENT_PAGE_TABLE()
+	-----------------------------------
+*/
+uint32_t ATOSE_mmu::get_current_page_table(void)
+{
+uint32_t page_table;
+
+asm volatile
+	(
+	"mrc	p15, 0, %[table], c2, c0, 0;"	// get the Translation Table Base Register
+	: [table]"=r"(page_table)
+	: 
+	:
+	);
+return page_table;
 }
 
 /*
@@ -556,47 +531,5 @@ if ((page = free_list.pull()) == NULL)
 */
 bzero(page->physical_address, page->page_size);
 return page;
-}
-
-/*
-	ATOSE_MMU::ASSUME()
-	-------------------
-*/
-void ATOSE_mmu::assume(uint32_t *page_table)
-{
-asm volatile
-	(
-	"mcr	p15, 0, %[table], c2, c0, 0;"	// set the Translation Table Base Register
-	"dsb;"										// make sure it completes before proceeding
-	:
-	: [table]"r"(page_table)
-	:
-	);
-invalidate_instruction_cache();
-invalidate_unified_tlb();
-invalidate_branch_target_cache();
-}
-
-/*
-	ATOSE_MMU::ASSUME()
-	-------------------
-*/
-void ATOSE_mmu::assume(ATOSE_address_space *address_space)
-{
-flush_and_invalidate_data_cache();
-assume(address_space->get_page_table());
-}
-
-/*
-	ATOSE_MMU::ASSUME_IDENTITY()
-	----------------------------
-*/
-void ATOSE_mmu::assume_identity(void)
-{
-if (initialised)
-	{
-	flush_and_invalidate_data_cache();
-	assume(identity_page_table);
-	}
 }
 

@@ -15,26 +15,24 @@
 #include "mmu_page.h"
 #include "address_space.h"
 
-void debug_print_this(const char *start, uint32_t hex, const char *end = "");
-void debug_print_string(const char *string);
-
 /*
 	ATOSE_ADDRESS_SPACE::CREATE()
 	-----------------------------
 */
 ATOSE_address_space *ATOSE_address_space::create(void)
 {
-ATOSE_address_space *answer = NULL, *current_address_space;
+ATOSE_address_space *answer = NULL;
 ATOSE_mmu_page *page, *stack_page;
 uint32_t current;
+uint32_t current_page_table;
 
 if (reference_count != 0)
 	return this;
 
-
 /*
 	Move into the land of the identity address space (so we can access memory directly)
 */
+current_page_table = mmu->get_current_page_table();
 mmu->assume_identity();
 
 /*
@@ -109,39 +107,12 @@ if ((page = mmu->pull()) != 0)
 	}
 
 /*
-	return to the caller's address space
+	Return to the caller's address space
 */
-if (ATOSE_atose::get_ATOSE()->scheduler.get_current_process() != NULL)
-	if ((current_address_space = ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->address_space) != NULL)
-		mmu->assume(current_address_space);
+mmu->set_current_page_table(current_page_table);
 
 return answer;
 }
-
-#ifdef NEVER
-/*
-	ATOSE_ADDRESS_SPACE::CREATE_IDENTITY()
-	--------------------------------------
-	Create an address space that is the identity address space
-*/
-ATOSE_address_space *ATOSE_address_space::create_identity(void)
-{
-if (reference_count == 0)
-	{
-	/*
-		first create the address space
-	*/
-	create();
-
-	/*
-		then set the page table to the identity page table
-	*/
-	page_table = mmu->get_identity_page_table();
-	}
-
-return this;
-}
-#endif
 
 /*
 	ATOSE_ADDRESS_SPACE::DESTROY()
@@ -152,6 +123,13 @@ return this;
 uint32_t ATOSE_address_space::destroy(void)
 {
 ATOSE_mmu_page *page;
+uint32_t current_page_table;
+
+/*
+	Move into the land of the identity address space (so we can access memory directly)
+*/
+current_page_table = mmu->get_current_page_table();
+mmu->assume_identity();
 
 /*
 	Decrement the reference count
@@ -169,6 +147,11 @@ if (reference_count > 0)
 */
 for (page = page_list.pull(); page != NULL; page = page_list.pull())
 	mmu->push(page);
+
+/*
+	Return to the caller's address space
+*/
+mmu->set_current_page_table(current_page_table);
 
 return 0;
 }
@@ -211,11 +194,12 @@ return 0;
 */
 uint8_t *ATOSE_address_space::add(void *address, size_t size, uint32_t permissions)
 {
-ATOSE_address_space *current_address_space;
 ATOSE_mmu_page *page;
 size_t base_page, last_page, which;
 uint64_t end;
 uint32_t rights;
+uint32_t current_page_table;
+
 
 /*
 	Make sure we fit within the address space
@@ -226,6 +210,7 @@ if ((end = ((size_t)address + size)) > mmu->highest_address)
 /*
 	Get into the identity space
 */
+current_page_table = mmu->get_current_page_table();
 mmu->assume_identity();
 
 /*
@@ -237,10 +222,8 @@ last_page = (end / mmu->page_size);
 /*
 	Now get pages and add them to the page table
 */
-debug_print_this("Add ", last_page - base_page, " pages\r\n");
 for (which = base_page; which <= last_page; which++)
 	{
-	debug_print_string(".");
 	/*
 		Verify that the page isn't already in the address space and ignore that page if so.
 	*/
@@ -270,45 +253,14 @@ for (which = base_page; which <= last_page; which++)
 	}
 
 /*
-	get back into the caller's address space
+	Return to the caller's address space
 */
-if (ATOSE_atose::get_ATOSE()->scheduler.get_current_process() != NULL)
-	if ((current_address_space = ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->address_space) != NULL)
-		mmu->assume(current_address_space);
+mmu->set_current_page_table(current_page_table);
 
 /*
 	return a pointer to the beginning of the address space allocated
 */
 return (uint8_t *)address;
-}
-
-#ifdef NEVER
-/*
-	ATOSE_ADDRESS_SPACE::ADD_TO_IDENTITY()
-	--------------------------------------
-*/
-ATOSE_mmu_page *ATOSE_address_space::add_to_identity(void)
-{
-ATOSE_mmu_page *page;
-
-if ((page = mmu->pull()) == 0)
-	return NULL;
-
-page_list.push(page);
-
-return page;
-}
-#endif
-
-/*
-	ATOSE_ADDRESS_SPACE::PHYSICAL_ADDRESS_OF()
-	------------------------------------------
-*/
-void *ATOSE_address_space::physical_address_of(void *user_address)
-{
-uint32_t address = (uint32_t)user_address;
-
-return (void *)((soft_page_table[address >> 20] & 0xFFF00000) | (address & 0xFFFFF));
 }
 
 /*
@@ -319,5 +271,6 @@ void *ATOSE_address_space::set_heap_break(uint32_t bytes_to_add, uint32_t permis
 {
 add(the_heap_break, bytes_to_add, permissions);
 the_heap_break += bytes_to_add;
+
 return the_heap_break;
 }

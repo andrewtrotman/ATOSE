@@ -46,7 +46,6 @@ public:
 	void initialise(ATOSE_mmu *mmu) { this->mmu = mmu; reference_count = 0; }
 
 	ATOSE_address_space *create(void);
-//	ATOSE_address_space *create_identity(void);
 	uint32_t destroy(void);
 
 	uint8_t *add(void *address, size_t size, uint32_t permissions);
@@ -56,7 +55,7 @@ public:
 	ATOSE_address_space *get_reference(void) { reference_count++; return this; }
 
 	void *set_heap_break(uint32_t bytes_to_add, uint32_t permissions);
-	void *physical_address_of(void *user_address);
+	void *physical_address_of(void *user_address) { return (void *)((soft_page_table[((uint32_t)user_address) >> 20] & 0xFFF00000) | (((uint32_t)user_address) & 0xFFFFF)); }
 } ;
 
 #endif

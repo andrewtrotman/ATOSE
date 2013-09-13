@@ -11,8 +11,7 @@
 #include <stddef.h>
 #include "mmu_page_list.h"
 #include "kernel_memory_allocator.h"
-
-class ATOSE_address_space;
+#include "address_space.h"
 
 /*
 	class ATOSE_MMU
@@ -35,7 +34,6 @@ public:
 
 private:
 	uint32_t page_count;										// the number of pages (is size page_size) we have
-	uint32_t initialised;									// has the object been initialised or not?
 	
 protected:
 	ATOSE_mmu_page_list free_list;
@@ -50,24 +48,25 @@ public:
 	uint8_t *the_system_break;									// points to the top of used memory, the kernel should set its break to this address
 
 protected:
-	static void invalidate_instruction_cache(void);
-	static void invalidate_unified_tlb(void);
-	static void invalidate_branch_target_cache(void);
+	static void invalidate_instruction_pathway(void);
 	static void invalidate_data_cache(void);
-	static void flush_data_cache(void);
 	static void assume(uint32_t *page_table);
 
 public:
-	ATOSE_mmu() { page_count = initialised = 0; }
+	ATOSE_mmu() { page_count = 0; }
 	virtual void initialise(void);
 
 	void push(void *location, uint64_t size_in_bytes);
 	void push(ATOSE_mmu_page *page);
 	ATOSE_mmu_page *pull(void);
 
-	void assume(ATOSE_address_space *address_space);				// switch to the given address space
-	void assume_identity(void);											// switch to the identity address space
+	void assume(ATOSE_address_space *address_space) { assume(address_space->get_page_table()); }				// switch to the given address space
+	void assume_identity(void) { assume(identity_page_table); }											// switch to the identity address space
+
 	static void flush_and_invalidate_data_cache(void);
+
+	static void set_current_page_table(uint32_t table) { assume((uint32_t *)table); }
+	static uint32_t get_current_page_table(void);
 };
 
 #endif /* MMU_H_ */
