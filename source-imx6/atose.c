@@ -44,14 +44,13 @@ scheduler.initialise(&imx6q_heap, &process_allocator);
 */
 uint32_t start_shell(void)
 {
-#ifdef NEVER
 while (ATOSE_atose::get_ATOSE()->file_system.isdead())
 	;	// do nothing
 
 ATOSE_api::writeline("\r\nStart SHELL\r\n");
 ATOSE_api::spawn("SHELL.ELF");
 ATOSE_api::writeline("BACK\r\n");
-#endif
+
 ATOSE_api::exit(0);
 
 return 0;
@@ -70,10 +69,7 @@ os->imx6q_host_usb.enable();
 os->imx6q_host_usb.initialise();
 os->imx6q_host_usb.device_manager();
 
-//scheduler.create_system_thread(start_shell);
-
-void pipe_test(void);
-pipe_test();
+os->scheduler.create_system_thread(start_shell, "SHELL");
 
 ATOSE_api::exit(0);
 return 0;
@@ -90,19 +86,12 @@ void ATOSE_atose::reset(ATOSE_registers *registers)
 	But we do need to set up the IRQ
 */
 cpu.set_interrupt_handlers(this);
-//debug << "\033[1;1H\033[40;1;37m\033[2J";
-debug << "\r\n\r\n";
+debug << "\033[1;1H\033[40;1;37m\033[2J";
 debug << "ATOSE Version i" << ATOSE_debug::eoln;
-//debug << "ATOSE SIZE:" << sizeof(ATOSE_atose) << "\r\n";
 
 /*
 	this line below is now done as part of the constructor of the MMU object
 */
-//heap.init();		// and turn on the MMU
-
-//usb.enable();
-//interrupt_controller.enable(&usb, usb.get_interrup_id());
-
 interrupt_controller.enable(&process_clock, process_clock.get_interrup_id());
 process_clock.enable();
 
@@ -115,7 +104,6 @@ scheduler.create_system_thread(ATOSE_bootstrap, "BOOTSTRAP");
 /*
 	Now we've bootstrapped ATIRE, we start processing
 */
-//debug << "Enable IRQ" << ATOSE_debug::eoln;
 cpu.enable_irq();
 
 while (1)

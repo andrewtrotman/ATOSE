@@ -14,15 +14,12 @@
 #include "elf32_phdr.h"
 #include "process_manager.h"
 
-
 #include "server_disk.h"
 #include "server_disk_protocol.h"
 #include "ascii_str.h"
 #include "file_control_block.h"
 
 #include "client_file.h"
-
-#include "debug_kernel.h"
 
 /*
 	ATOSE_PROCESS_MANAGER::INITIALISE()
@@ -354,20 +351,16 @@ uint32_t pipe, got;
 ATOSE_FILE *fcb;
 void *entry_point;
 
-debug_print_string("[EXEC]\r\n");
 pipe = ATOSE_api::pipe_create();
 
-debug_print_string("[connect pipe]\r\n");
 do
 	if ((got = ATOSE_api::pipe_connect(pipe, ATOSE_server_disk::PIPE)) == 0)
 		ATOSE_api::yield();		// give up my time slice to someone else
 while (got != 0);
 
-debug_print_string("[got it... fopen]\r\n");
 
 if ((fcb = ATOSE_fopen((char *)parameter, "r+b")) != 0)
 	{
-	debug_print_string("[call elf_load]\r\n");
 	got = ATOSE_atose::get_ATOSE()->scheduler.elf_load(fcb, &entry_point);
 	ATOSE_fclose(fcb);
 	if (got == SUCCESS)
@@ -426,6 +419,11 @@ if (new_process->address_space->create() == 0)
 	return ELF_BAD_ADDRESS_SPACE_FAIL;
 
 /*
+	Set the address space's thread count to 1
+*/
+new_process->address_space->get_reference();
+
+/*
 	Set up the register set
 */
 answer = initialise_process(new_process, (void *)exec, ATOSE_cpu_arm::MODE_SYSTEM, mmu->highest_address);
@@ -459,13 +457,13 @@ uint32_t ATOSE_process_manager::create_thread(uint32_t (*start)(void))
 uint32_t answer;
 ATOSE_process *new_process;
 uint8_t *old_stack_break;
-ATOSE_address_space *address_space = system_address_space;
+ATOSE_address_space *address_space = current_process->address_space;
 
 if ((new_process = ATOSE_atose::get_ATOSE()->process_allocator.malloc(address_space)) == NULL)
 	return ELF_BAD_OUT_OF_PROCESSES;
 
 /*
-	Add one to the address-space's reference count
+	Add one to the address-space's thread count
 */
 address_space->get_reference();
 
@@ -473,11 +471,13 @@ address_space->get_reference();
 	Give it a local stack
 */
 old_stack_break = address_space->the_stack_break;
-
 address_space->the_stack_break -= mmu->page_size;
 address_space->add(address_space->the_stack_break, mmu->page_size, ATOSE_address_space::WRITE | ATOSE_address_space::READ);
 answer = initialise_process(new_process, (void *)start, ATOSE_cpu_arm::MODE_SYSTEM, (uint32_t)old_stack_break);
 
+/*
+	Schedule it
+*/
 push(new_process);
 
 return answer;
@@ -495,9 +495,6 @@ uint8_t *old_stack_break;
 
 if ((new_process = ATOSE_atose::get_ATOSE()->process_allocator.malloc(system_address_space)) == NULL)
 	return ELF_BAD_OUT_OF_PROCESSES;
-
-debug_print_string("Create:");
-debug_print_string(name);
 
 /*
 	Add one to the address-space's reference count

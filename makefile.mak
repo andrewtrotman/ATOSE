@@ -71,7 +71,6 @@ ATOSE_OBJECTS =								\
 	$(OBJ_DIR)/atose.o						\
 	$(OBJ_DIR)/client_file.o				\
 	$(OBJ_DIR)/clock_imx6q.o				\
-	$(OBJ_DIR)/cpu_arm.o					\
 	$(OBJ_DIR)/cpu_arm_imx6q.o				\
 	$(OBJ_DIR)/ctypes.o						\
 	$(OBJ_DIR)/debug.o						\
@@ -92,7 +91,6 @@ ATOSE_OBJECTS =								\
 	$(OBJ_DIR)/mmu.o						\
 	$(OBJ_DIR)/mmu_page_list.o				\
 	$(OBJ_DIR)/pipe.o						\
-	$(OBJ_DIR)/pipe_test.o					\
 	$(OBJ_DIR)/process_manager.o			\
 	$(OBJ_DIR)/process_allocator.o			\
 	$(OBJ_DIR)/semaphore.o					\

@@ -38,8 +38,8 @@ public:
 	static const uint32_t MODE_BITS = 0x1F;			// AND with this to get the status from the status register
 
 private:
-	uint32_t get_cpsr(void);
-	void set_cpsr(uint32_t new_cpsr);
+	uint32_t get_cpsr(void) { uint32_t answer; asm volatile ("mrs %0,CPSR" :"=r" (answer)); return answer; }
+	void set_cpsr(uint32_t new_cpsr) { asm volatile("msr CPSR_cxsf, %0"::"r"(new_cpsr)); }
 
 public:
 	ATOSE_cpu_arm() {}

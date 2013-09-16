@@ -812,7 +812,6 @@ uint32_t ATOSE_host_usb::wait_for_connection(void)
 */
 ATOSE_api::semaphore_wait(semaphore_handle);
 
-debug_print_string("Got Connection\r\n");
 /*
 	Reset the USB bus
 */
