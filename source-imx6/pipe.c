@@ -26,8 +26,8 @@ other_end = NULL;
 send_queue = receive_queue = tail_of_receive_queue = 	tail_of_send_queue = NULL;
 
 process = ATOSE_atose::get_ATOSE()->scheduler.get_current_process();
-next = process->open_pipes;
-process->open_pipes = this;
+next = process->address_space->open_pipes;
+process->address_space->open_pipes = this;
 
 return 0;
 }
@@ -97,8 +97,8 @@ other_end->post_event(EVENT_CLOSE);
 /*
 	Walk the list of open pipes and when we find this one remove it.
 */
-previous = &owner->open_pipes;
-for (current = owner->open_pipes; current != NULL; current = current->next)
+previous = &owner->address_space->open_pipes;
+for (current = owner->address_space->open_pipes; current != NULL; current = current->next)
 	{
 	if (current == this)
 		{
@@ -216,7 +216,7 @@ if (receive_queue != NULL)
 		Copy the message and the process ID, then return the message ID to the server
 	*/
 	memcpy(into->process, into->destination, task->process, task->source, min(task->source_length, into->destination_length));
-	into->process->execution_path->registers.r0 = (uint32_t)task->event_id;
+	into->process->registers.r0 = (uint32_t)task->event_id;
 	if (into->place_to_put_client_process_id != NULL)
 		memcpy(into->process, into->place_to_put_client_process_id, task->process, &task->client_process_id, sizeof(task->client_process_id));
 
@@ -230,7 +230,7 @@ if (receive_queue != NULL)
 	*/
 	if (task->destination == NULL)
 		{
-		into->process->execution_path->registers.r0 = 0;
+		into->process->registers.r0 = 0;
 		free(task);
 		}
 	}
@@ -389,7 +389,7 @@ while (1)
 					We're and event so we can copy directly and don't need to play the address space game, but we do need to clean up the event object
 				*/
 				::memcpy(data, &task->event_id, min(length, (uint32_t)sizeof(task->event_id)));
-				ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->execution_path->registers.r0 = 0;
+				ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->registers.r0 = 0;
 				free(task);
 				}
 			else
@@ -398,7 +398,7 @@ while (1)
 					We're a regular message (we're not an event)
 				*/
 				memcpy(ATOSE_atose::get_ATOSE()->scheduler.get_current_process(), data, task->process, task->source, min(length, task->source_length));
-				ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->execution_path->registers.r0 = (uint32_t)task;
+				ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->registers.r0 = (uint32_t)task;
 				}
 
 			return 0;
@@ -464,7 +464,7 @@ if ((error = memcpy(message_id, 0, data, length)) != 0)
 /*
 	Set up the client's return code (returned from their call to send)
 */
-task->process->execution_path->registers.r0 = return_code;
+task->process->registers.r0 = return_code;
 
 /*
 	Tell the client we're done.  Recall that the other end *must* be blocking waiting for this reply.

@@ -126,7 +126,7 @@ registers->r14_current -= 4;
 	this way if we cause a context switch then we've not lost anything
 */
 if (ATOSE_atose::get_ATOSE()->scheduler.get_current_process() != NULL)
-	memcpy(&ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->execution_path->registers, registers, sizeof(*registers));
+	memcpy(&ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->registers, registers, sizeof(*registers));
 
 /*
 	Dispatch to the device driver

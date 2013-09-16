@@ -261,7 +261,7 @@ void ATOSE_atose::isr_swi(ATOSE_registers *registers)
 /*
 	Save the state of the registers
 */
-memcpy(&ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->execution_path->registers, registers, sizeof(*registers));
+memcpy(&ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->registers, registers, sizeof(*registers));
 
 /*
 	First we need to determine whether or not the SWI is for us.  We do this by getting the SWI number,
@@ -272,7 +272,7 @@ memcpy(&ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->execution_pat
 */
 if (( (*(uint32_t *)(registers->r14_current - 4)) & 0x00FFFFFF) == ATOSE_SWI)
 	if (registers->r0 < ATOSE_END_OF_METHODS)
-		ATOSE_call[registers->r0](&ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->execution_path->registers);
+		ATOSE_call[registers->r0](&ATOSE_atose::get_ATOSE()->scheduler.get_current_process()->registers);
 /*
 	Context switch
 */

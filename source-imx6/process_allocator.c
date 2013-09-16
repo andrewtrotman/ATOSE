@@ -32,19 +32,10 @@ free_address_space_head = NULL;
 for (current = 0; current < MAX_ADDRESS_SPACES; current++)
 	{
 	address_space_list[current].next = free_address_space_head;
-	address_space_list[current].initialise(mmu);
+	address_space_list[current].initialise(mmu, current);
 	free_address_space_head = address_space_list + current;
 	}
 
-/*
-	chain together each of the thread objects
-*/
-free_thread_head = NULL;
-for (current = 0; current < MAX_THREADS; current++)
-	{
-	thread_list[current].next = free_thread_head;
-	free_thread_head = thread_list + current;
-	}
 
 /*
 	chain together each of the semaphore objects
@@ -115,14 +106,11 @@ ATOSE_process *ATOSE_process_allocator::malloc(ATOSE_address_space *space)
 {
 ATOSE_process *process;
 ATOSE_address_space *address_space;
-ATOSE_thread *thread;
 
 /*
 	Make sure we have the resources to create a process
 */
 if ((process = free_processes_head) == NULL)
-	return NULL;
-if ((thread = free_thread_head) == NULL)
 	return NULL;
 
 /*
@@ -135,20 +123,12 @@ if ((address_space = space == NULL ? malloc_address_space() : space) == NULL)
 	We have all the resources so we can now use them
 */
 free_processes_head = free_processes_head->next;
-free_thread_head = free_thread_head->next;
 
 /*
-	Build a process (Which is initially an address space and a thread) and return it
+	Build a process and return it
 */
 process->address_space = address_space;
-process->execution_path = thread;
 process->current_pipe_task = NULL;
-process->open_pipes = NULL;
-
-/*
-	Tell the thread who owns us
-*/
-process->execution_path->initialise(process);
 
 return process;
 }
@@ -159,12 +139,6 @@ return process;
 */
 void ATOSE_process_allocator::free(ATOSE_process *process)
 {
-/*
-	We're done with the thread object
-*/
-process->execution_path->next = free_thread_head;
-free_thread_head = process->execution_path;
-
 /*
 	We might be done with the address space, or we might not.  If its being used by other processes in the system then we cannot get rid of it.
 */

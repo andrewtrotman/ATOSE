@@ -26,8 +26,10 @@ ATOSE_mmu_page *page, *stack_page;
 uint32_t current;
 uint32_t current_page_table;
 
-if (reference_count != 0)
-	return this;
+/*
+	There are no open pipes in this address space
+*/
+open_pipes = NULL;
 
 /*
 	Move into the land of the identity address space (so we can access memory directly)
@@ -117,7 +119,7 @@ return answer;
 /*
 	ATOSE_ADDRESS_SPACE::DESTROY()
 	------------------------------
-	returns the current reference count (on 0 the pages are freed)
+	Returns the remaining thread count, on zero the pages are freed
 
 */
 uint32_t ATOSE_address_space::destroy(void)
@@ -134,13 +136,13 @@ mmu->assume_identity();
 /*
 	Decrement the reference count
 */
-reference_count--;
+thread_count--;
 
 /*
 	if other objects refer to this
 */
-if (reference_count > 0)
-	return reference_count;
+if (thread_count > 0)
+	return thread_count;
 
 /*
 	Hand all the memory back

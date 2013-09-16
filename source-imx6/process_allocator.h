@@ -15,7 +15,6 @@
 #include "pipe_task.h"
 #include "pipe.h"
 #include "address_space.h"
-#include "thread.h"
 
 /*
 	class ATOSE_PROCESS_ALLOCATOR
@@ -25,8 +24,7 @@ class ATOSE_process_allocator
 {
 private:
 	static const uint32_t MAX_PROCESSES = 10;
-	static const uint32_t MAX_ADDRESS_SPACES = 10;
-	static const uint32_t MAX_THREADS = 10;
+	static const uint8_t MAX_ADDRESS_SPACES = 10;
 	static const uint32_t MAX_SEMAPHORES = 10;
 	static const uint32_t MAX_PIPE_TASKS = 30;
 	static const uint32_t MAX_PIPES = 10;
@@ -37,9 +35,6 @@ private:
 
 	ATOSE_address_space address_space_list[MAX_ADDRESS_SPACES];
 	ATOSE_address_space *free_address_space_head;
-
-	ATOSE_thread thread_list[MAX_THREADS];
-	ATOSE_thread *free_thread_head;
 
 	ATOSE_semaphore semaphore_list[MAX_SEMAPHORES];
 	ATOSE_semaphore *free_semaphore_head;
@@ -53,7 +48,6 @@ private:
 public:
 	ATOSE_process_allocator() {}
 	void initialise(ATOSE_mmu *mmu);
-
 
 	ATOSE_process *malloc(ATOSE_address_space *space = NULL);
 	void free(ATOSE_process *process);

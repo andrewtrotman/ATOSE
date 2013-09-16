@@ -32,9 +32,8 @@ void ATOSE_process_manager::initialise(ATOSE_mmu *mmu, ATOSE_process_allocator *
 {
 this->mmu = mmu;
 active_head = active_tail = NULL;
-current_process = 0;
+current_process = NULL;
 system_address_space = process_allocator->malloc_address_space();
-//system_address_space->create_identity();
 system_address_space->create();
 system_address_space->the_heap_break = mmu->the_system_break;
 }
@@ -328,19 +327,19 @@ uint32_t ATOSE_process_manager::initialise_process(ATOSE_process *process, void 
 /*
 	Set up the stack-pointer (ARM register R13)
 */
-process->execution_path->registers.r13 = top_of_stack & ((uint32_t)~0x03);		// align it correctly (rounding down)
+process->registers.r13 = top_of_stack & ((uint32_t)~0x03);		// align it correctly (rounding down)
 
 /*
 	The process will enter where-ever the link-register (ARM register
 	R14_current) points once the scheduler schedules the process to be
 	run
 */
-process->execution_path->registers.r14_current = (uint32_t)entry_point;
+process->registers.r14_current = (uint32_t)entry_point;
 
 /*
 	When we do run we need to return to user-mode which is done by setting the CPSR register's low bits
 */
-process->execution_path->registers.cpsr = (0x80000150 & ~ATOSE_cpu_arm::MODE_BITS) | mode;
+process->registers.cpsr = (0x80000150 & ~ATOSE_cpu_arm::MODE_BITS) | mode;
 
 return SUCCESS;
 }
@@ -437,11 +436,10 @@ answer = initialise_process(new_process, (void *)exec, ATOSE_cpu_arm::MODE_SYSTE
 	Then realign the stack
 */
 mmu->assume(new_process->address_space);
-new_process->execution_path->registers.r13 -= ASCII_strlen(filename) + 1;
-ASCII_strcpy((char *)new_process->execution_path->registers.r13 , filename);
-new_process->execution_path->registers.r0 = new_process->execution_path->registers.r13;
-while (new_process->execution_path->registers.r13 & 0x03)
-	new_process->execution_path->registers.r13--;
+new_process->registers.r13 -= ASCII_strlen(filename) + 1;
+ASCII_strcpy((char *)new_process->registers.r13 , filename);
+new_process->registers.r0 = new_process->registers.r13;
+new_process->registers.r13 &= ~0x03;
 
 /*
 	Add to the process queues (for the scheduler to sort out)
@@ -500,6 +498,7 @@ if ((new_process = ATOSE_atose::get_ATOSE()->process_allocator.malloc(system_add
 
 debug_print_string("Create:");
 debug_print_string(name);
+
 /*
 	Add one to the address-space's reference count
 */
@@ -556,7 +555,7 @@ if ((next_process = get_next_process()) == NULL)
 	/*
 		We don't have any more work to do so we context switch the idle process
 	*/
-	memcpy(registers, &idle->execution_path->registers, sizeof(*registers));
+	memcpy(registers, &idle->registers, sizeof(*registers));
 	mmu->assume(idle->address_space);
 	}
 else
@@ -565,10 +564,8 @@ else
 		Context switch to a queued process
 		Set the registers and the address space for the new process
 	*/
-	memcpy(registers, &next_process->execution_path->registers, sizeof(*registers));
-//	debug_print_this("PC:", registers->r14_current);
+	memcpy(registers, &next_process->registers, sizeof(*registers));
 	mmu->assume(next_process->address_space);
-//	debug_print_this("PC:", registers->r14_current);
 	}
 
 return 0;
