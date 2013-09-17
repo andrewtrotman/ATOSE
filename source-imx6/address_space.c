@@ -15,6 +15,8 @@
 #include "mmu_page.h"
 #include "address_space.h"
 
+#include "debug_kernel.h"
+
 /*
 	ATOSE_ADDRESS_SPACE::CREATE()
 	-----------------------------
@@ -202,7 +204,6 @@ uint64_t end;
 uint32_t rights;
 uint32_t current_page_table;
 
-
 /*
 	Make sure we fit within the address space
 */
@@ -214,6 +215,7 @@ if ((end = ((size_t)address + size)) > mmu->highest_address)
 */
 current_page_table = mmu->get_current_page_table();
 mmu->assume_identity();
+
 
 /*
 	Get the page number of the first page in the list and the number of pages needed
@@ -231,6 +233,7 @@ for (which = base_page; which <= last_page; which++)
 	*/
 	if (page_table[which] == 0)
 		{
+
 		if ((page = mmu->pull()) == 0)
 			{
 			address = NULL;		// We fail because there are no more pages to give

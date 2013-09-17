@@ -21,6 +21,8 @@
 
 #include "client_file.h"
 
+#include "debug_kernel.h"
+
 /*
 	ATOSE_PROCESS_MANAGER::INITIALISE()
 	-----------------------------------
@@ -507,8 +509,8 @@ system_address_space->get_reference();
 old_stack_break = system_address_space->the_stack_break;
 system_address_space->the_stack_break -= mmu->page_size;
 system_address_space->add(system_address_space->the_stack_break, mmu->page_size, ATOSE_address_space::WRITE | ATOSE_address_space::READ);
-
 answer = initialise_process(new_process, (void *)start, ATOSE_cpu_arm::MODE_SYSTEM, (uint32_t)old_stack_break);
+
 
 /*
 	Add to the process queues (for the scheduler to sort out)

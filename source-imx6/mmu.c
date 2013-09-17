@@ -86,26 +86,26 @@ bad_page = ARM_MMU_V5_PAGE_TYPE_FAULT;		// cause a fault
 	controller writes into these pages
 		(ARM_MMU_V5_PAGE_SECTION_USER_READONLY | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION)
 */
-os_page = (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION);
+os_page = (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION | ARM_MMU_V5_PAGE_NON_GLOBAL);
 
 /*
 
 	Memory Mapped Register pages have the low bits set to no cache, no buffer, user forbidden:
 		(ARM_MMU_V5_PAGE_SECTION_USER_FORBIDDEN | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_NONCACHED_NONBUFFERED | ARM_MMU_V5_PAGE_TYPE_SECTION)
 */
-peripheral_page = (ARM_MMU_V5_PAGE_SECTION_USER_FORBIDDEN | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_NONCACHED_NONBUFFERED | ARM_MMU_V5_PAGE_TYPE_SECTION);
+peripheral_page = (ARM_MMU_V5_PAGE_SECTION_USER_FORBIDDEN | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_NONCACHED_NONBUFFERED | ARM_MMU_V5_PAGE_TYPE_SECTION | ARM_MMU_V5_PAGE_GLOBAL);
 
 /*
 	User DATA pages are set to cache, buffer, user read write, no-execute:
 		 (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V7_PAGE_SECTION_USER_NO_EXECUTE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION)
 */
-user_data_page = (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V7_PAGE_SECTION_USER_NO_EXECUTE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION);
+user_data_page = (ARM_MMU_V5_PAGE_SECTION_USER_READWRITE | ARM_MMU_V7_PAGE_SECTION_USER_NO_EXECUTE | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION | ARM_MMU_V5_PAGE_NON_GLOBAL);
 
 /*
 	User CODE (probram) pages are set to cache, buffer, and user can read only:
 		(ARM_MMU_V5_PAGE_SECTION_USER_READONLY | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION)
 */
-user_code_page = (ARM_MMU_V5_PAGE_SECTION_USER_READONLY | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION);
+user_code_page = (ARM_MMU_V5_PAGE_SECTION_USER_READONLY | ARM_MMU_V5_PAGE_DOMAIN_02 | ARM_MMU_V5_PAGE_CACHED_WRITE_BACK | ARM_MMU_V5_PAGE_TYPE_SECTION | ARM_MMU_V5_PAGE_NON_GLOBAL);
 
 /*
 	The identity page table maps, one-to-one, each virtual page to a physical page.  We need this for
@@ -349,7 +349,7 @@ for (way = 0; way <= associativity; way++)
 		}
 
 /*
-	Data barrieier (make sure all the writes happen before we proceed
+	make sure all the writes happen before we proceed
 */
 asm volatile
 	(
@@ -367,26 +367,14 @@ asm volatile
 void ATOSE_mmu::invalidate_instruction_pathway(void)
 {
 /*
-	Invalidate instruction cache
-*/
-asm volatile
-	(
-	"mov r0, #0;"
-	"mcr p15, 0, r0, c7, c5, 0;"
-	"isb;"
-	:
-	:
-	: "r0"
-	);
-
-/*
-	Invalidate Unified TLB
+	Invalidate Unified TLB.  On the ARM Cortex A9 there is only one TLB (no seperate instuction and data TLBs).
 */
 asm volatile
 	(
 	"mov     r0, #1;"
 	"mcr     p15, 0, r0, c8, c7, 0;"
 	"dsb;"
+	"isb;"
 	:
 	:
 	:"r0");
@@ -401,6 +389,29 @@ asm volatile
 	:
 	:
 	:"r0");
+
+/*
+	Invalidate instruction cache
+*/
+asm volatile
+	(
+	"mov r0, #0;"
+	"mcr p15, 0, r0, c7, c5, 0;"
+	"isb;"
+	:
+	:
+	: "r0"
+	);
+
+
+asm volatile
+	(
+	"isb;"
+	"dsb;"
+	:
+	:
+	:
+	);
 }
 
 /*
@@ -415,11 +426,11 @@ asm volatile
 	(
 	"mcr	p15, 0, %[table], c2, c0, 0;"	// set the Translation Table Base Register
 	"dsb;"										// make sure it completes before proceeding
+	"isb;"
 	:
 	: [table]"r"(page_table)
 	:
 	);
-
 invalidate_instruction_pathway();
 }
 

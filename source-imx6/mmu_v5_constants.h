@@ -63,6 +63,12 @@
 #define ARM_MMU_V5_PAGE_DOMAIN_0F (0x0F << 5)
 
 /*
+	non Global bit
+*/
+#define ARM_MMU_V5_PAGE_NON_GLOBAL (1 <<17)
+#define ARM_MMU_V5_PAGE_GLOBAL     (0 <<17)
+
+/*
 	The allowable domains stored in the domain register (CP15, register 3) are below.  These
 	bits are repeated 16 times in the register making a 32-bit domain register indexed by the
 	domain number (above)

@@ -12,6 +12,7 @@
 #include "atose_api.h"
 #include "semaphore.h"
 #include "process_allocator.h"
+#include "server_disk.h"
 
 #include "debug_kernel.h"
 
@@ -45,14 +46,26 @@ scheduler.initialise(&imx6q_heap, &process_allocator);
 uint32_t start_shell(void)
 {
 while (ATOSE_atose::get_ATOSE()->file_system.isdead())
-	;	// do nothing
+	ATOSE_api::yield();	// do nothing
 
-ATOSE_api::writeline("\r\nStart SHELL\r\n");
 ATOSE_api::spawn("SHELL.ELF");
-ATOSE_api::writeline("BACK\r\n");
 
 ATOSE_api::exit(0);
 
+return 0;
+}
+
+/*
+	START_DISK()
+	------------
+*/
+uint32_t start_disk(void)
+{
+ATOSE_server_disk disk;
+
+disk.serve();
+
+ATOSE_api::exit(0);
 return 0;
 }
 
@@ -68,8 +81,6 @@ os->interrupt_controller.enable(&os->imx6q_host_usb, os->imx6q_host_usb.get_inte
 os->imx6q_host_usb.enable();
 os->imx6q_host_usb.initialise();
 os->imx6q_host_usb.device_manager();
-
-os->scheduler.create_system_thread(start_shell, "SHELL");
 
 ATOSE_api::exit(0);
 return 0;
@@ -100,6 +111,8 @@ process_clock.enable();
 */
 scheduler.create_system_thread(idle, "IDLE", true);
 scheduler.create_system_thread(ATOSE_bootstrap, "BOOTSTRAP");
+scheduler.create_system_thread(start_shell, "SHELL");
+scheduler.create_system_thread(start_disk, "SERVER_DISK");
 
 /*
 	Now we've bootstrapped ATIRE, we start processing
@@ -337,7 +350,6 @@ void ATOSE_yield(ATOSE_registers *registers)
 */
 void ATOSE_exit(ATOSE_registers *registers)
 {
-ATOSE_atose::get_ATOSE()->debug << "EXIT()";
 ATOSE_atose::get_ATOSE()->scheduler.terminate_current_process();
 }
 

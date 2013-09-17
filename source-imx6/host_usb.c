@@ -987,17 +987,20 @@ char buffer[10];
 wait_for_connection();
 
 #ifdef USB_DEBUG
-	ATOSE_atose::get_ATOSE()->cpu.delay_us(20000);
 	debug_print_string("enumerate\r\n");
 #endif
+
 enumerate(0, 0, 0, HW_USBC_UH1_PORTSC1.B.PSPD);
 
-debug_print_string("  VID      PID      CLASS    SUBCLASS PROTOCOL\r\n");
+#ifdef USB_DEBUG
+	debug_print_string("VID      PID      CLASS    SUBCLASS PROTOCOL\r\n");
+#endif
+
 for (uint32_t current = 1; current < device_list_length; current++)
 	{
-	debug_print_string(device_list[current].dead ? "X " : "  ");
 	if (!device_list[current].dead)
 		{
+#ifdef USB_DEBUG
 		debug_print_hex(device_list[current].vendor_id);
 		debug_print_string(" ");
 		debug_print_hex(device_list[current].product_id);
@@ -1008,6 +1011,7 @@ for (uint32_t current = 1; current < device_list_length; current++)
 		debug_print_string(" ");
 		debug_print_hex(device_list[current].device_protocol);
 		debug_print_string(" ");
+#endif
 		if (device_list[current].device_class == 8 && device_list[current].device_subclass == 6 && device_list[current].device_protocol == 0x50)
 			{
 			((ATOSE_host_usb_device_disk *)&device_list[current])->mount();
@@ -1015,13 +1019,17 @@ for (uint32_t current = 1; current < device_list_length; current++)
 			/*
 				We're a disk so we're going to do some extra stuff
 			*/
+#ifdef NEVER
 			ATOSE_api::writeline("\r\n[CREATE PROCESS]");
 			ATOSE_api::spawn("SHELL.ELF");
 			ATOSE_server_disk disk;
 			disk.serve();
+#endif
 			}
 		}
+#ifdef NEVER
 	debug_print_string("\r\n");
+#endif
 	}
 
 #ifdef NEVER
@@ -1030,7 +1038,9 @@ for (uint32_t current = 1; current < device_list_length; current++)
 	debug_print_string("DONE\r\n");
 #endif
 
-debug_print_string("END OF ENUMERATION\r\n");
+#ifdef NEVER
+	debug_print_string("END OF ENUMERATION\r\n");
+#endif
 }
 
 /*
