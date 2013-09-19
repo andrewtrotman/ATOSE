@@ -14,6 +14,8 @@
 
 #include "atose.h"
 
+#include "debug_kernel.h"
+
 /*
 	ATOSE_HOST_USB_DEVICE_HUB::ATOSE_HOST_USB_DEVICE_HUB()
 	------------------------------------------------------
@@ -40,7 +42,7 @@ for (port = 1; port <= hub_ports; port++)
 		/*
 			It takes time for the PORT_POWER to have an effect (this appears to be 10ms, plus a few us) so we wait... 
 		*/
-		ATOSE_atose::get_ATOSE()->cpu.delay_us(15000);
+		ATOSE_atose::get_ATOSE()->cpu.delay_us(150000);
 
 		if (get_port_status(port, &status) == 0)
 			{

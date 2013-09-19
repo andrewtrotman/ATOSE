@@ -36,7 +36,7 @@ public:
 public:
 	union
 		{
-		ATOSE_usb_ehci_queue_head *all;
+		volatile ATOSE_usb_ehci_queue_head *all;
 		struct
 			{
 			unsigned t : 1;

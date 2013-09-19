@@ -52,6 +52,9 @@ public:
 	static const uint8_t DESCRIPTOR_TYPE_DEVICE_QUALIFIER = 0x06;
 	static const uint8_t DESCRIPTOR_TYPE_OTHER_SPEED_CONFIGURATION = 0x07;
 	static const uint8_t DESCRIPTOR_TYPE_INTERFACE_POWER = 0x08;
+	static const uint8_t DESCRIPTOR_TYPE_HID = 0x21;
+	static const uint8_t DESCRIPTOR_TYPE_REPORT = 0x22;
+	static const uint8_t DESCRIPTOR_TYPE_PHYSICAL = 0x23;
 	static const uint8_t DESCRIPTOR_TYPE_CS_INTERFACE = 0x24;
 	static const uint8_t DESCRIPTOR_TYPE_HUB = 0x29;
 
@@ -60,6 +63,7 @@ public:
 		The different device classes we know about
 	*/
 	static const uint8_t DEVICE_CLASS_CDC = 0x02;
+	static const uint8_t DEVICE_CLASS_HID = 0x03;
 	static const uint8_t DEVICE_CLASS_HUB = 0x09;
 	static const uint8_t DEVICE_CLASS_MSD = 0x08;
 
