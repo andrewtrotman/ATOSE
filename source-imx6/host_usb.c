@@ -331,7 +331,7 @@ void ATOSE_host_usb::initialise_queuehead(ATOSE_usb_ehci_queue_head *queue_head,
 /*
 	Set everything to zero
 */
-memset(queue_head, 0, sizeof(queue_head));
+bzero(queue_head, sizeof(*queue_head));
 
 /*
 	Create a circular list of just this one queuehead
@@ -342,7 +342,7 @@ queue_head->queue_head_horizontal_link_pointer.bit.typ = ATOSE_usb_ehci_queue_he
 /*
 	Set the port speed and packet size (which is based on the port speed)
 */
-debug_print_this("PORT SPEED:", device->port_velocity);
+//debug_print_this("PORT SPEED:", device->port_velocity);
 
 queue_head->characteristics.bit.ep = device->port_velocity;	// port speed
 queue_head->capabilities.bit.hub_addr = device->transaction_translator_address;
@@ -357,9 +357,9 @@ queue_head->characteristics.bit.dtc = 1;
 queue_head->characteristics.bit.device_address = device->address;
 queue_head->characteristics.bit.endpt = endpoint;
 
-debug_print_this("DEVICE ADDRESS:", device->address);
-debug_print_this("ENDPOINT:", endpoint);
-debug_print_this("MAXPACKET:", device->max_packet_size[endpoint]);
+//debug_print_this("DEVICE ADDRESS:", device->address);
+//debug_print_this("ENDPOINT:", endpoint);
+//debug_print_this("MAXPACKET:", device->max_packet_size[endpoint]);
 
 /*
 	One transaction per micro-frame
@@ -383,15 +383,16 @@ queue_head->next_qtd_pointer = queue_head->alternate_next_qtd_pointer = (ATOSE_u
 void ATOSE_host_usb::initialise_transfer_descriptor(ATOSE_usb_ehci_queue_element_transfer_descriptor *descriptor, uint32_t transaction_type, char *user_space_data, uint32_t data_length)
 {
 char *data;
-uint32_t offset, remaining, block;
+uint32_t offset, block;
+int32_t remaining;
 
 data = (char *)ATOSE_atose::physical_address_of(user_space_data);
 
-debug_print_cf_this("ADDRESSES:", (uint32_t)user_space_data, (uint32_t)data);
+//debug_print_cf_this("ADDRESSES:", (uint32_t)user_space_data, (uint32_t)data);
 /*
 	Set everything to zero
 */
-memset(descriptor, 0, sizeof(*descriptor));
+bzero(descriptor, sizeof(*descriptor));
 
 /*
 	Mark the descriptor as being at the end of the queue
@@ -641,6 +642,115 @@ return result;
 	========================
 	========================
 */
+/*
+	DUMP_TRANSFER_DESCRIPTOR()
+	--------------------------
+*/
+void dump_transfer_descriptor(ATOSE_usb_ehci_queue_element_transfer_descriptor *td)
+{
+debug_print_this("TRANSFER DESCRIPTOR:", (uint32_t)td);
+debug_print_this("Next qTD Ptr       :", (uint32_t)td->next_qtd_pointer);
+debug_print_this("               Zero:", (((uint32_t)td->next_qtd_pointer) >> 1) & 0x0F);
+debug_print_this("                  T:", ((uint32_t)td->next_qtd_pointer) & 0x01);
+debug_print_this("Alt Next qTD Ptr   :", (uint32_t)td->alternate_next_qtd_pointer);
+debug_print_this("               Zero:", (((uint32_t)td->alternate_next_qtd_pointer) >> 1) & 0x0F);
+debug_print_this("                  T:", ((uint32_t)td->alternate_next_qtd_pointer) & 0x01);
+debug_print_this("Token              :", td->token.all);
+debug_print_this("                 dt:", td->token.bit.dt);
+debug_print_this("        Total bytes:", td->token.bit.total_bytes);
+debug_print_this("                ioc:", td->token.bit.ioc);
+debug_print_this("             C_page:", td->token.bit.c_page);
+debug_print_this("               Cerr:", td->token.bit.c_err);
+debug_print_this("           PID code:", td->token.bit.pid_code);
+debug_print_this("             Status:", td->token.bit.status);
+debug_print_this("Buffer Pointer[0]  :", (uint32_t)td->buffer_pointer[0]);
+debug_print_this("     Current Offset:", ((uint32_t)td->buffer_pointer[0]) & 0xFFF);
+debug_print_this("Buffer Pointer[1]  :", (uint32_t)td->buffer_pointer[1]);
+debug_print_this("           Reserved:", ((uint32_t)td->buffer_pointer[1]) & 0xFFF);
+debug_print_this("Buffer Pointer[2]  :", (uint32_t)td->buffer_pointer[2]);
+debug_print_this("           Reserved:", ((uint32_t)td->buffer_pointer[2]) & 0xFFF);
+debug_print_this("Buffer Pointer[3]  :", (uint32_t)td->buffer_pointer[3]);
+debug_print_this("           Reserved:", ((uint32_t)td->buffer_pointer[3]) & 0xFFF);
+debug_print_this("Buffer Pointer[4]  :", (uint32_t)td->buffer_pointer[4]);
+debug_print_this("           Reserved:", ((uint32_t)td->buffer_pointer[4]) & 0xFFF);
+
+}
+
+/*
+	DUMP_PERIODIC_SCHEDULE()
+	------------------------
+*/
+void dump_periodic_schedule(ATOSE_usb_ehci_queue_head **periodic_schedule)
+{
+ATOSE_usb_ehci_queue_head *qh;
+
+debug_print_this("SCHEDULE           :", (uint32_t)periodic_schedule);
+debug_print_this("Frame Address      :", (uint32_t)*periodic_schedule);
+debug_print_this("            Address:", ((uint32_t)*periodic_schedule) & ~(0x1F));
+debug_print_this("               Zero:", ((uint32_t)*periodic_schedule) & 0x18);
+debug_print_this("               Type:", (((uint32_t)*periodic_schedule) & 0x07) >> 1);
+debug_print_this("                  T:", ((uint32_t)*periodic_schedule) & 0x01);
+
+qh = (ATOSE_usb_ehci_queue_head *)(((uint32_t)*periodic_schedule) & ~(0x1F));
+debug_print_this("QUEUE HEAD         :", (uint32_t)qh);
+debug_print_this("Link Pointer       :", (uint32_t)qh->queue_head_horizontal_link_pointer.all);
+debug_print_this("               Qhlp:", qh->queue_head_horizontal_link_pointer.bit.qhlp << 5);
+debug_print_this("               Zero:", qh->queue_head_horizontal_link_pointer.bit.zero);
+debug_print_this("               Type:", qh->queue_head_horizontal_link_pointer.bit.typ);
+debug_print_this("                  T:", qh->queue_head_horizontal_link_pointer.bit.t);
+
+
+debug_print_this("Characteristics    :", qh->characteristics.all);
+debug_print_this("                 RL:", qh->characteristics.bit.rl);
+debug_print_this("                  C:", qh->characteristics.bit.c);
+debug_print_this("     Max Packet Len:", qh->characteristics.bit.maximum_packet_length);
+debug_print_this("                  H:", qh->characteristics.bit.h);
+debug_print_this("                DTC:", qh->characteristics.bit.dtc);
+debug_print_this("                 EP:", qh->characteristics.bit.ep);
+debug_print_this("              EndPt:", qh->characteristics.bit.endpt);
+debug_print_this("                  I:", qh->characteristics.bit.i);
+debug_print_this("     Device Address:", qh->characteristics.bit.device_address);
+
+debug_print_this("Capabilities       :", qh->capabilities.all);
+debug_print_this("               Mult:", qh->capabilities.bit.mult);
+debug_print_this("            Port No:", qh->capabilities.bit.port_number);
+debug_print_this("           Hub addr:", qh->capabilities.bit.hub_addr);
+debug_print_this("     u frame C mask:", qh->capabilities.bit.u_frame_c_mask);
+debug_print_this("     u frame S mask:", qh->capabilities.bit.u_frame_s_mask);
+
+debug_print_this("Current qTD Prt    :", (uint32_t)qh->current_qtd_pointer);
+debug_print_this("Next qTD Prt       :", (uint32_t)qh->next_qtd_pointer);
+debug_print_this("               Zero:", (((uint32_t)qh->next_qtd_pointer) >> 1) & 0x3);
+debug_print_this("                  T:", ((uint32_t)qh->next_qtd_pointer) & 0x01);
+debug_print_this("Alt Next qTD Prt   :", (uint32_t)qh->alternate_next_qtd_pointer);
+debug_print_this("             NakCnt:", (((uint32_t)qh->alternate_next_qtd_pointer) >> 1) & 0x3);
+debug_print_this("                  T:", ((uint32_t)qh->alternate_next_qtd_pointer) & 0x01);
+
+debug_print_this("Token              :", qh->token.all);
+debug_print_this("                 dt:", qh->token.bit.dt);
+debug_print_this("        Total bytes:", qh->token.bit.total_bytes);
+debug_print_this("                ioc:", qh->token.bit.ioc);
+debug_print_this("             C_page:", qh->token.bit.c_page);
+debug_print_this("               Cerr:", qh->token.bit.c_err);
+debug_print_this("           PID code:", qh->token.bit.pid_code);
+debug_print_this("             Status:", qh->token.bit.status);
+
+debug_print_this("Buffer Pointer[0]  :", (uint32_t)qh->buffer_pointer[0]);
+debug_print_this("     Current Offset:", ((uint32_t)qh->buffer_pointer[0]) & 0xFFF);
+
+debug_print_this("Buffer Pointer[1]  :", (uint32_t)qh->buffer_pointer[1]);
+debug_print_this("           Reserved:", ((uint32_t)qh->buffer_pointer[1] >> 8) & 0xF);
+debug_print_this("        C-prog-mask:", ((uint32_t)qh->buffer_pointer[1]) & 0xFF);
+
+debug_print_this("Buffer Pointer[2]  :", (uint32_t)qh->buffer_pointer[2]);
+debug_print_this("            S-Bytes:", ((uint32_t)qh->buffer_pointer[2] >> 3) & 0x1FF);
+debug_print_this("          Frame Tag:", ((uint32_t)qh->buffer_pointer[2]) & 0x07);
+
+debug_print_this("Buffer Pointer[3]  :", (uint32_t)qh->buffer_pointer[3]);
+debug_print_this("           Reserved:", ((uint32_t)qh->buffer_pointer[3] >> 8) & 0xFFF);
+debug_print_this("Buffer Pointer[4]  :", (uint32_t)qh->buffer_pointer[4]);
+debug_print_this("           Reserved:", ((uint32_t)qh->buffer_pointer[4] >> 8) & 0xFFF);
+}
 
 
 /*
@@ -651,10 +761,19 @@ return result;
 uint32_t ATOSE_host_usb::read_interrupt_packet(ATOSE_host_usb_device *device, uint32_t endpoint, void *buffer, uint8_t size)
 {
 /*
+	Disable the periodic list
+*/
+HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() &(~BM_USBC_UH1_USBCMD_PSE));
+while(HW_USBC_UH1_USBCMD_RD() & BM_USBC_UH1_USBCMD_PSE)
+	;	/* nothing */
+
+/*
 	Initialise the queuehead and set the poll-rate
 */
 initialise_queuehead(&queue_head, device, endpoint);
+
 queue_head.capabilities.bit.u_frame_s_mask = 0x01;
+queue_head.capabilities.bit.u_frame_c_mask = 0x10 | 0x08 | 0x04;
 queue_head.characteristics.bit.h = 0;
 queue_head.queue_head_horizontal_link_pointer.bit.t = 1;		// terminate the list
 
@@ -681,8 +800,8 @@ HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() | USB_USBCMD_FS_8);
 */
 periodic_schedule[0] = (ATOSE_usb_ehci_queue_head *)(((uint32_t)&queue_head) | (ATOSE_usb_ehci_queue_head_horizontal_link_pointer::QUEUE_HEAD << 1)); // we're a queuehead;
 
-debug_print_this("&periodic_schedule[0]", (uint32_t)&periodic_schedule[0]);
-debug_print_this("periodic_schedule[0]", (uint32_t)periodic_schedule[0]);
+//debug_print_this("&periodic_schedule[0]", (uint32_t)&periodic_schedule[0]);
+//debug_print_this("periodic_schedule[0]", (uint32_t)periodic_schedule[0]);
 
 /*
 	Empty the remainder of the periodic list
@@ -699,7 +818,11 @@ periodic_schedule[7] = (ATOSE_usb_ehci_queue_head *)1;		// Terminator
 	Synch with memory
 */
 ATOSE_mmu::flush_and_invalidate_data_cache();
-debug_print_string("FLUSHED\r\n");
+//debug_print_string("FLUSHED\r\n");
+
+//debug_print_string("\r\nBEFORE\r\n");
+//dump_periodic_schedule(periodic_schedule);
+//dump_transfer_descriptor(&transfer_descriptor_1);
 
 /*
 	Give the queue list to the USB controller
@@ -707,7 +830,7 @@ debug_print_string("FLUSHED\r\n");
 HW_USBC_UH1_PERIODICLISTBASE_WR((uint32_t)(&periodic_schedule[0]));
 HW_USBC_UH1_FRINDEX_WR(0);
 
-debug_print_this("STATUS (before):", (uint32_t)transfer_descriptor_1.token.bit.status);
+//debug_print_this("STATUS (before):", (uint32_t)transfer_descriptor_1.token.bit.status);
 
 /*
 	Start the schedule and wait for it to get going
@@ -731,13 +854,13 @@ while(!(HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_PS))
 		debug_print_string("DONE ack\r\n");
 #endif
 
-debug_print_string("WAITONGETFROMINTERRUPTPORT\r\n");
+//debug_print_string("WAITONGETFROMINTERRUPTPORT\r\n");
 ATOSE_api::semaphore_wait(semaphore_handle);
-debug_print_string("DONE\r\n");
+//debug_print_string("DONE\r\n");
 
 debug_print_this("STATUS (after):", (uint32_t)transfer_descriptor_1.token.bit.status);
 
-debug_print_this("HW_USBC_UH1_USBSTS_RD:", HW_USBC_UH1_USBSTS_RD());
+//debug_print_this("HW_USBC_UH1_USBSTS_RD:", HW_USBC_UH1_USBSTS_RD());
 if ((HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_UEI) != 0)
 	{
 	debug_print_string("ERROR!!!\n");
@@ -749,12 +872,8 @@ if ((HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_UEI) != 0)
 	HW_USBC_UH1_USBSTS_WR(HW_USBC_UH1_USBSTS_RD() | BM_USBC_UH1_USBSTS_UEI);
 	}
 
-/*
-	Disable the periodic list
-*/
-HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() &(~BM_USBC_UH1_USBCMD_PSE));
-while(HW_USBC_UH1_USBCMD_RD() & BM_USBC_UH1_USBCMD_PSE)
-	;	/* nothing */
+//debug_print_string("\r\nAFTER\r\n");
+//dump_periodic_schedule(periodic_schedule);
 
 return 0;
 }
