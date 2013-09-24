@@ -30,7 +30,7 @@ get_hid_descriptor(desc, sizeof(desc));
 debug_dump_buffer(desc, 0, 10);
 
 
-max_packet_size[1] = 8;
+max_packet_size[1] = 4;
 debug_print_string("enter ATOSE_host_usb_device_hid::ATOSE_host_usb_device_hid\r\n");
 while (1)
 	{
