@@ -260,13 +260,13 @@ HW_USBC_UH1_USBSTS.U = usb_status.U;
 */
 if (usb_status.B.UI)
 	{
-//#ifdef USB_DEBUG
+#ifdef USB_DEBUG
 	debug_print_string("[USBint");
-//#endif
+#endif
 	semaphore->signal();
-//#ifdef USB_DEBUG
+#ifdef USB_DEBUG
 	debug_print_string("]");
-//#endif
+#endif
 	}
 
 /*
@@ -274,9 +274,9 @@ if (usb_status.B.UI)
 */
 if (usb_status.B.URI)
 	{
-//#ifdef USB_DEBUG
+#ifdef USB_DEBUG
 	debug_print_string("[USBreset]");
-//#endif
+#endif
 	}
 
 /*
@@ -284,9 +284,9 @@ if (usb_status.B.URI)
 */
 if (usb_status.B.PCI)
 	{
-//#ifdef USB_DEBUG
+#ifdef USB_DEBUG
 	debug_print_string("[USBpci");
-//#endif
+#endif
 	/*
 		Wait for the connect to finish
 	*/
@@ -295,9 +295,9 @@ if (usb_status.B.PCI)
 
 	semaphore->signal();
 	HW_USBC_UH1_USBSTS.B.PCI = 1;
-//#ifdef USB_DEBUG
+#ifdef USB_DEBUG
 	debug_print_string("]");
-//#endif
+#endif
 	}
 }
 
@@ -466,9 +466,7 @@ while(HW_USBC_UH1_USBSTS.B.AS == 0)
 /*
 	Wait until we get a reply
 */
-debug_print_string("WAIT");
 ATOSE_api::semaphore_wait(semaphore_handle);
-debug_print_string("DONE");
 
 /*
 		  Disable the async list
@@ -778,10 +776,11 @@ queue_head.characteristics.bit.h = 0;
 queue_head.queue_head_horizontal_link_pointer.bit.t = 1;		// terminate the list
 
 /*
-	Initialise the descriptors
+	Initialise the descriptors and set the toggle bit
 */
 initialise_transfer_descriptor(&transfer_descriptor_1, ATOSE_usb_ehci_queue_element_transfer_descriptor_token::PID_IN, (char *)buffer, size);
 transfer_descriptor_1.token.bit.ioc = 1;
+transfer_descriptor_1.token.bit.dt = get_toggle(device, endpoint);
 
 /*
 	Shove the descriptors into the queuehead
@@ -800,9 +799,6 @@ HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() | USB_USBCMD_FS_8);
 */
 periodic_schedule[0] = (ATOSE_usb_ehci_queue_head *)(((uint32_t)&queue_head) | (ATOSE_usb_ehci_queue_head_horizontal_link_pointer::QUEUE_HEAD << 1)); // we're a queuehead;
 
-//debug_print_this("&periodic_schedule[0]", (uint32_t)&periodic_schedule[0]);
-//debug_print_this("periodic_schedule[0]", (uint32_t)periodic_schedule[0]);
-
 /*
 	Empty the remainder of the periodic list
 */
@@ -818,8 +814,10 @@ periodic_schedule[7] = (ATOSE_usb_ehci_queue_head *)1;		// Terminator
 	Synch with memory
 */
 ATOSE_mmu::flush_and_invalidate_data_cache();
-//debug_print_string("FLUSHED\r\n");
 
+/*
+	Dump the periodic schedule
+*/
 //debug_print_string("\r\nBEFORE\r\n");
 //dump_periodic_schedule(periodic_schedule);
 //dump_transfer_descriptor(&transfer_descriptor_1);
@@ -830,8 +828,6 @@ ATOSE_mmu::flush_and_invalidate_data_cache();
 HW_USBC_UH1_PERIODICLISTBASE_WR((uint32_t)(&periodic_schedule[0]));
 HW_USBC_UH1_FRINDEX_WR(0);
 
-//debug_print_this("STATUS (before):", (uint32_t)transfer_descriptor_1.token.bit.status);
-
 /*
 	Start the schedule and wait for it to get going
 */
@@ -839,41 +835,21 @@ HW_USBC_UH1_USBCMD_WR(HW_USBC_UH1_USBCMD_RD() | BM_USBC_UH1_USBCMD_PSE);
 while(!(HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_PS))
 	; /* nothing */
 
-
-#ifdef NEVER
-		debug_print_string("WAITONGETFROMINTERRUPTPORT\r\n");
-		/*
-			Wait for completion
-		*/
-		while(!(HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_UI))
-			; /* nothing */
-			
-		debug_print_string("DONE\r\n");
-
-		HW_USBC_UH1_USBSTS_WR(HW_USBC_UH1_USBSTS_RD() | BM_USBC_UH1_USBSTS_UI);
-		debug_print_string("DONE ack\r\n");
-#endif
-
-//debug_print_string("WAITONGETFROMINTERRUPTPORT\r\n");
+/*
+	Wait until we get the interrupt
+*/
 ATOSE_api::semaphore_wait(semaphore_handle);
-//debug_print_string("DONE\r\n");
 
-debug_print_this("STATUS (after):", (uint32_t)transfer_descriptor_1.token.bit.status);
+/*
+	Check the status bits to make sure we didn't get an error
+*/
+debug_print_this("TD-STATUS (after):", (uint32_t)transfer_descriptor_1.token.bit.status);
+//debug_print_this("TD-CErr   (after):", (uint32_t)transfer_descriptor_1.token.bit.c_err);
 
-//debug_print_this("HW_USBC_UH1_USBSTS_RD:", HW_USBC_UH1_USBSTS_RD());
-if ((HW_USBC_UH1_USBSTS_RD() & BM_USBC_UH1_USBSTS_UEI) != 0)
-	{
-	debug_print_string("ERROR!!!\n");
-	
-	uint32_t temp = *(uint32_t *)((HW_USBC_UH1_ASYNCLISTADDR_RD()) + 0x18);
-	
-	debug_print_this("qTD status = ",temp);
-
-	HW_USBC_UH1_USBSTS_WR(HW_USBC_UH1_USBSTS_RD() | BM_USBC_UH1_USBSTS_UEI);
-	}
-
-//debug_print_string("\r\nAFTER\r\n");
-//dump_periodic_schedule(periodic_schedule);
+/*
+	Save the toggle bit
+*/
+set_toggle(device, endpoint, transfer_descriptor_1.token.bit.dt);
 
 return 0;
 }
@@ -1018,14 +994,16 @@ current.address = address;
 */
 if (device_descriptor.bNumConfigurations == 1)
 	{
-//	#ifdef USB_DEBUG
+	ATOSE_atose::get_ATOSE()->cpu.delay_us(200);
+	
+	#ifdef USB_DEBUG
 		debug_print_string("  --  set_configuration  --  \r\n");
-//	#endif
+	#endif
 	if (current.set_configuration(1) != 0)
 		{
-//#ifdef USB_DEBUG
+#ifdef USB_DEBUG
 		debug_print_string("set_configuration failed\r\n");
-//#endif
+#endif
 		return NULL;
 		}
 	}
