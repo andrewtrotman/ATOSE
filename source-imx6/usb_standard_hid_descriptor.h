@@ -22,6 +22,6 @@ public:
 	uint8_t bNumDescriptors;
 	uint8_t bClassDescriptorType;
 	uint16_t wItemLength;
-} ;
+} __attribute__ ((packed));
 
 #endif

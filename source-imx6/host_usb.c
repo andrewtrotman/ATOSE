@@ -27,10 +27,11 @@
 #include "usb_hub.h"
 #include "host_usb.h"
 #include "atose_api.h"
-#include "host_usb_device_hid.h"
 #include "host_usb_device_hub.h"
 #include "host_usb_device_disk.h"
 #include "host_usb_device_generic.h"
+#include "host_usb_device_hid_mouse.h"
+#include "host_usb_device_hid_keyboard.h"
 #include "usb_standard_interface_descriptor.h"
 #include "usb_standard_configuration_descriptor.h"
 #include "usb_standard_hid_descriptor.h"
@@ -981,12 +982,18 @@ if (current.device_class == 0 && device_descriptor.bNumConfigurations == 1)
 	change its internal address once the method returns.  This is essential as the device
 	is device 0 on the USB bus until set_address() returns. If we change the order of these
 	two lines then the message will be sent to the wrong device.
+	
+	The set address method can take up to 50ms to respond, but it is allowed 2ms after the
+	reply to set the address.  We must account for that too.
 */
 #ifdef USB_DEBUG
 	debug_print_string("set_address\r\n");
 #endif
 if (current.set_address(address) != 0)
 	return NULL;
+
+ATOSE_atose::get_ATOSE()->cpu.delay_us(150000);
+
 current.address = address;
 
 /*
@@ -994,8 +1001,6 @@ current.address = address;
 */
 if (device_descriptor.bNumConfigurations == 1)
 	{
-	ATOSE_atose::get_ATOSE()->cpu.delay_us(200);
-	
 	#ifdef USB_DEBUG
 		debug_print_string("  --  set_configuration  --  \r\n");
 	#endif
@@ -1038,9 +1043,30 @@ switch (current.device_class)
 		break;
 	case ATOSE_usb::DEVICE_CLASS_HID:			// USB Human Input Device (keyboard or mouse)
 #ifdef USB_DEBUG
-		debug_print_string("create hid\r\n");
+		debug_print_string("create hid ");
 #endif
-		device = new (place) ATOSE_host_usb_device_hid(&current);
+		switch (current.device_protocol)
+			{
+			case ATOSE_host_usb_device_hid::PROTOCOL_MOUSE:
+#ifdef USB_DEBUG
+				debug_print_string("MOUSE\r\n");
+#endif
+				device = new (place) ATOSE_host_usb_device_hid_mouse(&current);
+				break;
+			case ATOSE_host_usb_device_hid::PROTOCOL_KEYBOARD:
+#ifdef USB_DEBUG
+				debug_print_string("KEYBOARD\r\n");
+#endif
+				device = new (place) ATOSE_host_usb_device_hid_keyboard(&current);
+				break;
+			default:
+#ifdef USB_DEBUG
+				debug_print_string("UNKNOWN\r\n");
+				debug_print_string("==UNKNOWN USB HID DEVICE==");
+#endif
+				return NULL;
+				break;
+			}
 		break;
 	default:
 		debug_print_string("==UNKNOWN USB DEVICE==\r\n");

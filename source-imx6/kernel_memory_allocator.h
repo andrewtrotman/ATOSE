@@ -19,7 +19,7 @@ extern uint32_t ATOSE_start_of_heap;
 class ATOSE_kernel_memory_allocator
 {
 private:
-	uint8_t *base_address;		// start of the kernel heap (lowqest possible memory location that can be used)
+	uint8_t *base_address;		// start of the kernel heap (lowest possible memory location that can be used)
 	uint8_t *current_address;	// current position in the kernel heap
 	uint8_t *top_of_memory;		// end of the kernel heap (highest possible memory location that can be used)
 

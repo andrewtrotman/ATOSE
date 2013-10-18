@@ -82,6 +82,8 @@ ATOSE_OBJECTS =								\
 	$(OBJ_DIR)/host_usb_device_disk.o		\
 	$(OBJ_DIR)/host_usb_device_hub.o		\
 	$(OBJ_DIR)/host_usb_device_hid.o		\
+	$(OBJ_DIR)/host_usb_device_hid_mouse.o		\
+	$(OBJ_DIR)/host_usb_device_hid_keyboard.o		\
 	$(OBJ_DIR)/idle.o						\
 	$(OBJ_DIR)/interrupt.o					\
 	$(OBJ_DIR)/interrupt_arm_gic.o			\

@@ -54,7 +54,6 @@ protected:
 		Experimental methods
 	*/
 	void hub_connect_status(ATOSE_host_usb_device *device, uint32_t endpoint, uint8_t *buffer, uint32_t bytes);
-	void hub_get_best_configuration(ATOSE_usb_standard_configuration_descriptor *configuration_descriptor, uint32_t *best_interface, uint32_t *best_alternate, uint32_t *best_endpoint);
 
 public:
 	ATOSE_host_usb() : ATOSE_device_driver() {}
