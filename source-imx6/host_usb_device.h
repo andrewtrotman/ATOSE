@@ -98,6 +98,7 @@ public:
 protected:
 	uint32_t send_setup_packet(uint8_t type = 0, uint8_t request = 0, uint16_t value = 0, uint16_t index = 0, uint16_t length = 0, void *buffer = NULL);
 	uint32_t get_descriptor(uint8_t target, uint16_t type, void *descriptor, uint32_t descriptor_length);
+	virtual void acknowledge(void) {}		// used for interrupt transfers
 
 public:
 	ATOSE_host_usb_device() {}
